@@ -1,0 +1,87 @@
+@page "/patient/operations"
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject OperationRepository OpRepo
+@inject PatientRepository PatientRepo
+@inject AuthenticationStateProvider AuthStateProvider
+
+<h3>Zero-Movement Operation Experience</h3>
+<p class="text-muted">Transparent packages. No hidden costs. Everything included.</p>
+
+<div class="row">
+    @if (myOperations != null && myOperations.Any())
+    {
+        <div class="col-12 mb-4">
+             <div class="card border-warning">
+                 <div class="card-header bg-warning text-dark">
+                     Your Scheduled Operations
+                 </div>
+                 <ul class="list-group list-group-flush">
+                     @foreach(var op in myOperations)
+                     {
+                         <li class="list-group-item">
+                             <strong>@op.PackageName</strong> - @op.Status <br/>
+                             <small>Scheduled: @op.ScheduledDate.ToShortDateString()</small>
+                             <p class="mb-0 mt-1">@op.Notes</p>
+                         </li>
+                     }
+                 </ul>
+             </div>
+        </div>
+    }
+
+    @if (packages == null)
+    {
+        <p>Loading packages...</p>
+    }
+    else
+    {
+        @foreach (var pkg in packages)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">@pkg.PackageName</h5>
+                        <h6 class="card-subtitle mb-2 text-muted">$@pkg.Cost</h6>
+                        <p class="card-text">@pkg.Description</p>
+                    </div>
+                    <div class="card-footer bg-transparent border-top-0">
+                         <button class="btn btn-outline-primary btn-sm">View Details</button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<OperationPackage>? packages;
+    private List<PatientOperation>? myOperations;
+    private Patient? patient;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        packages = OpRepo.GetOperationPackages();
+
+        var authState = await AuthenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                patient = PatientRepo.GetPatientByUserId(userId);
+                if (patient != null)
+                {
+                    myOperations = OpRepo.GetPatientOperations(patient.PatientId);
+                }
+            }
+        }
+    }
+}

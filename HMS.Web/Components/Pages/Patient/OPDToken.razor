@@ -1,0 +1,75 @@
+@page "/patient/token"
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject AppointmentRepository AppointmentRepo
+@inject PatientRepository PatientRepo
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="container text-center mt-5">
+    <div class="card shadow" style="max-width: 400px; margin: 0 auto;">
+        <div class="card-header bg-success text-white">
+            <h4>Digital OPD Token</h4>
+        </div>
+        <div class="card-body">
+            @if (todayAppointment == null)
+            {
+                <p>No appointment scheduled for today.</p>
+                <a href="/patient/appointments" class="btn btn-primary">Book Now</a>
+            }
+            else
+            {
+                <h5 class="card-title">Token #@todayAppointment.AppointmentId</h5>
+                <h2 class="display-4 text-primary">@((todayAppointment.AppointmentId % 50) + 1)</h2> 
+                <!-- Mocking Queue Number logic -->
+                
+                <p class="card-text mt-3">
+                    <strong>Doctor:</strong> @todayAppointment.DoctorName<br/>
+                    <strong>Dep:</strong> @todayAppointment.DepartmentName<br/>
+                    <strong>Time:</strong> @todayAppointment.AppointmentDate.ToShortTimeString()
+                </p>
+
+                <div class="qr-code-placeholder bg-light p-3 my-3 border">
+                    [ QR CODE SCANNER ]
+                    <br/>
+                    <small>Scan at reception</small>
+                </div>
+                
+                <button class="btn btn-success btn-block">Check In</button>
+            }
+        </div>
+        <div class="card-footer text-muted">
+            Avoid the queue. Show this screen.
+        </div>
+    </div>
+</div>
+
+@code {
+    private Appointment? todayAppointment;
+    private Patient? patient;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                patient = PatientRepo.GetPatientByUserId(userId);
+                if (patient != null)
+                {
+                    var allAppts = AppointmentRepo.GetAppointmentsByPatientId(patient.PatientId);
+                    // Find one for today
+                    todayAppointment = allAppts.FirstOrDefault(a => a.AppointmentDate.Date == DateTime.Today);
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,329 @@
+@page "/patient/dashboard"
+@using Microsoft.AspNetCore.Authorization
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject PatientRepository PatientRepo
+@inject AppointmentRepository ApptRepo
+@inject NavigationManager Nav
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<div class="container mt-4">
+    <h3>Patient Dashboard</h3>
+
+    @if (IsLoading)
+    {
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    }
+    else if (CurrentPatient == null)
+    {
+        <div class="alert alert-info">
+            <h4>Welcome! Please complete your profile to continue.</h4>
+        </div>
+        <div class="card p-4">
+            <EditForm Model="NewPatient" OnValidSubmit="CreateProfile" FormName="CreateProfileForm">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="mb-3">Personal Information</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Full Name</label>
+                            <InputText @bind-Value="NewPatient.FullName" class="form-control"
+                                placeholder="Enter your full name" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Contact Number</label>
+                            <InputText @bind-Value="NewPatient.ContactNumber" class="form-control"
+                                placeholder="Phone number" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Gender</label>
+                            <InputSelect @bind-Value="NewPatient.Gender" class="form-control">
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Date of Birth (optional)</label>
+                            <InputDate @bind-Value="NewPatient.DateOfBirth" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">CNIC / National ID</label>
+                            <InputText @bind-Value="NewPatient.CNIC" class="form-control" placeholder="Enter CNIC" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Blood Group</label>
+                            <InputSelect @bind-Value="NewPatient.BloodGroup" class="form-control">
+                                <option value="">Select Blood Group</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Marital Status</label>
+                            <InputSelect @bind-Value="NewPatient.MaritalStatus" class="form-control">
+                                <option value="">Select Marital Status</option>
+                                <option value="Single">Single</option>
+                                <option value="Married">Married</option>
+                                <option value="Divorced">Divorced</option>
+                                <option value="Widowed">Widowed</option>
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Address</label>
+                            <InputTextArea @bind-Value="NewPatient.Address" class="form-control" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h5 class="mb-3">Emergency Contact</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Emergency Contact Name</label>
+                            <InputText @bind-Value="NewPatient.EmergencyContactName" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Emergency Contact Number</label>
+                            <InputText @bind-Value="NewPatient.EmergencyContactNumber" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Relationship</label>
+                            <InputText @bind-Value="NewPatient.RelationshipToEmergencyContact" class="form-control" />
+                        </div>
+
+                        <h5 class="mt-4 mb-3">Health Profile (Optional)</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Allergies (optional)</label>
+                            <InputText @bind-Value="NewPatient.Allergies" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Chronic Diseases (optional)</label>
+                            <InputText @bind-Value="NewPatient.ChronicDiseases" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Current Medications (optional)</label>
+                            <InputText @bind-Value="NewPatient.CurrentMedications" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Disability Status (optional)</label>
+                            <InputText @bind-Value="NewPatient.DisabilityStatus" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Email (optional)</label>
+                            <InputText @bind-Value="NewPatient.Email" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">City (optional)</label>
+                            <InputText @bind-Value="NewPatient.City" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Country (optional)</label>
+                            <InputText @bind-Value="NewPatient.Country" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    @if (IsEditing)
+                    {
+                        <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+                    }
+                    <button type="submit" class="btn btn-primary">@(IsEditing ? "Update Profile" : "Save Profile")</button>
+                </div>
+            </EditForm>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-12 mb-4">
+                <div class="alert alert-success">
+                    Welcome back, <strong>@CurrentPatient.FullName</strong>!
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Profile Card -->
+            <div class="col-md-4">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-primary text-white">
+                        My Profile
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Name:</strong> @CurrentPatient.FullName</p>
+                        <p><strong>CNIC:</strong> @CurrentPatient.CNIC</p>
+                        <p><strong>Contact:</strong> @CurrentPatient.ContactNumber</p>
+                        <p><strong>Blood Group:</strong> <span class="badge bg-danger">@CurrentPatient.BloodGroup</span></p>
+                        <p><strong>Address:</strong> @CurrentPatient.Address</p>
+                        <hr />
+                        <h6>Emergency Contact</h6>
+                        <p><strong>Name:</strong> @CurrentPatient.EmergencyContactName</p>
+                        <p><strong>Number:</strong> @CurrentPatient.EmergencyContactNumber
+                            (@CurrentPatient.RelationshipToEmergencyContact)</p>
+
+                        @if (!string.IsNullOrEmpty(CurrentPatient.Allergies))
+                        {
+                            <p class="text-danger"><strong>Allergies:</strong> @CurrentPatient.Allergies</p>
+                        }
+
+                        <button class="btn btn-sm btn-secondary mt-2" @onclick="EditProfile">Edit Profile</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="col-md-4">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-success text-white">
+                        Appointments
+                    </div>
+                    <div class="card-body text-center">
+                        <h1>@DashboardAppointments.Count(a => a.AppointmentDate >= DateTime.Now)</h1>
+                        <p>Upcoming Appointments</p>
+                        <a href="patient/appointments" class="btn btn-outline-success btn-sm">Manage Appointments</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-info text-white">
+                        Quick Links
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a href="patient/appointments" class="btn btn-primary">Book Appointment</a>
+                            <a href="patient/reports" class="btn btn-secondary">View Reports</a>
+                            <a href="patient/prescriptions" class="btn btn-warning">My Prescriptions</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool IsLoading = true;
+    private Patient? CurrentPatient;
+    [SupplyParameterFromForm]
+    private Patient NewPatient { get; set; } = default!;
+    private List<Appointment> DashboardAppointments = new();
+    private string? UserId;
+    private bool IsEditing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Simulate a small delay to ensure loading state is visible (optional) or just run
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated ?? false)
+        {
+            NewPatient ??= new();
+            UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (UserId != null)
+            {
+                // In a real app, use async DB calls. Here we wrap sync in Task for UI responsiveness if needed, but sync is fine.
+                CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
+                if (CurrentPatient == null && string.IsNullOrEmpty(NewPatient.UserId))
+                {
+                    NewPatient.UserId = UserId;
+                }
+
+                if (CurrentPatient != null)
+                {
+                    DashboardAppointments = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
+                }
+            }
+        }
+        IsLoading = false;
+    }
+
+    private void EditProfile()
+    {
+        if (CurrentPatient != null)
+        {
+            NewPatient = new Patient
+                {
+                    PatientId = CurrentPatient.PatientId,
+                    UserId = CurrentPatient.UserId,
+                    FullName = CurrentPatient.FullName,
+                    ContactNumber = CurrentPatient.ContactNumber,
+                    Gender = CurrentPatient.Gender,
+                    Address = CurrentPatient.Address,
+                    DateOfBirth = CurrentPatient.DateOfBirth,
+                    CNIC = CurrentPatient.CNIC,
+                    BloodGroup = CurrentPatient.BloodGroup,
+                    MaritalStatus = CurrentPatient.MaritalStatus,
+                    EmergencyContactName = CurrentPatient.EmergencyContactName,
+                    EmergencyContactNumber = CurrentPatient.EmergencyContactNumber,
+                    RelationshipToEmergencyContact = CurrentPatient.RelationshipToEmergencyContact,
+                    Allergies = CurrentPatient.Allergies,
+                    ChronicDiseases = CurrentPatient.ChronicDiseases,
+                    CurrentMedications = CurrentPatient.CurrentMedications,
+                    DisabilityStatus = CurrentPatient.DisabilityStatus,
+                    RegistrationDate = CurrentPatient.RegistrationDate,
+                    IsActive = CurrentPatient.IsActive,
+                    Email = CurrentPatient.Email,
+                    City = CurrentPatient.City,
+                    Country = CurrentPatient.Country,
+                    LastVisitDate = CurrentPatient.LastVisitDate,
+                    PrimaryDoctorId = CurrentPatient.PrimaryDoctorId
+                };
+            IsEditing = true;
+            CurrentPatient = null; // Force show form
+        }
+    }
+
+    private void CancelEdit()
+    {
+        IsEditing = false;
+        if (UserId != null)
+        {
+            CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
+        }
+    }
+
+    private void CreateProfile()
+    {
+        if (UserId != null)
+        {
+            if (IsEditing)
+            {
+                PatientRepo.UpdatePatient(NewPatient);
+                IsEditing = false;
+            }
+            else
+            {
+                NewPatient.UserId = UserId;
+                PatientRepo.CreatePatient(NewPatient);
+            }
+            CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
+            // Refresh
+        }
+    }
+}

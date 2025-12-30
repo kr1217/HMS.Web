@@ -1,0 +1,853 @@
+using HMS.Web.Models;
+using Microsoft.Data.SqlClient;
+using System.Data;
+
+namespace HMS.Web.DAL
+{
+    public class PatientRepository
+    {
+        private readonly DatabaseHelper _db;
+
+        public PatientRepository(DatabaseHelper db)
+        {
+            _db = db;
+        }
+
+        public Patient? GetPatientByUserId(string userId)
+        {
+            string query = "SELECT * FROM Patients WHERE UserId = @UserId";
+            var parameters = new[] { new SqlParameter("@UserId", userId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+
+            if (table != null && table.Rows.Count > 0)
+            {
+                var row = table.Rows[0];
+                return new Patient
+                {
+                    PatientId = (int)row["PatientId"],
+                    UserId = row["UserId"]?.ToString() ?? "",
+                    FullName = row["FullName"]?.ToString() ?? "",
+                    DateOfBirth = row["DateOfBirth"] == DBNull.Value ? null : (DateTime?)row["DateOfBirth"],
+                    Gender = row["Gender"]?.ToString() ?? "",
+                    ContactNumber = row["ContactNumber"]?.ToString() ?? "",
+                    Address = row["Address"]?.ToString() ?? "",
+                    CNIC = row["CNIC"]?.ToString() ?? "",
+                    BloodGroup = row["BloodGroup"]?.ToString() ?? "",
+                    MaritalStatus = row["MaritalStatus"]?.ToString() ?? "",
+                    EmergencyContactName = row["EmergencyContactName"]?.ToString() ?? "",
+                    EmergencyContactNumber = row["EmergencyContactNumber"]?.ToString() ?? "",
+                    RelationshipToEmergencyContact = row["RelationshipToEmergencyContact"]?.ToString() ?? "",
+                    Allergies = row["Allergies"] == DBNull.Value ? null : row["Allergies"]?.ToString(),
+                    ChronicDiseases = row["ChronicDiseases"] == DBNull.Value ? null : row["ChronicDiseases"]?.ToString(),
+                    CurrentMedications = row["CurrentMedications"] == DBNull.Value ? null : row["CurrentMedications"]?.ToString(),
+                    DisabilityStatus = row["DisabilityStatus"] == DBNull.Value ? null : row["DisabilityStatus"]?.ToString(),
+                    RegistrationDate = row["RegistrationDate"] == DBNull.Value ? DateTime.Now : (DateTime)row["RegistrationDate"],
+                    IsActive = row["IsActive"] == DBNull.Value ? true : (bool)row["IsActive"],
+                    PatientType = row["PatientType"] == DBNull.Value ? null : row["PatientType"]?.ToString(),
+                    Email = row["Email"] == DBNull.Value ? null : row["Email"]?.ToString(),
+                    City = row["City"] == DBNull.Value ? null : row["City"]?.ToString(),
+                    Country = row["Country"] == DBNull.Value ? null : row["Country"]?.ToString(),
+                    LastVisitDate = row["LastVisitDate"] == DBNull.Value ? null : (DateTime?)row["LastVisitDate"],
+                    PrimaryDoctorId = row["PrimaryDoctorId"] == DBNull.Value ? null : row["PrimaryDoctorId"]?.ToString()
+                };
+            }
+            return null;
+        }
+
+        public void CreatePatient(Patient patient)
+        {
+            string query = @"INSERT INTO Patients (UserId, FullName, DateOfBirth, Gender, ContactNumber, Address, CNIC, BloodGroup, MaritalStatus, 
+                            EmergencyContactName, EmergencyContactNumber, RelationshipToEmergencyContact, Allergies, ChronicDiseases, 
+                            CurrentMedications, DisabilityStatus, RegistrationDate, IsActive, PatientType, Email, City, Country, LastVisitDate, PrimaryDoctorId) 
+                            VALUES (@UserId, @FullName, @DateOfBirth, @Gender, @ContactNumber, @Address, @CNIC, @BloodGroup, @MaritalStatus, 
+                            @EmergencyContactName, @EmergencyContactNumber, @RelationshipToEmergencyContact, @Allergies, @ChronicDiseases, 
+                            @CurrentMedications, @DisabilityStatus, @RegistrationDate, @IsActive, @PatientType, @Email, @City, @Country, @LastVisitDate, @PrimaryDoctorId)";
+            var parameters = new[]
+            {
+                new SqlParameter("@UserId", patient.UserId),
+                new SqlParameter("@FullName", patient.FullName ?? ""),
+                new SqlParameter("@DateOfBirth", (object?)patient.DateOfBirth ?? DBNull.Value),
+                new SqlParameter("@Gender", patient.Gender ?? ""),
+                new SqlParameter("@ContactNumber", patient.ContactNumber ?? ""),
+                new SqlParameter("@Address", patient.Address ?? ""),
+                new SqlParameter("@CNIC", patient.CNIC ?? ""),
+                new SqlParameter("@BloodGroup", patient.BloodGroup ?? ""),
+                new SqlParameter("@MaritalStatus", patient.MaritalStatus ?? ""),
+                new SqlParameter("@EmergencyContactName", patient.EmergencyContactName ?? ""),
+                new SqlParameter("@EmergencyContactNumber", patient.EmergencyContactNumber ?? ""),
+                new SqlParameter("@RelationshipToEmergencyContact", patient.RelationshipToEmergencyContact ?? ""),
+                new SqlParameter("@Allergies", (object?)patient.Allergies ?? DBNull.Value),
+                new SqlParameter("@ChronicDiseases", (object?)patient.ChronicDiseases ?? DBNull.Value),
+                new SqlParameter("@CurrentMedications", (object?)patient.CurrentMedications ?? DBNull.Value),
+                new SqlParameter("@DisabilityStatus", (object?)patient.DisabilityStatus ?? DBNull.Value),
+                new SqlParameter("@RegistrationDate", patient.RegistrationDate),
+                new SqlParameter("@IsActive", patient.IsActive),
+                new SqlParameter("@PatientType", (object?)patient.PatientType ?? DBNull.Value),
+                new SqlParameter("@Email", (object?)patient.Email ?? DBNull.Value),
+                new SqlParameter("@City", (object?)patient.City ?? DBNull.Value),
+                new SqlParameter("@Country", (object?)patient.Country ?? DBNull.Value),
+                new SqlParameter("@LastVisitDate", (object?)patient.LastVisitDate ?? DBNull.Value),
+                new SqlParameter("@PrimaryDoctorId", (object?)patient.PrimaryDoctorId ?? DBNull.Value)
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+
+        public void UpdatePatient(Patient patient)
+        {
+            string query = @"UPDATE Patients SET FullName=@FullName, DateOfBirth=@DateOfBirth, Gender=@Gender, ContactNumber=@ContactNumber, Address=@Address, 
+                             CNIC=@CNIC, BloodGroup=@BloodGroup, MaritalStatus=@MaritalStatus, EmergencyContactName=@EmergencyContactName, 
+                             EmergencyContactNumber=@EmergencyContactNumber, RelationshipToEmergencyContact=@RelationshipToEmergencyContact, 
+                             Allergies=@Allergies, ChronicDiseases=@ChronicDiseases, CurrentMedications=@CurrentMedications, 
+                             DisabilityStatus=@DisabilityStatus, RegistrationDate=@RegistrationDate, IsActive=@IsActive, 
+                             PatientType=@PatientType, Email=@Email, City=@City, Country=@Country, LastVisitDate=@LastVisitDate, 
+                             PrimaryDoctorId=@PrimaryDoctorId WHERE PatientId=@PatientId";
+            var parameters = new[]
+          {
+                new SqlParameter("@PatientId", patient.PatientId),
+                new SqlParameter("@FullName", patient.FullName ?? ""),
+                new SqlParameter("@DateOfBirth", (object?)patient.DateOfBirth ?? DBNull.Value),
+                new SqlParameter("@Gender", patient.Gender ?? ""),
+                new SqlParameter("@ContactNumber", patient.ContactNumber ?? ""),
+                new SqlParameter("@Address", patient.Address ?? ""),
+                new SqlParameter("@CNIC", patient.CNIC ?? ""),
+                new SqlParameter("@BloodGroup", patient.BloodGroup ?? ""),
+                new SqlParameter("@MaritalStatus", patient.MaritalStatus ?? ""),
+                new SqlParameter("@EmergencyContactName", patient.EmergencyContactName ?? ""),
+                new SqlParameter("@EmergencyContactNumber", patient.EmergencyContactNumber ?? ""),
+                new SqlParameter("@RelationshipToEmergencyContact", patient.RelationshipToEmergencyContact ?? ""),
+                new SqlParameter("@Allergies", (object?)patient.Allergies ?? DBNull.Value),
+                new SqlParameter("@ChronicDiseases", (object?)patient.ChronicDiseases ?? DBNull.Value),
+                new SqlParameter("@CurrentMedications", (object?)patient.CurrentMedications ?? DBNull.Value),
+                new SqlParameter("@DisabilityStatus", (object?)patient.DisabilityStatus ?? DBNull.Value),
+                new SqlParameter("@RegistrationDate", patient.RegistrationDate),
+                new SqlParameter("@IsActive", patient.IsActive),
+                new SqlParameter("@PatientType", (object?)patient.PatientType ?? DBNull.Value),
+                new SqlParameter("@Email", (object?)patient.Email ?? DBNull.Value),
+                new SqlParameter("@City", (object?)patient.City ?? DBNull.Value),
+                new SqlParameter("@Country", (object?)patient.Country ?? DBNull.Value),
+                new SqlParameter("@LastVisitDate", (object?)patient.LastVisitDate ?? DBNull.Value),
+                new SqlParameter("@PrimaryDoctorId", (object?)patient.PrimaryDoctorId ?? DBNull.Value)
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+    }
+
+    public class DoctorRepository
+    {
+        private readonly DatabaseHelper _db;
+        public DoctorRepository(DatabaseHelper db) { _db = db; }
+
+        public Doctor? GetDoctorByUserId(string userId)
+        {
+            string query = "SELECT d.*, dep.DepartmentName FROM Doctors d LEFT JOIN Departments dep ON d.DepartmentId = dep.DepartmentId WHERE UserId = @UserId";
+            var parameters = new[] { new SqlParameter("@UserId", userId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            if (table != null && table.Rows.Count > 0)
+            {
+                return MapDoctor(table.Rows[0]);
+            }
+            return null;
+        }
+
+        public Doctor? GetDoctorById(int doctorId)
+        {
+            string query = "SELECT d.*, dep.DepartmentName FROM Doctors d LEFT JOIN Departments dep ON d.DepartmentId = dep.DepartmentId WHERE DoctorId = @DoctorId";
+            var parameters = new[] { new SqlParameter("@DoctorId", doctorId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            if (table != null && table.Rows.Count > 0)
+            {
+                return MapDoctor(table.Rows[0]);
+            }
+            return null;
+        }
+
+        public void CreateDoctor(Doctor doc)
+        {
+            string query = @"INSERT INTO Doctors (UserId, FullName, Gender, ContactNumber, Email, Qualification, Specialization, 
+                            MedicalLicenseNumber, LicenseIssuingAuthority, YearsOfExperience, DepartmentId, HospitalJoiningDate, 
+                            ConsultationFee, FollowUpFee, AvailableDays, AvailableTimeSlots, RoomNumber, IsOnCall, IsActive, IsVerified, CreatedAt, IsAvailable) 
+                            VALUES (@UserId, @FullName, @Gender, @ContactNumber, @Email, @Qualification, @Specialization, 
+                            @MedicalLicenseNumber, @LicenseIssuingAuthority, @YearsOfExperience, @DepartmentId, @HospitalJoiningDate, 
+                            @ConsultationFee, @FollowUpFee, @AvailableDays, @AvailableTimeSlots, @RoomNumber, @IsOnCall, @IsActive, @IsVerified, @CreatedAt, @IsAvailable)";
+            var parameters = new[]
+            {
+                new SqlParameter("@UserId", (object?)doc.UserId ?? DBNull.Value),
+                new SqlParameter("@FullName", (object?)doc.FullName ?? DBNull.Value),
+                new SqlParameter("@Gender", (object?)doc.Gender ?? DBNull.Value),
+                new SqlParameter("@ContactNumber", (object?)doc.ContactNumber ?? DBNull.Value),
+                new SqlParameter("@Email", (object?)doc.Email ?? DBNull.Value),
+                new SqlParameter("@Qualification", (object?)doc.Qualification ?? DBNull.Value),
+                new SqlParameter("@Specialization", (object?)doc.Specialization ?? DBNull.Value),
+                new SqlParameter("@MedicalLicenseNumber", (object?)doc.MedicalLicenseNumber ?? DBNull.Value),
+                new SqlParameter("@LicenseIssuingAuthority", (object?)doc.LicenseIssuingAuthority ?? DBNull.Value),
+                new SqlParameter("@YearsOfExperience", doc.YearsOfExperience),
+                new SqlParameter("@DepartmentId", doc.DepartmentId),
+                new SqlParameter("@HospitalJoiningDate", doc.HospitalJoiningDate),
+                new SqlParameter("@ConsultationFee", doc.ConsultationFee),
+                new SqlParameter("@FollowUpFee", doc.FollowUpFee),
+                new SqlParameter("@AvailableDays", (object?)doc.AvailableDays ?? DBNull.Value),
+                new SqlParameter("@AvailableTimeSlots", (object?)doc.AvailableTimeSlots ?? DBNull.Value),
+                new SqlParameter("@RoomNumber", (object?)doc.RoomNumber ?? DBNull.Value),
+                new SqlParameter("@IsOnCall", doc.IsOnCall),
+                new SqlParameter("@IsActive", doc.IsActive),
+                new SqlParameter("@IsVerified", doc.IsVerified),
+                new SqlParameter("@CreatedAt", doc.CreatedAt),
+                new SqlParameter("@IsAvailable", doc.IsAvailable)
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+
+        public void UpdateDoctor(Doctor doc)
+        {
+            string query = @"UPDATE Doctors SET FullName=@FullName, Gender=@Gender, ContactNumber=@ContactNumber, Email=@Email, 
+                            Qualification=@Qualification, Specialization=@Specialization, MedicalLicenseNumber=@MedicalLicenseNumber, 
+                            LicenseIssuingAuthority=@LicenseIssuingAuthority, YearsOfExperience=@YearsOfExperience, 
+                            DepartmentId=@DepartmentId, HospitalJoiningDate=@HospitalJoiningDate, ConsultationFee=@ConsultationFee, 
+                            FollowUpFee=@FollowUpFee, AvailableDays=@AvailableDays, AvailableTimeSlots=@AvailableTimeSlots, 
+                            RoomNumber=@RoomNumber, IsOnCall=@IsOnCall, IsActive=@IsActive, IsVerified=@IsVerified, IsAvailable=@IsAvailable 
+                            WHERE DoctorId=@DoctorId";
+            var parameters = new[]
+            {
+                new SqlParameter("@DoctorId", doc.DoctorId),
+                new SqlParameter("@FullName", doc.FullName),
+                new SqlParameter("@Gender", doc.Gender),
+                new SqlParameter("@ContactNumber", doc.ContactNumber),
+                new SqlParameter("@Email", doc.Email),
+                new SqlParameter("@Qualification", doc.Qualification),
+                new SqlParameter("@Specialization", doc.Specialization),
+                new SqlParameter("@MedicalLicenseNumber", doc.MedicalLicenseNumber),
+                new SqlParameter("@LicenseIssuingAuthority", doc.LicenseIssuingAuthority ?? ""),
+                new SqlParameter("@YearsOfExperience", doc.YearsOfExperience),
+                new SqlParameter("@DepartmentId", doc.DepartmentId),
+                new SqlParameter("@HospitalJoiningDate", doc.HospitalJoiningDate),
+                new SqlParameter("@ConsultationFee", doc.ConsultationFee),
+                new SqlParameter("@FollowUpFee", doc.FollowUpFee),
+                new SqlParameter("@AvailableDays", doc.AvailableDays ?? ""),
+                new SqlParameter("@AvailableTimeSlots", doc.AvailableTimeSlots ?? ""),
+                new SqlParameter("@RoomNumber", doc.RoomNumber ?? ""),
+                new SqlParameter("@IsOnCall", doc.IsOnCall),
+                new SqlParameter("@IsActive", doc.IsActive),
+                new SqlParameter("@IsVerified", doc.IsVerified),
+                new SqlParameter("@IsAvailable", doc.IsAvailable)
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+
+        private Doctor MapDoctor(DataRow row)
+        {
+            return new Doctor
+            {
+                DoctorId = (int)row["DoctorId"],
+                UserId = row["UserId"]?.ToString() ?? "",
+                FullName = row["FullName"]?.ToString() ?? "",
+                Gender = row["Gender"]?.ToString() ?? "",
+                ContactNumber = row["ContactNumber"]?.ToString() ?? "",
+                Email = row["Email"]?.ToString() ?? "",
+                Qualification = row["Qualification"]?.ToString() ?? "",
+                Specialization = row["Specialization"]?.ToString() ?? "",
+                MedicalLicenseNumber = row["MedicalLicenseNumber"]?.ToString() ?? "",
+                LicenseIssuingAuthority = row["LicenseIssuingAuthority"]?.ToString() ?? "",
+                YearsOfExperience = (int)row["YearsOfExperience"],
+                DepartmentId = (int)row["DepartmentId"],
+                DepartmentName = row["DepartmentName"]?.ToString() ?? "",
+                HospitalJoiningDate = (DateTime)row["HospitalJoiningDate"],
+                ConsultationFee = (decimal)row["ConsultationFee"],
+                FollowUpFee = (decimal)row["FollowUpFee"],
+                AvailableDays = row["AvailableDays"]?.ToString() ?? "",
+                AvailableTimeSlots = row["AvailableTimeSlots"]?.ToString() ?? "",
+                RoomNumber = row["RoomNumber"]?.ToString() ?? "",
+                IsOnCall = (bool)row["IsOnCall"],
+                IsActive = (bool)row["IsActive"],
+                IsVerified = (bool)row["IsVerified"],
+                CreatedAt = (DateTime)row["CreatedAt"],
+                IsAvailable = (bool)row["IsAvailable"]
+            };
+        }
+    }
+
+    public class AppointmentRepository
+    {
+        private readonly DatabaseHelper _db;
+        public AppointmentRepository(DatabaseHelper db) { _db = db; }
+
+        public List<Appointment> GetAppointmentsByPatientId(int patientId)
+        {
+            string query = @"
+                SELECT a.*, d.FullName as DoctorName, dep.DepartmentName, p.FullName as PatientName
+                FROM Appointments a
+                JOIN Doctors d ON a.DoctorId = d.DoctorId
+                JOIN Departments dep ON d.DepartmentId = dep.DepartmentId
+                JOIN Patients p ON a.PatientId = p.PatientId
+                WHERE a.PatientId = @PatientId
+                ORDER BY a.AppointmentDate DESC";
+
+            var parameters = new[] { new SqlParameter("@PatientId", patientId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<Appointment>();
+
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapAppointment(row));
+                }
+            }
+            return list;
+        }
+
+        public List<Appointment> GetAppointmentsByDoctorId(int doctorId)
+        {
+            string query = @"
+                SELECT a.*, p.FullName as PatientName
+                FROM Appointments a
+                JOIN Patients p ON a.PatientId = p.PatientId
+                WHERE a.DoctorId = @DoctorId
+                ORDER BY a.AppointmentDate DESC";
+
+            var parameters = new[] { new SqlParameter("@DoctorId", doctorId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<Appointment>();
+
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapAppointment(row));
+                }
+            }
+            return list;
+        }
+
+        public void CreateAppointment(Appointment appt)
+        {
+            string query = "INSERT INTO Appointments (PatientId, DoctorId, AppointmentDate, AppointmentMode, Status, Reason) VALUES (@PatientId, @DoctorId, @AppointmentDate, @AppointmentMode, @Status, @Reason)";
+            var parameters = new[]
+            {
+                new SqlParameter("@PatientId", appt.PatientId),
+                new SqlParameter("@DoctorId", appt.DoctorId),
+                new SqlParameter("@AppointmentDate", appt.AppointmentDate),
+                new SqlParameter("@AppointmentMode", appt.AppointmentMode),
+                new SqlParameter("@Status", "Pending"),
+                new SqlParameter("@Reason", appt.Reason ?? "")
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+
+        public void UpdateAppointmentStatus(int appointmentId, string status, string? notes = null, string? rejectionReason = null, DateTime? rescheduledDate = null)
+        {
+            string query = @"UPDATE Appointments SET Status=@Status, DoctorNotes=@Notes, RejectionReason=@RejectionReason, 
+                             RescheduledDate=@RescheduledDate WHERE AppointmentId=@AppointmentId";
+            var parameters = new[]
+            {
+                new SqlParameter("@AppointmentId", appointmentId),
+                new SqlParameter("@Status", status),
+                new SqlParameter("@Notes", (object?)notes ?? DBNull.Value),
+                new SqlParameter("@RejectionReason", (object?)rejectionReason ?? DBNull.Value),
+                new SqlParameter("@RescheduledDate", (object?)rescheduledDate ?? DBNull.Value)
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+
+        public List<Doctor> GetDoctors()
+        {
+            string query = "SELECT d.*, dep.DepartmentName FROM Doctors d JOIN Departments dep ON d.DepartmentId = dep.DepartmentId WHERE d.IsAvailable = 1";
+            var table = _db.ExecuteDataTable(query);
+            var list = new List<Doctor>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(new Doctor
+                    {
+                        DoctorId = (int)row["DoctorId"],
+                        FullName = row["FullName"]?.ToString() ?? "",
+                        DepartmentId = (int)row["DepartmentId"],
+                        DepartmentName = row["DepartmentName"]?.ToString() ?? "",
+                        IsAvailable = (bool)row["IsAvailable"]
+                    });
+                }
+            }
+            return list;
+        }
+
+        private Appointment MapAppointment(DataRow row)
+        {
+            var appt = new Appointment
+            {
+                AppointmentId = (int)row["AppointmentId"],
+                PatientId = (int)row["PatientId"],
+                DoctorId = (int)row["DoctorId"],
+                AppointmentDate = (DateTime)row["AppointmentDate"],
+                AppointmentMode = row["AppointmentMode"]?.ToString() ?? "",
+                Status = row["Status"]?.ToString() ?? "",
+                Reason = row["Reason"]?.ToString() ?? "",
+                DoctorNotes = row["DoctorNotes"] == DBNull.Value ? null : row["DoctorNotes"]?.ToString(),
+                RejectionReason = row["RejectionReason"] == DBNull.Value ? null : row["RejectionReason"]?.ToString(),
+                RescheduledDate = row["RescheduledDate"] == DBNull.Value ? null : (DateTime?)row["RescheduledDate"]
+            };
+
+            if (row.Table.Columns.Contains("DoctorName")) appt.DoctorName = row["DoctorName"]?.ToString() ?? "";
+            if (row.Table.Columns.Contains("PatientName")) appt.PatientName = row["PatientName"]?.ToString() ?? "";
+            if (row.Table.Columns.Contains("DepartmentName")) appt.DepartmentName = row["DepartmentName"]?.ToString() ?? "";
+
+            return appt;
+        }
+    }
+
+    public class ReportRepository
+    {
+        private readonly DatabaseHelper _db;
+        public ReportRepository(DatabaseHelper db) { _db = db; }
+
+        public List<Report> GetReportsByPatientId(int patientId)
+        {
+            string query = "SELECT * FROM Reports WHERE PatientId = @PatientId ORDER BY ReportDate DESC";
+            var parameters = new[] { new SqlParameter("@PatientId", patientId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<Report>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapReport(row));
+                }
+            }
+            return list;
+        }
+
+        public List<Report> GetReportsByDoctorId(int doctorId)
+        {
+            string query = "SELECT * FROM Reports WHERE DoctorId = @DoctorId ORDER BY ReportDate DESC";
+            var parameters = new[] { new SqlParameter("@DoctorId", doctorId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<Report>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapReport(row));
+                }
+            }
+            return list;
+        }
+
+        public void CreateReport(Report report)
+        {
+            string query = @"INSERT INTO Reports (PatientId, DoctorId, AppointmentId, ReportName, ReportType, ReportDate, FilePath, Status, Observations) 
+                            VALUES (@PatientId, @DoctorId, @AppointmentId, @ReportName, @ReportType, @ReportDate, @FilePath, @Status, @Observations)";
+            var parameters = new[]
+            {
+                new SqlParameter("@PatientId", report.PatientId),
+                new SqlParameter("@DoctorId", report.DoctorId),
+                new SqlParameter("@AppointmentId", (object?)report.AppointmentId ?? DBNull.Value),
+                new SqlParameter("@ReportName", report.ReportName),
+                new SqlParameter("@ReportType", report.ReportType),
+                new SqlParameter("@ReportDate", report.ReportDate),
+                new SqlParameter("@FilePath", report.FilePath ?? ""),
+                new SqlParameter("@Status", report.Status),
+                new SqlParameter("@Observations", (object?)report.Observations ?? DBNull.Value)
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+
+        private Report MapReport(DataRow row)
+        {
+            return new Report
+            {
+                ReportId = (int)row["ReportId"],
+                PatientId = (int)row["PatientId"],
+                DoctorId = (int)row["DoctorId"],
+                AppointmentId = row["AppointmentId"] == DBNull.Value ? null : (int?)row["AppointmentId"],
+                ReportName = row["ReportName"]?.ToString() ?? "",
+                ReportType = row["ReportType"]?.ToString() ?? "",
+                ReportDate = (DateTime)row["ReportDate"],
+                FilePath = row["FilePath"]?.ToString() ?? "",
+                Status = row["Status"]?.ToString() ?? "",
+                Observations = row["Observations"] == DBNull.Value ? null : row["Observations"]?.ToString()
+            };
+        }
+    }
+
+    public class PrescriptionRepository
+    {
+        private readonly DatabaseHelper _db;
+        public PrescriptionRepository(DatabaseHelper db) { _db = db; }
+
+        public List<Prescription> GetPrescriptionsByPatientId(int patientId)
+        {
+            string query = "SELECT p.*, d.FullName as DoctorName FROM Prescriptions p JOIN Doctors d ON p.DoctorId = d.DoctorId WHERE PatientId = @PatientId ORDER BY PrescribedDate DESC";
+            var parameters = new[] { new SqlParameter("@PatientId", patientId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<Prescription>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapPrescription(row));
+                }
+            }
+            return list;
+        }
+
+        public List<Prescription> GetPrescriptionsByDoctorId(int doctorId)
+        {
+            string query = "SELECT p.*, d.FullName as DoctorName FROM Prescriptions p JOIN Doctors d ON p.DoctorId = d.DoctorId WHERE p.DoctorId = @DoctorId ORDER BY PrescribedDate DESC";
+            var parameters = new[] { new SqlParameter("@DoctorId", doctorId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<Prescription>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapPrescription(row));
+                }
+            }
+            return list;
+        }
+
+        public void CreatePrescription(Prescription p)
+        {
+            string query = @"INSERT INTO Prescriptions (PatientId, DoctorId, AppointmentId, Details, PrescribedDate, Medications, IsLocked, DigitalSignature) 
+                            VALUES (@PatientId, @DoctorId, @AppointmentId, @Details, @PrescribedDate, @Medications, @IsLocked, @DigitalSignature)";
+            var parameters = new[]
+            {
+                new SqlParameter("@PatientId", p.PatientId),
+                new SqlParameter("@DoctorId", p.DoctorId),
+                new SqlParameter("@AppointmentId", (object?)p.AppointmentId ?? DBNull.Value),
+                new SqlParameter("@Details", p.Details ?? ""),
+                new SqlParameter("@PrescribedDate", p.PrescribedDate),
+                new SqlParameter("@Medications", p.Medications ?? ""),
+                new SqlParameter("@IsLocked", p.IsLocked),
+                new SqlParameter("@DigitalSignature", (object?)p.DigitalSignature ?? DBNull.Value)
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+
+        private Prescription MapPrescription(DataRow row)
+        {
+            return new Prescription
+            {
+                PrescriptionId = (int)row["PrescriptionId"],
+                PatientId = (int)row["PatientId"],
+                DoctorId = (int)row["DoctorId"],
+                AppointmentId = row["AppointmentId"] == DBNull.Value ? null : (int?)row["AppointmentId"],
+                DoctorName = row["DoctorName"]?.ToString() ?? "",
+                Details = row["Details"]?.ToString() ?? "",
+                PrescribedDate = (DateTime)row["PrescribedDate"],
+                Medications = row["Medications"]?.ToString() ?? "",
+                IsLocked = (bool)row["IsLocked"],
+                DigitalSignature = row["DigitalSignature"] == DBNull.Value ? null : row["DigitalSignature"]?.ToString()
+            };
+        }
+    }
+
+    public class BillingRepository
+    {
+        private readonly DatabaseHelper _db;
+        public BillingRepository(DatabaseHelper db) { _db = db; }
+
+        public List<Bill> GetBillsByPatientId(int patientId)
+        {
+            // Assumes Bills table exists
+            string query = "SELECT * FROM Bills WHERE PatientId = @PatientId ORDER BY BillDate DESC";
+            var parameters = new[] { new SqlParameter("@PatientId", patientId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<Bill>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(new Bill
+                    {
+                        BillId = (int)row["BillId"],
+                        PatientId = (int)row["PatientId"],
+                        TotalAmount = (decimal)row["TotalAmount"],
+                        PaidAmount = (decimal)row["PaidAmount"],
+                        DueAmount = (decimal)row["DueAmount"],
+                        Status = row["Status"].ToString(),
+                        BillDate = (DateTime)row["BillDate"]
+                    });
+                }
+            }
+            return list;
+        }
+    }
+
+    public class OperationRepository
+    {
+        private readonly DatabaseHelper _db;
+        public OperationRepository(DatabaseHelper db) { _db = db; }
+
+        public List<OperationPackage> GetOperationPackages()
+        {
+            string query = "SELECT * FROM OperationPackages";
+            var table = _db.ExecuteDataTable(query);
+            var list = new List<OperationPackage>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(new OperationPackage
+                    {
+                        PackageId = (int)row["PackageId"],
+                        PackageName = row["PackageName"].ToString(),
+                        Description = row["Description"].ToString(),
+                        Cost = (decimal)row["Cost"]
+                    });
+                }
+            }
+            return list;
+        }
+
+        public List<PatientOperation> GetPatientOperations(int patientId)
+        {
+            string query = "SELECT po.*, op.PackageName FROM PatientOperations po JOIN OperationPackages op ON po.PackageId = op.PackageId WHERE po.PatientId = @PatientId";
+            var parameters = new[] { new SqlParameter("@PatientId", patientId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<PatientOperation>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(new PatientOperation
+                    {
+                        OperationId = (int)row["OperationId"],
+                        PatientId = (int)row["PatientId"],
+                        PackageId = (int)row["PackageId"],
+                        PackageName = row["PackageName"].ToString(),
+                        Status = row["Status"].ToString(),
+                        ScheduledDate = (DateTime)row["ScheduledDate"],
+                        Notes = row["Notes"].ToString()
+                    });
+                }
+            }
+            return list;
+        }
+    }
+
+    public class SupportRepository
+    {
+        private readonly DatabaseHelper _db;
+        public SupportRepository(DatabaseHelper db) { _db = db; }
+
+        public List<SupportTicket> GetTicketsByPatientId(int patientId)
+        {
+            string query = "SELECT * FROM SupportTickets WHERE PatientId = @PatientId ORDER BY CreatedDate DESC";
+            var parameters = new[] { new SqlParameter("@PatientId", patientId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<SupportTicket>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(new SupportTicket
+                    {
+                        TicketId = (int)row["TicketId"],
+                        PatientId = (int)row["PatientId"],
+                        Subject = row["Subject"].ToString(),
+                        Message = row["Message"].ToString(),
+                        Status = row["Status"].ToString(),
+                        CreatedDate = (DateTime)row["CreatedDate"],
+                        Response = row["Response"] == DBNull.Value ? null : row["Response"].ToString()
+                    });
+                }
+            }
+            return list;
+        }
+
+        public void CreateTicket(SupportTicket ticket)
+        {
+            string query = "INSERT INTO SupportTickets (PatientId, Subject, Message, Status, CreatedDate) VALUES (@PatientId, @Subject, @Message, 'Open', @CreatedDate)";
+            var parameters = new[]
+            {
+                new SqlParameter("@PatientId", ticket.PatientId),
+                new SqlParameter("@Subject", ticket.Subject),
+                new SqlParameter("@Message", ticket.Message),
+                new SqlParameter("@CreatedDate", DateTime.Now)
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+    }
+
+    public class DoctorShiftRepository
+    {
+        private readonly DatabaseHelper _db;
+        public DoctorShiftRepository(DatabaseHelper db) { _db = db; }
+
+        public List<DoctorShift> GetShiftsByDoctorId(int doctorId)
+        {
+            string query = "SELECT * FROM DoctorShifts WHERE DoctorId = @DoctorId AND IsActive = 1 ORDER BY CASE DayOfWeek WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3 WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 WHEN 'Sunday' THEN 7 END, StartTime";
+            var parameters = new[] { new SqlParameter("@DoctorId", doctorId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<DoctorShift>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapShift(row));
+                }
+            }
+            return list;
+        }
+
+        public DoctorShift? GetShiftById(int shiftId)
+        {
+            string query = "SELECT * FROM DoctorShifts WHERE ShiftId = @ShiftId";
+            var parameters = new[] { new SqlParameter("@ShiftId", shiftId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            if (table != null && table.Rows.Count > 0)
+            {
+                return MapShift(table.Rows[0]);
+            }
+            return null;
+        }
+
+        public void CreateShift(DoctorShift shift)
+        {
+            string query = @"INSERT INTO DoctorShifts (DoctorId, DayOfWeek, StartTime, EndTime, ShiftType, IsActive, Notes, CreatedAt) 
+                            VALUES (@DoctorId, @DayOfWeek, @StartTime, @EndTime, @ShiftType, @IsActive, @Notes, @CreatedAt)";
+            var parameters = new[]
+            {
+                new SqlParameter("@DoctorId", shift.DoctorId),
+                new SqlParameter("@DayOfWeek", shift.DayOfWeek),
+                new SqlParameter("@StartTime", shift.StartTime),
+                new SqlParameter("@EndTime", shift.EndTime),
+                new SqlParameter("@ShiftType", (object?)shift.ShiftType ?? DBNull.Value),
+                new SqlParameter("@IsActive", shift.IsActive),
+                new SqlParameter("@Notes", (object?)shift.Notes ?? DBNull.Value),
+                new SqlParameter("@CreatedAt", shift.CreatedAt)
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+
+        public void UpdateShift(DoctorShift shift)
+        {
+            string query = @"UPDATE DoctorShifts SET DayOfWeek=@DayOfWeek, StartTime=@StartTime, EndTime=@EndTime, 
+                            ShiftType=@ShiftType, IsActive=@IsActive, Notes=@Notes WHERE ShiftId=@ShiftId";
+            var parameters = new[]
+            {
+                new SqlParameter("@ShiftId", shift.ShiftId),
+                new SqlParameter("@DayOfWeek", shift.DayOfWeek),
+                new SqlParameter("@StartTime", shift.StartTime),
+                new SqlParameter("@EndTime", shift.EndTime),
+                new SqlParameter("@ShiftType", (object?)shift.ShiftType ?? DBNull.Value),
+                new SqlParameter("@IsActive", shift.IsActive),
+                new SqlParameter("@Notes", (object?)shift.Notes ?? DBNull.Value)
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+
+        public void DeleteShift(int shiftId)
+        {
+            string query = "UPDATE DoctorShifts SET IsActive = 0 WHERE ShiftId = @ShiftId";
+            var parameters = new[] { new SqlParameter("@ShiftId", shiftId) };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+
+        public bool IsAvailableAtTime(int doctorId, DateTime appointmentDateTime)
+        {
+            string dayOfWeek = appointmentDateTime.DayOfWeek.ToString();
+            TimeSpan appointmentTime = appointmentDateTime.TimeOfDay;
+
+            string query = @"SELECT COUNT(*) FROM DoctorShifts 
+                            WHERE DoctorId = @DoctorId 
+                            AND DayOfWeek = @DayOfWeek 
+                            AND StartTime <= @AppointmentTime 
+                            AND EndTime >= @AppointmentTime 
+                            AND IsActive = 1";
+
+            var parameters = new[]
+            {
+                new SqlParameter("@DoctorId", doctorId),
+                new SqlParameter("@DayOfWeek", dayOfWeek),
+                new SqlParameter("@AppointmentTime", appointmentTime)
+            };
+
+            var result = _db.ExecuteScalar(query, parameters);
+            return result != null && Convert.ToInt32(result) > 0;
+        }
+
+        private DoctorShift MapShift(DataRow row)
+        {
+            return new DoctorShift
+            {
+                ShiftId = (int)row["ShiftId"],
+                DoctorId = (int)row["DoctorId"],
+                DayOfWeek = row["DayOfWeek"]?.ToString() ?? "",
+                StartTime = (TimeSpan)row["StartTime"],
+                EndTime = (TimeSpan)row["EndTime"],
+                ShiftType = row["ShiftType"] == DBNull.Value ? null : row["ShiftType"]?.ToString(),
+                IsActive = (bool)row["IsActive"],
+                Notes = row["Notes"] == DBNull.Value ? null : row["Notes"]?.ToString(),
+                CreatedAt = (DateTime)row["CreatedAt"]
+            };
+        }
+    }
+
+    public class NotificationRepository
+    {
+        private readonly DatabaseHelper _db;
+        public NotificationRepository(DatabaseHelper db) { _db = db; }
+
+        public List<Notification> GetNotificationsByPatientId(int patientId)
+        {
+            string query = "SELECT * FROM Notifications WHERE PatientId = @PatientId ORDER BY CreatedDate DESC";
+            var parameters = new[] { new SqlParameter("@PatientId", patientId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<Notification>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapNotification(row));
+                }
+            }
+            return list;
+        }
+
+        public List<Notification> GetNotificationsByDoctorId(int doctorId)
+        {
+            string query = "SELECT * FROM Notifications WHERE DoctorId = @DoctorId ORDER BY CreatedDate DESC";
+            var parameters = new[] { new SqlParameter("@DoctorId", doctorId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<Notification>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapNotification(row));
+                }
+            }
+            return list;
+        }
+
+        public void CreateNotification(Notification n)
+        {
+            string query = "INSERT INTO Notifications (PatientId, DoctorId, Title, Message, CreatedDate, IsRead) VALUES (@PatientId, @DoctorId, @Title, @Message, @CreatedDate, @IsRead)";
+            var parameters = new[]
+            {
+                new SqlParameter("@PatientId", (object?)n.PatientId ?? DBNull.Value),
+                new SqlParameter("@DoctorId", (object?)n.DoctorId ?? DBNull.Value),
+                new SqlParameter("@Title", n.Title),
+                new SqlParameter("@Message", n.Message),
+                new SqlParameter("@CreatedDate", n.CreatedDate),
+                new SqlParameter("@IsRead", n.IsRead)
+            };
+            _db.ExecuteNonQuery(query, parameters);
+        }
+
+        private Notification MapNotification(DataRow row)
+        {
+            return new Notification
+            {
+                NotificationId = (int)row["NotificationId"],
+                PatientId = row["PatientId"] == DBNull.Value ? null : (int?)row["PatientId"],
+                DoctorId = row["DoctorId"] == DBNull.Value ? null : (int?)row["DoctorId"],
+                Title = row["Title"]?.ToString() ?? "",
+                Message = row["Message"]?.ToString() ?? "",
+                CreatedDate = (DateTime)row["CreatedDate"],
+                IsRead = (bool)row["IsRead"]
+            };
+        }
+    }
+}

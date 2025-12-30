@@ -1,0 +1,91 @@
+@page "/patient/reports"
+@using Microsoft.AspNetCore.Authorization
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject PatientRepository PatientRepo
+@inject ReportRepository ReportRepo
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<div class="container mt-4">
+    <h3>Medical Reports</h3>
+
+    @if (IsLoading)
+    {
+        <p>Loading...</p>
+    }
+    else if (CurrentPatient == null)
+    {
+         <div class="alert alert-warning">
+            Please <a href="patient/dashboard">complete your profile</a> first.
+        </div>
+    }
+    else
+    {
+        @if (ReportList.Count == 0)
+        {
+            <div class="alert alert-info">No reports found.</div>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Report Name</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var report in ReportList)
+                    {
+                        <tr>
+                            <td>@report.ReportDate.ToShortDateString()</td>
+                            <td>@report.ReportName</td>
+                            <td>@report.ReportType</td>
+                            <td>@report.Status</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" @onclick="() => DownloadReport(report)">Download PDF</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+</div>
+
+@code {
+    private bool IsLoading = true;
+    private Patient? CurrentPatient;
+    private List<Report> ReportList = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity?.IsAuthenticated ?? false)
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                CurrentPatient = PatientRepo.GetPatientByUserId(userId);
+                if (CurrentPatient != null)
+                {
+                    ReportList = ReportRepo.GetReportsByPatientId(CurrentPatient.PatientId);
+                }
+            }
+        }
+        IsLoading = false;
+    }
+
+    private void DownloadReport(Report report)
+    {
+        // Logic to download
+        // For now, simple alert or console
+    }
+}

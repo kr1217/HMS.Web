@@ -1,0 +1,90 @@
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using Radzen.Blazor
+@inject NotificationRepository NotificationRepo
+@inject PatientRepository PatientRepo
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="notification-panel" style="min-width: 250px;">
+    <div class="dropdown">
+        <button class="btn btn-link dropdown-toggle text-dark text-decoration-none" type="button"
+            id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+            <RadzenIcon Icon="notifications" />
+            @if (notifications != null && notifications.Any(n => !n.IsRead))
+            {
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                    @notifications.Count(n => !n.IsRead)
+                </span>
+            }
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="notificationDropdown"
+            style="width: 300px; max-height: 400px; overflow-y: auto;">
+            <li>
+                <h6 class="dropdown-header">Notifications</h6>
+            </li>
+            @if (notifications == null)
+            {
+                <li>
+                    <p class="dropdown-item text-muted">Loading...</p>
+                </li>
+            }
+            else if (!notifications.Any())
+            {
+                <li>
+                    <p class="dropdown-item text-muted">No new notifications.</p>
+                </li>
+            }
+            else
+            {
+                @foreach (var note in notifications)
+                {
+                    <li>
+                        <a href="patient/appointments" class="dropdown-item @(note.IsRead ? "" : "bg-light")">
+                            <div class="d-flex justify-content-between">
+                                <strong>@note.Title</strong>
+                                <small class="text-muted">@note.CreatedDate.ToShortDateString()</small>
+                            </div>
+                            <p class="mb-0 small text-wrap">@note.Message</p>
+                        </a>
+                    </li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+                }
+            }
+        </ul>
+    </div>
+</div>
+
+@code {
+    private List<Notification>? notifications;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationStateTask == null) return;
+
+        var authState = await AuthenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated ?? false)
+        {
+            var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                var patient = PatientRepo.GetPatientByUserId(userId);
+                if (patient != null)
+                {
+                    notifications = NotificationRepo.GetNotificationsByPatientId(patient.PatientId);
+                }
+                else
+                {
+                    notifications = new List<Notification>();
+                }
+            }
+        }
+    }
+}

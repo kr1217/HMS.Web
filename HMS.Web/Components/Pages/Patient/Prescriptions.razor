@@ -1,0 +1,73 @@
+@page "/patient/prescriptions"
+@using Microsoft.AspNetCore.Authorization
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject PatientRepository PatientRepo
+@inject PrescriptionRepository PrescriptionRepo
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<div class="container mt-4">
+    <h3>My Prescriptions</h3>
+
+    @if (IsLoading)
+    {
+        <p>Loading...</p>
+    }
+    else if (CurrentPatient == null)
+    {
+         <div class="alert alert-warning">
+            Please <a href="patient/dashboard">complete your profile</a> first.
+        </div>
+    }
+    else
+    {
+        <div class="row">
+        @foreach (var script in PrescriptionList)
+        {
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">@script.DoctorName</h5>
+                        <h6 class="card-subtitle mb-2 text-muted">@script.PrescribedDate.ToShortDateString()</h6>
+                        <p class="card-text"><strong>Details:</strong> @script.Details</p>
+                        <p class="card-text"><strong>Medications:</strong> @script.Medications</p>
+                        <button class="btn btn-outline-primary btn-sm">Download / QR</button>
+                    </div>
+                </div>
+            </div>
+        }
+        @if(PrescriptionList.Count == 0)
+        {
+            <div class="alert alert-info">No prescriptions found.</div>
+        }
+        </div>
+    }
+</div>
+
+@code {
+    private bool IsLoading = true;
+    private Patient? CurrentPatient;
+    private List<Prescription> PrescriptionList = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity?.IsAuthenticated ?? false)
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                CurrentPatient = PatientRepo.GetPatientByUserId(userId);
+                if (CurrentPatient != null)
+                {
+                    PrescriptionList = PrescriptionRepo.GetPrescriptionsByPatientId(CurrentPatient.PatientId);
+                }
+            }
+        }
+        IsLoading = false;
+    }
+}

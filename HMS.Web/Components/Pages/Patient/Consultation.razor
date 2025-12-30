@@ -1,0 +1,111 @@
+@page "/patient/consultation"
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject AppointmentRepository AppointmentRepo
+@inject PatientRepository PatientRepo
+@inject AuthenticationStateProvider AuthStateProvider
+
+<h3>Online Consultation</h3>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                Upcoming Video Consultations
+            </div>
+            <div class="card-body">
+                @if (appointments == null)
+                {
+                    <p>Loading...</p>
+                }
+                else if (!appointments.Any(a => a.AppointmentMode == "Online"))
+                {
+                    <p>No upcoming online consultations.</p>
+                    <a href="/patient/appointments" class="btn btn-outline-primary">Book Consultation</a>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Doctor</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var appt in appointments.Where(a => a.AppointmentMode == "Online"))
+                                {
+                                    <tr>
+                                        <td>@appt.AppointmentDate.ToString("g")</td>
+                                        <td>@appt.DoctorName</td>
+                                        <td><span class="badge bg-info">@appt.Status</span></td>
+                                        <td>
+                                            @if (appt.Status == "Confirmed")
+                                            {
+                                                <button class="btn btn-success btn-sm" @onclick="JoinConsultation">Join Call <span class="oi oi-camera-slr"></span></button>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Waiting for confirmation</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+         <div class="card">
+            <div class="card-header">
+                Digital Prescriptions
+            </div>
+             <div class="card-body">
+                 <p>Prescriptions will appear here after your call.</p>
+                 <a href="/patient/prescriptions" class="btn btn-link">View All History</a>
+             </div>
+         </div>
+    </div>
+</div>
+
+@code {
+    private List<Appointment>? appointments;
+    private Patient? patient;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                patient = PatientRepo.GetPatientByUserId(userId);
+                if (patient != null)
+                {
+                    appointments = AppointmentRepo.GetAppointmentsByPatientId(patient.PatientId);
+                }
+            }
+        }
+    }
+
+    private void JoinConsultation()
+    {
+        // Mock logic for joining a video call
+        // In a real app, this would redirect to a WebRTC room or Zoom integration
+    }
+}

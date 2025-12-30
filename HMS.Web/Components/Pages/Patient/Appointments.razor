@@ -1,0 +1,172 @@
+@page "/patient/appointments"
+@using Microsoft.AspNetCore.Authorization
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject PatientRepository PatientRepo
+@inject AppointmentRepository ApptRepo
+@inject NotificationRepository NotificationRepo
+@inject NavigationManager Nav
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<div class="container mt-4">
+    <h3>Appointments</h3>
+
+    @if (IsLoading)
+    {
+        <p>Loading...</p>
+    }
+    else if (CurrentPatient == null)
+    {
+        <div class="alert alert-warning">
+            Please <a href="patient/dashboard">complete your profile</a> first.
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">Book New Appointment</div>
+                    <div class="card-body">
+                        <EditForm Model="NewAppointment" OnValidSubmit="BookAppointment" FormName="BookApptForm">
+                            <DataAnnotationsValidator />
+
+                            <div class="mb-3">
+                                <label class="form-label">Select Doctor</label>
+                                <InputSelect @bind-Value="NewAppointment.DoctorId" class="form-control">
+                                    <option value="0">-- Select Doctor --</option>
+                                    @foreach (var doc in Doctors)
+                                    {
+                                        <option value="@doc.DoctorId">@doc.FullName (@doc.DepartmentName)</option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Date</label>
+                                <InputDate @bind-Value="NewAppointment.AppointmentDate" class="form-control"
+                                    Type="InputDateType.DateTimeLocal" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Mode</label>
+                                <InputSelect @bind-Value="NewAppointment.AppointmentMode" class="form-control">
+                                    <option value="Physical">Physical Visit</option>
+                                    <option value="Online">Online Consultation</option>
+                                </InputSelect>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Reason</label>
+                                <InputTextArea @bind-Value="NewAppointment.Reason" class="form-control" />
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Book Appointment</button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">My Appointments</div>
+                    <div class="card-body">
+                        @if (AppointmentList.Count == 0)
+                        {
+                            <p>No appointments found.</p>
+                        }
+                        else
+                        {
+                            <ul class="list-group">
+                                @foreach (var appt in AppointmentList)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>@appt.DoctorName</strong> (@appt.DepartmentName)<br />
+                                            <small class="text-muted">@appt.AppointmentDate.ToString("g") -
+                                                @appt.AppointmentMode</small><br />
+                                            <span>@appt.Reason</span>
+                                        </div>
+                                        <span class="badge @GetStatusBadge(appt.Status)">@appt.Status</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool IsLoading = true;
+    private Patient? CurrentPatient;
+    private Appointment NewAppointment = new Appointment
+        {
+            AppointmentDate = DateTime.Now.AddDays(1),
+            AppointmentMode =
+        "Physical"
+        };
+    private List<Appointment> AppointmentList = new();
+    private List<Doctor> Doctors = new();
+    private string? UserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity?.IsAuthenticated ?? false)
+        {
+            UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (UserId != null)
+            {
+                CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
+                if (CurrentPatient != null)
+                {
+                    AppointmentList = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
+                    Doctors = ApptRepo.GetDoctors();
+                }
+            }
+        }
+        IsLoading = false;
+    }
+
+    private void BookAppointment()
+    {
+        if (NewAppointment.DoctorId == 0) return; // Validation
+
+        NewAppointment.PatientId = CurrentPatient!.PatientId;
+        ApptRepo.CreateAppointment(NewAppointment);
+
+        // Notify Doctor
+        NotificationRepo.CreateNotification(new Notification
+            {
+                DoctorId = NewAppointment.DoctorId,
+                Title = "New Appointment Request",
+                Message = $"You have a new appointment request from {CurrentPatient.FullName} for {NewAppointment.AppointmentDate:f}.",
+                CreatedDate = DateTime.Now,
+                IsRead = false
+            });
+
+        // Refresh
+        AppointmentList = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
+        NewAppointment = new Appointment { AppointmentDate = DateTime.Now.AddDays(1), AppointmentMode = "Physical" }; // Reset
+    }
+
+    private string GetStatusBadge(string status)
+    {
+        return status switch
+        {
+            "Confirmed" => "bg-success",
+            "Approved" => "bg-success",
+            "Pending" => "bg-warning",
+            "Cancelled" => "bg-danger",
+            "Rejected" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+}

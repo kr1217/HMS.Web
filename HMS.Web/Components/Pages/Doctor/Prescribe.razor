@@ -1,0 +1,257 @@
+@page "/Doctor/Prescribe/{PatientId:int}"
+@using Microsoft.AspNetCore.Authorization
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using HMS.Web.Data
+@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims
+@using System.Text.Json
+@attribute [Authorize(Roles = "Doctor")]
+@inject DoctorRepository DoctorRepo
+@inject AppointmentRepository AppointmentRepo
+@inject PrescriptionRepository PrescriptionRepo
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Nav
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Write Prescription</h2>
+            @if (!string.IsNullOrEmpty(PatientName))
+            {
+                <div class="text-muted">For Patient: <span class="fw-bold text-dark">@PatientName</span> (ID: @PatientId)</div>
+            }
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="GoBack">
+            <i class="bi bi-arrow-left me-1"></i> Back
+        </button>
+    </div>
+
+    @if (CurrentDoctor == null)
+    {
+        <div class="alert alert-warning">Loading doctor profile...</div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white pt-3 border-bottom-0">
+                        <h5 class="mb-0">Medications</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Add Medicine Form -->
+                        <div class="row g-2 align-items-end mb-4 p-3 bg-light rounded">
+                            <div class="col-md-3">
+                                <label class="small text-muted mb-1">Medicine Name</label>
+                                <input @bind="NewMed.Name" class="form-control form-control-sm" placeholder="e.g. Panadol" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="small text-muted mb-1">Dosage</label>
+                                <input @bind="NewMed.Dosage" class="form-control form-control-sm" placeholder="500mg" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="small text-muted mb-1">Frequency</label>
+                                <input @bind="NewMed.Frequency" class="form-control form-control-sm" placeholder="1-0-1" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="small text-muted mb-1">Duration</label>
+                                <input @bind="NewMed.Duration" class="form-control form-control-sm" placeholder="5 days" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="small text-muted mb-1">Instructions</label>
+                                <input @bind="NewMed.Instructions" class="form-control form-control-sm" placeholder="After meal" />
+                            </div>
+                            <div class="col-md-1">
+                                <button class="btn btn-primary btn-sm w-100" @onclick="AddMedicine" disabled="@string.IsNullOrWhiteSpace(NewMed.Name)">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Medicines List -->
+                        @if (MedicationsList.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Medicine</th>
+                                            <th>Dosage</th>
+                                            <th>Frequency</th>
+                                            <th>Duration</th>
+                                            <th>Instructions</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var med in MedicationsList)
+                                        {
+                                            <tr>
+                                                <td class="fw-bold">@med.Name</td>
+                                                <td>@med.Dosage</td>
+                                                <td>@med.Frequency</td>
+                                                <td>@med.Duration</td>
+                                                <td>@med.Instructions</td>
+                                                <td>
+                                                    <button class="btn btn-outline-danger btn-sm border-0" @onclick="() => RemoveMedicine(med)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-3">
+                                <p>No medications added yet.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white pt-3 border-bottom-0">
+                        <h5 class="mb-0">Additional Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Diagnosis / Notes</label>
+                            <textarea @bind="PrescriptionDetails" class="form-control" rows="4" placeholder="Enter diagnosis, symptoms, or other clinical notes..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button class="btn btn-secondary" @onclick="GoBack">Cancel</button>
+                    <button class="btn btn-primary px-4" @onclick="SavePrescription" disabled="@(!MedicationsList.Any() && string.IsNullOrWhiteSpace(PrescriptionDetails))">
+                        <i class="bi bi-save me-2"></i>Save Prescription
+                    </button>
+                </div>
+            </div>
+
+            <!-- Patient History Sidebar (Optional Future Feature) -->
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm bg-light">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-3">Recent Appointments</h6>
+                        @if (PatientAppointments.Any())
+                        {
+                            <ul class="list-unstyled">
+                                @foreach (var appt in PatientAppointments.Take(5))
+                                {
+                                    <li class="mb-2 pb-2 border-bottom border-light">
+                                        <div class="fw-bold small">@appt.AppointmentDate.ToShortDateString()</div>
+                                        <div class="small text-muted">@appt.Reason</div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <small class="text-muted">No history available.</small>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int PatientId { get; set; }
+
+    private Doctor? CurrentDoctor;
+    private ApplicationUser? User;
+    private string PatientName = "";
+    private List<Appointment> PatientAppointments = new();
+
+    // UI Model for Medicine
+    public class MedicineItem
+    {
+        public string Name { get; set; } = "";
+        public string Dosage { get; set; } = "";
+        public string Frequency { get; set; } = "";
+        public string Duration { get; set; } = "";
+        public string Instructions { get; set; } = "";
+    }
+
+    private MedicineItem NewMed = new();
+    private List<MedicineItem> MedicationsList = new();
+    private string PrescriptionDetails = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userClaims = authState.User;
+
+        if (userClaims.Identity?.IsAuthenticated == true)
+        {
+            var userId = UserManager.GetUserId(userClaims);
+            if (!string.IsNullOrEmpty(userId))
+            {
+                CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+            }
+        }
+
+        if (CurrentDoctor != null)
+        {
+            // Fetch patient history to get name (Hack until PatientRepo has GetById)
+            PatientAppointments = AppointmentRepo.GetAppointmentsByPatientId(PatientId);
+            var firstAppt = PatientAppointments.FirstOrDefault();
+            if (firstAppt != null)
+            {
+                PatientName = firstAppt.PatientName; // Assuming Join populates this
+            }
+        }
+    }
+
+    private void AddMedicine()
+    {
+        if (!string.IsNullOrWhiteSpace(NewMed.Name))
+        {
+            MedicationsList.Add(new MedicineItem
+            {
+                Name = NewMed.Name,
+                Dosage = NewMed.Dosage,
+                Frequency = NewMed.Frequency,
+                Duration = NewMed.Duration,
+                Instructions = NewMed.Instructions
+            });
+            NewMed = new MedicineItem(); // Reset
+        }
+    }
+
+    private void RemoveMedicine(MedicineItem item)
+    {
+        MedicationsList.Remove(item);
+    }
+
+    private void SavePrescription()
+    {
+        if (CurrentDoctor == null) return;
+
+        var prescription = new Prescription
+        {
+            PatientId = PatientId,
+            DoctorId = CurrentDoctor.DoctorId,
+            PrescribedDate = DateTime.Now,
+            Details = PrescriptionDetails,
+            Medications = JsonSerializer.Serialize(MedicationsList),
+            IsLocked = true // Lock immediately for now
+        };
+
+        PrescriptionRepo.CreatePrescription(prescription);
+        Nav.NavigateTo("/Doctor/Dashboard");
+    }
+
+    private void GoBack()
+    {
+        Nav.NavigateTo("/Doctor/Dashboard");
+    }
+}

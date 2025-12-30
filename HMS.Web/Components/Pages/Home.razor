@@ -1,0 +1,54 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using HMS.Web.Data
+@using HMS.Web.DAL
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>Home</PageTitle>
+
+<h1>Hello, world!</h1>
+
+<p>Welcome to Hospital Management System.</p>
+
+<AuthorizeView>
+    <Authorized>
+        <p>Redirecting to Dashboard...</p>
+    </Authorized>
+    <NotAuthorized>
+        <p>Please <a href="Account/Login">Login</a> to access the Patient Portal.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated ?? false)
+        {
+            var appUser = await UserManager.GetUserAsync(user);
+            if (appUser != null)
+            {
+                // Refresh roles from DB to avoid claim-caching issues
+                var roles = await UserManager.GetRolesAsync(appUser);
+
+                if (roles.Contains("Doctor"))
+                {
+                    NavigationManager.NavigateTo("Doctor/Dashboard", true); // Force load
+                }
+                else if (roles.Contains("Patient"))
+                {
+                    NavigationManager.NavigateTo("patient/dashboard", true); // Force load
+                }
+                else
+                {
+                    NavigationManager.NavigateTo("patient/dashboard", true);
+                }
+            }
+        }
+    }
+}

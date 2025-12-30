@@ -1,0 +1,109 @@
+@page "/patient/support"
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject SupportRepository SupportRepo
+@inject PatientRepository PatientRepo
+@inject AuthenticationStateProvider AuthStateProvider
+
+<h3>Support Center</h3>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Open a New Ticket</div>
+            <div class="card-body">
+                <EditForm Model="newTicket" OnValidSubmit="HandleSubmit">
+                    <div class="mb-3">
+                        <label>Subject</label>
+                        <InputText class="form-control" @bind-Value="newTicket.Subject" />
+                    </div>
+                    <div class="mb-3">
+                        <label>Message</label>
+                        <InputTextArea class="form-control" @bind-Value="newTicket.Message" rows="4" />
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit Ticket</button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <h5>Your Tickets</h5>
+        @if (tickets == null)
+        {
+            <p>Loading...</p>
+        }
+        else if (!tickets.Any())
+        {
+            <p>No support tickets found.</p>
+        }
+        else
+        {
+            <div class="list-group">
+                @foreach (var tick in tickets)
+                {
+                    <div class="list-group-item">
+                         <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">@tick.Subject</h5>
+                            <small>@tick.CreatedDate.ToShortDateString()</small>
+                         </div>
+                         <p class="mb-1">@tick.Message</p>
+                         <small>Status: <span class="badge bg-secondary">@tick.Status</span></small>
+                         @if(!string.IsNullOrEmpty(tick.Response))
+                         {
+                             <div class="alert alert-info mt-2">
+                                 <strong>Response:</strong> @tick.Response
+                             </div>
+                         }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private SupportTicket newTicket = new SupportTicket();
+    private List<SupportTicket>? tickets;
+    private Patient? patient;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var authState = await AuthenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                patient = PatientRepo.GetPatientByUserId(userId);
+                if (patient != null)
+                {
+                    tickets = SupportRepo.GetTicketsByPatientId(patient.PatientId);
+                }
+            }
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (patient != null)
+        {
+            newTicket.PatientId = patient.PatientId;
+            SupportRepo.CreateTicket(newTicket);
+            newTicket = new SupportTicket(); // Reset
+            await LoadData(); // Refresh list
+        }
+    }
+}

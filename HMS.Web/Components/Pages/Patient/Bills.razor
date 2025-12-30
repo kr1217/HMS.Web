@@ -1,0 +1,85 @@
+@page "/patient/bills"
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject BillingRepository BillRepo
+@inject PatientRepository PatientRepo
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
+
+<h3>My Bills & Payments</h3>
+
+@if (bills == null)
+{
+    <p>Loading payments...</p>
+}
+else if (!bills.Any())
+{
+    <div class="alert alert-info">
+        No bills or payment history found for your account.
+    </div>
+}
+else
+{
+    <div class="row">
+        @foreach (var bill in bills)
+        {
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                    Invoice #@bill.BillId</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">$@bill.TotalAmount</div>
+                                <div class="mt-2">
+                                    <span class="badge @(bill.Status == "Paid" ? "bg-success" : "bg-warning")">@bill.Status</span>
+                                </div>
+                                <small class="text-muted">@bill.BillDate.ToShortDateString()</small>
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => DownloadInvoice(bill.BillId)">
+                                    Download <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<Bill>? bills;
+    private Patient? patient;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                patient = PatientRepo.GetPatientByUserId(userId);
+                if (patient != null)
+                {
+                    bills = BillRepo.GetBillsByPatientId(patient.PatientId);
+                }
+            }
+        }
+    }
+
+    private void DownloadInvoice(int id)
+    {
+        // Mock download
+        JS.InvokeVoidAsync("alert", $"Downloading Invoice #{id}...");
+    }
+}
