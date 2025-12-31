@@ -3,9 +3,11 @@
 @using HMS.Web.DAL
 @using HMS.Web.Models
 @using System.Security.Claims
+@using System.Text.Json
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject PatientRepository PatientRepo
 @inject PrescriptionRepository PrescriptionRepo
+@inject IJSRuntime JS
 @attribute [Authorize]
 @rendermode InteractiveServer
 
@@ -18,39 +20,119 @@
     }
     else if (CurrentPatient == null)
     {
-         <div class="alert alert-warning">
+        <div class="alert alert-warning">
             Please <a href="patient/dashboard">complete your profile</a> first.
         </div>
     }
     else
     {
         <div class="row">
-        @foreach (var script in PrescriptionList)
-        {
-            <div class="col-md-6 mb-3">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">@script.DoctorName</h5>
-                        <h6 class="card-subtitle mb-2 text-muted">@script.PrescribedDate.ToShortDateString()</h6>
-                        <p class="card-text"><strong>Details:</strong> @script.Details</p>
-                        <p class="card-text"><strong>Medications:</strong> @script.Medications</p>
-                        <button class="btn btn-outline-primary btn-sm">Download / QR</button>
+            @foreach (var script in PrescriptionList)
+            {
+                <div class="col-md-6 mb-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h5 class="card-title text-primary mb-1">Dr. @script.DoctorName</h5>
+                                    <h6 class="card-subtitle text-muted">@script.PrescribedDate.ToShortDateString()</h6>
+                                </div>
+                                <span class="badge bg-success">Prescribed</span>
+                            </div>
+
+                            <p class="card-text text-truncate" style="max-height: 3em;"><strong>Notes:</strong> @script.Details
+                            </p>
+
+                            <button class="btn btn-outline-primary btn-sm w-100 mt-2" @onclick="() => ViewPrescription(script)">
+                                <i class="bi bi-eye me-1"></i> View & Download
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        }
-        @if(PrescriptionList.Count == 0)
-        {
-            <div class="alert alert-info">No prescriptions found.</div>
-        }
+            }
+            @if (PrescriptionList.Count == 0)
+            {
+                <div class="col-12">
+                    <div class="alert alert-info">No prescriptions found.</div>
+                </div>
+            }
         </div>
     }
 </div>
+
+@if (SelectedPrescription != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Prescription Details</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between border-bottom pb-2 mb-3">
+                        <div>
+                            <strong>Dr. @SelectedPrescription.DoctorName</strong>
+                            <br />
+                            <small class="text-muted">@SelectedPrescription.PrescribedDate.ToLongDateString()</small>
+                        </div>
+                        <div class="text-end">
+                            <strong>Patient:</strong> @CurrentPatient?.FullName
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold mt-3">Medications</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Medicine</th>
+                                    <th>Dosage</th>
+                                    <th>Frequency</th>
+                                    <th>Duration</th>
+                                    <th>Instructions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var med in GetMedications(SelectedPrescription.Medications))
+                                {
+                                    <tr>
+                                        <td>@med.Name</td>
+                                        <td>@med.Dosage</td>
+                                        <td>@med.Frequency</td>
+                                        <td>@med.Duration</td>
+                                        <td>@med.Instructions</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(SelectedPrescription.Details))
+                    {
+                        <div class="mt-3">
+                            <h6 class="fw-bold">Notes</h6>
+                            <p class="bg-light p-2 rounded">@SelectedPrescription.Details</p>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
+                    <a href="/patient/prescription/print/@SelectedPrescription.PrescriptionId" target="_blank"
+                        class="btn btn-primary">
+                        <i class="bi bi-printer me-1"></i> Print / Download
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private bool IsLoading = true;
     private Patient? CurrentPatient;
     private List<Prescription> PrescriptionList = new();
+    private Prescription? SelectedPrescription;
 
     protected override async Task OnInitializedAsync()
     {
@@ -69,5 +151,29 @@
             }
         }
         IsLoading = false;
+    }
+
+    private void ViewPrescription(Prescription p)
+    {
+        SelectedPrescription = p;
+    }
+
+    private void CloseModal()
+    {
+        SelectedPrescription = null;
+    }
+
+    private List<PrescriptionMedication> GetMedications(string json)
+    {
+        if (string.IsNullOrEmpty(json)) return new List<PrescriptionMedication>();
+        try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return JsonSerializer.Deserialize<List<PrescriptionMedication>>(json, options) ?? new List<PrescriptionMedication>();
+        }
+        catch
+        {
+            return new List<PrescriptionMedication>();
+        }
     }
 }

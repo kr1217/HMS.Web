@@ -54,6 +54,47 @@ namespace HMS.Web.DAL
             return null;
         }
 
+        public Patient? GetPatientById(int patientId)
+        {
+            string query = "SELECT * FROM Patients WHERE PatientId = @PatientId";
+            var parameters = new[] { new SqlParameter("@PatientId", patientId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+
+            if (table != null && table.Rows.Count > 0)
+            {
+                var row = table.Rows[0];
+                return new Patient
+                {
+                    PatientId = (int)row["PatientId"],
+                    UserId = row["UserId"]?.ToString() ?? "",
+                    FullName = row["FullName"]?.ToString() ?? "",
+                    DateOfBirth = row["DateOfBirth"] == DBNull.Value ? null : (DateTime?)row["DateOfBirth"],
+                    Gender = row["Gender"]?.ToString() ?? "",
+                    ContactNumber = row["ContactNumber"]?.ToString() ?? "",
+                    Address = row["Address"]?.ToString() ?? "",
+                    CNIC = row["CNIC"]?.ToString() ?? "",
+                    BloodGroup = row["BloodGroup"]?.ToString() ?? "",
+                    MaritalStatus = row["MaritalStatus"]?.ToString() ?? "",
+                    EmergencyContactName = row["EmergencyContactName"]?.ToString() ?? "",
+                    EmergencyContactNumber = row["EmergencyContactNumber"]?.ToString() ?? "",
+                    RelationshipToEmergencyContact = row["RelationshipToEmergencyContact"]?.ToString() ?? "",
+                    Allergies = row["Allergies"] == DBNull.Value ? null : row["Allergies"]?.ToString(),
+                    ChronicDiseases = row["ChronicDiseases"] == DBNull.Value ? null : row["ChronicDiseases"]?.ToString(),
+                    CurrentMedications = row["CurrentMedications"] == DBNull.Value ? null : row["CurrentMedications"]?.ToString(),
+                    DisabilityStatus = row["DisabilityStatus"] == DBNull.Value ? null : row["DisabilityStatus"]?.ToString(),
+                    RegistrationDate = row["RegistrationDate"] == DBNull.Value ? DateTime.Now : (DateTime)row["RegistrationDate"],
+                    IsActive = row["IsActive"] == DBNull.Value ? true : (bool)row["IsActive"],
+                    PatientType = row["PatientType"] == DBNull.Value ? null : row["PatientType"]?.ToString(),
+                    Email = row["Email"] == DBNull.Value ? null : row["Email"]?.ToString(),
+                    City = row["City"] == DBNull.Value ? null : row["City"]?.ToString(),
+                    Country = row["Country"] == DBNull.Value ? null : row["Country"]?.ToString(),
+                    LastVisitDate = row["LastVisitDate"] == DBNull.Value ? null : (DateTime?)row["LastVisitDate"],
+                    PrimaryDoctorId = row["PrimaryDoctorId"] == DBNull.Value ? null : row["PrimaryDoctorId"]?.ToString()
+                };
+            }
+            return null;
+        }
+
         public void CreatePatient(Patient patient)
         {
             string query = @"INSERT INTO Patients (UserId, FullName, DateOfBirth, Gender, ContactNumber, Address, CNIC, BloodGroup, MaritalStatus, 
@@ -503,6 +544,18 @@ namespace HMS.Web.DAL
                 }
             }
             return list;
+        }
+
+        public Prescription? GetPrescriptionById(int prescriptionId)
+        {
+            string query = "SELECT p.*, d.FullName as DoctorName FROM Prescriptions p JOIN Doctors d ON p.DoctorId = d.DoctorId WHERE PrescriptionId = @PrescriptionId";
+            var parameters = new[] { new SqlParameter("@PrescriptionId", prescriptionId) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            if (table != null && table.Rows.Count > 0)
+            {
+                return MapPrescription(table.Rows[0]);
+            }
+            return null;
         }
 
         public void CreatePrescription(Prescription p)

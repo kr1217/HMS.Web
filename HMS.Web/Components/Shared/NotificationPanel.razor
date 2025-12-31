@@ -2,6 +2,7 @@
 @using HMS.Web.Models
 @using Microsoft.AspNetCore.Components.Authorization
 @using Radzen.Blazor
+@using System
 @inject NotificationRepository NotificationRepo
 @inject PatientRepository PatientRepo
 @inject AuthenticationStateProvider AuthStateProvider
@@ -40,7 +41,14 @@
                 @foreach (var note in notifications)
                 {
                     <li>
-                        <a href="patient/appointments" class="dropdown-item @(note.IsRead ? "" : "bg-light")">
+                        @{
+                            string link = "patient/appointments";
+                            if (note.Title.Contains("Prescription", StringComparison.OrdinalIgnoreCase))
+                            {
+                                link = "patient/prescriptions";
+                            }
+                        }
+                        <a href="@link" class="dropdown-item @(note.IsRead ? "" : "bg-light")">
                             <div class="d-flex justify-content-between">
                                 <strong>@note.Title</strong>
                                 <small class="text-muted">@note.CreatedDate.ToShortDateString()</small>

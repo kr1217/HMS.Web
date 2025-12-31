@@ -253,4 +253,13 @@ namespace HMS.Web.Models
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public bool IsRead { get; set; } = false;
     }
+
+    public class PrescriptionMedication
+    {
+        public string Name { get; set; } = "";
+        public string Dosage { get; set; } = "";
+        public string Frequency { get; set; } = "";
+        public string Duration { get; set; } = "";
+        public string Instructions { get; set; } = "";
+    }
 }

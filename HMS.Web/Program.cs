@@ -85,4 +85,7 @@ app.MapRazorComponents<App>()
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
 
+// Initialize Database
+HMS.Web.Data.DbInitializer.Initialize(app.Services);
+
 app.Run();

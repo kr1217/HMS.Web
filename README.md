@@ -69,3 +69,14 @@ A modern, full-stack **Blazor Web App** implemented with **.NET 8+** (Interactiv
 
 ---
 *Created by [kr1217](https://github.com/kr1217)*
+
+## 🔄 Recent Updates
+*   **Prescription Management**:
+    *   Fixed "Save Prescription" button interactivity.
+    *   Enabled "Cancel" button functionality in the prescription form.
+*   **Appointment Flow**:
+    *   Validated end-to-end appointment approval process.
+    *   Enhanced doctor dashboard interactivity.
+*   **Shift Management**:
+    *   Implemented logic for doctors to add and manage shifts.
+    *   Integrated shift validation with appointment booking.
