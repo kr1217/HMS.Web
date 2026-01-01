@@ -179,6 +179,9 @@
     [Parameter]
     public int PatientId { get; set; }
 
+    [SupplyParameterFromQuery]
+    public int? AppointmentId { get; set; }
+
     private Doctor? CurrentDoctor;
     private string PatientName = "";
     private List<Appointment> PatientAppointments = new();
@@ -256,24 +259,32 @@
             {
                 PatientId = PatientId,
                 DoctorId = CurrentDoctor.DoctorId,
+                AppointmentId = AppointmentId,
                 PrescribedDate = DateTime.Now,
                 Details = PrescriptionDetails,
                 Medications = JsonSerializer.Serialize(MedicationsList),
-                IsLocked = true
+                IsLocked = true,
+                DigitalSignature = $"Digitally Signed by Dr. {CurrentDoctor.FullName} ({CurrentDoctor.MedicalLicenseNumber}) on {DateTime.Now:yyyy-MM-dd HH:mm:ss}"
             };
 
         PrescriptionRepo.CreatePrescription(prescription);
 
-        NotificationRepo.CreateNotification(new Notification
-            {
-                PatientId = PatientId,
-                Title = "New Prescription Available",
-                Message = $"Dr. {CurrentDoctor.FullName} has issued a new prescription. Check your prescriptions for details.",
-                CreatedDate = DateTime.Now,
-                IsRead = false
-            });
+        // Mark appointment as Completed if linked
+        if (AppointmentId.HasValue)
+        {
+             AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
+        }
 
-        Nav.NavigateTo("/Doctor/Dashboard");
+        NotificationRepo.CreateNotification(new Notification
+        {
+            PatientId = PatientId,
+            Title = "New Prescription",
+            Message = $"Dr. {CurrentDoctor.FullName} has issued a new prescription for you.",
+            CreatedDate = DateTime.Now,
+            IsRead = false
+        });
+
+        Nav.NavigateTo("/Doctor/Dashboard?tab=patients");
     }
 
     private void GoBack()

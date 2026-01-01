@@ -41,7 +41,29 @@ namespace HMS.Web.Data
                         [IsRead] [bit] NOT NULL DEFAULT 0
                     )
                 END";
+
             db.ExecuteNonQuery(createNotifications);
+
+            var updatePatientOperations = @"
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[PatientOperations]') AND name = 'DoctorId')
+                BEGIN
+                    ALTER TABLE [dbo].[PatientOperations] ADD [DoctorId] [int] NOT NULL DEFAULT 0;
+                END
+
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[PatientOperations]') AND name = 'Urgency')
+                BEGIN
+                    ALTER TABLE [dbo].[PatientOperations] ADD [Urgency] [nvarchar](50) NULL;
+                END
+
+                -- Allow NULL PackageId for Custom Operations
+                ALTER TABLE [dbo].[PatientOperations] ALTER COLUMN [PackageId] [int] NULL;
+
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[PatientOperations]') AND name = 'OperationName')
+                BEGIN
+                    ALTER TABLE [dbo].[PatientOperations] ADD [OperationName] [nvarchar](255) NULL;
+                END
+                ";
+            db.ExecuteNonQuery(updatePatientOperations);
         }
     }
 }

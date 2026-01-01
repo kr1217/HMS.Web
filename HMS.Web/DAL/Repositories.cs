@@ -1,5 +1,6 @@
 using HMS.Web.Models;
 using Microsoft.Data.SqlClient;
+using System;
 using System.Data;
 
 namespace HMS.Web.DAL
@@ -292,8 +293,8 @@ namespace HMS.Web.DAL
                 DepartmentId = (int)row["DepartmentId"],
                 DepartmentName = row["DepartmentName"]?.ToString() ?? "",
                 HospitalJoiningDate = (DateTime)row["HospitalJoiningDate"],
-                ConsultationFee = (decimal)row["ConsultationFee"],
-                FollowUpFee = (decimal)row["FollowUpFee"],
+                ConsultationFee = row["ConsultationFee"] != DBNull.Value ? (decimal)row["ConsultationFee"] : 0,
+                FollowUpFee = row["FollowUpFee"] != DBNull.Value ? (decimal)row["FollowUpFee"] : 0,
                 AvailableDays = row["AvailableDays"]?.ToString() ?? "",
                 AvailableTimeSlots = row["AvailableTimeSlots"]?.ToString() ?? "",
                 RoomNumber = row["RoomNumber"]?.ToString() ?? "",
@@ -404,6 +405,7 @@ namespace HMS.Web.DAL
                         FullName = row["FullName"]?.ToString() ?? "",
                         DepartmentId = (int)row["DepartmentId"],
                         DepartmentName = row["DepartmentName"]?.ToString() ?? "",
+                        ConsultationFee = row["ConsultationFee"] != DBNull.Value ? (decimal)row["ConsultationFee"] : 0,
                         IsAvailable = (bool)row["IsAvailable"]
                     });
                 }
@@ -675,6 +677,24 @@ namespace HMS.Web.DAL
                 }
             }
             return list;
+        }
+
+        public void CreatePatientOperation(PatientOperation op)
+        {
+            string query = @"INSERT INTO PatientOperations (PatientId, PackageId, Status, ScheduledDate, Notes, DoctorId, Urgency, OperationName) 
+                             VALUES (@PatientId, @PackageId, @Status, @ScheduledDate, @Notes, @DoctorId, @Urgency, @OperationName)";
+            var parameters = new[]
+            {
+                new SqlParameter("@PatientId", op.PatientId),
+                new SqlParameter("@PackageId", (object?)op.PackageId ?? DBNull.Value),
+                new SqlParameter("@Status", op.Status),
+                new SqlParameter("@ScheduledDate", op.ScheduledDate),
+                new SqlParameter("@Notes", (object?)op.Notes ?? DBNull.Value),
+                new SqlParameter("@DoctorId", op.DoctorId),
+                new SqlParameter("@Urgency", (object?)op.Urgency ?? DBNull.Value),
+                new SqlParameter("@OperationName", op.PackageName) // Use PackageName property as OperationName
+            };
+            _db.ExecuteNonQuery(query, parameters);
         }
     }
 

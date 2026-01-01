@@ -147,8 +147,13 @@
                     <a href="/Doctor/Dashboard?tab=patients" class="list-group-item list-group-item-action @(ActiveTab == "patients" ? "active" : "")">
                         <i class="bi bi-people me-2"></i> My Patients
                     </a>
+                    <a href="/Doctor/Dashboard?tab=profile" class="list-group-item list-group-item-action @(ActiveTab == "profile" ? "active" : "")">
+                        <i class="bi bi-person-lines-fill me-2"></i> My Profile
+                    </a>
                 </div>
             </div>
+
+
 
             <!-- Main Content -->
             <div class="col-lg-9">
@@ -158,22 +163,28 @@
                         <div class="col-12">
                             <h2 class="mb-3 fw-bold">Doctor Dashboard</h2>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="card border-0 shadow-sm bg-info text-white p-3 mb-3">
                                 <div class="small fw-bold">Active Cases</div>
-                                <div class="fs-2 fw-bold">12</div>
+                                <div class="fs-2 fw-bold">@AllAppointments.Count(a => a.Status == "Pending" || a.Status == "Approved")</div>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="card border-0 shadow-sm bg-success text-white p-3 mb-3">
                                 <div class="small fw-bold">Completed Today</div>
                                 <div class="fs-2 fw-bold">@TodayAppointments.Count(a => a.Status == "Completed")</div>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="card border-0 shadow-sm bg-warning text-dark p-3 mb-3">
                                 <div class="small fw-bold">Revenue Today</div>
                                 <div class="fs-2 fw-bold">@((TodayAppointments.Count(a => a.Status == "Completed") * CurrentDoctor.ConsultationFee).ToString("C0"))</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                             <div class="card border-0 shadow-sm bg-primary text-white p-3 mb-3">
+                                <div class="small fw-bold">Total Revenue</div>
+                                <div class="fs-2 fw-bold">@((AllAppointments.Count(a => a.Status == "Completed") * CurrentDoctor.ConsultationFee).ToString("C0"))</div>
                             </div>
                         </div>
                     </div>
@@ -253,7 +264,11 @@
                                                         <span class="badge @(appt.Status == "Approved" ? "bg-success" : "bg-primary")">@appt.Status</span>
                                                     </td>
                                                     <td>
-                                                        <button class="btn btn-sm btn-outline-primary">View</button>
+                                                        <div class="btn-group btn-group-sm">
+                                                            <button class="btn btn-outline-primary" @onclick="() => NavigateToPrescription(appt.PatientId, appt.AppointmentId)">
+                                                                <i class="bi bi-pencil-square"></i> Prescribe
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             }
@@ -481,6 +496,9 @@
                                                 <button class="btn btn-outline-danger btn-sm" @onclick="() => ShowRejectModal(appt)">
                                                     <i class="bi bi-x-lg me-1"></i>Reject
                                                 </button>
+                                                <button class="btn btn-outline-warning btn-sm" @onclick="() => ShowRescheduleModal(appt)">
+                                                    <i class="bi bi-clock me-1"></i>Reschedule
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -522,8 +540,14 @@
                                             </div>
                                             
                                             <div class="d-flex gap-2">
-                                                <button class="btn btn-outline-primary flex-grow-1" @onclick="() => NavigateToPrescription(patient.PatientId)">
+                                                <button class="btn btn-outline-primary flex-grow-1" @onclick="() => NavigateToPrescription(patient.PatientId, null)">
                                                     <i class="bi bi-file-medical me-2"></i>Prescribe
+                                                </button>
+                                                <button class="btn btn-outline-info flex-grow-1" @onclick="() => NavigateToReport(patient.PatientId, patient.AppointmentId)">
+                                                    <i class="bi bi-upload me-2"></i>Report
+                                                </button>
+                                                <button class="btn btn-outline-danger flex-grow-1" @onclick="() => NavigateToOperation(patient.PatientId, patient.AppointmentId)">
+                                                    <i class="bi bi-activity me-2"></i>Op
                                                 </button>
                                             </div>
                                         </div>
@@ -531,6 +555,98 @@
                                 </div>
                             }
                         }
+                    </div>
+                }
+                else if (ActiveTab == "profile")
+                {
+                     <div class="row">
+                        <div class="col-md-9">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-white border-bottom-0 pt-3">
+                                    <h5 class="mb-0">Edit Profile</h5>
+                                </div>
+                                <div class="card-body">
+                                    <EditForm Model="CurrentDoctor" OnValidSubmit="UpdateProfile" FormName="UpdateProfileForm">
+                                        <DataAnnotationsValidator />
+                                        <ValidationSummary class="text-danger" />
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Full Name</label>
+                                                <InputText @bind-Value="CurrentDoctor.FullName" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Contact Number</label>
+                                                <InputText @bind-Value="CurrentDoctor.ContactNumber" class="form-control" />
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Gender</label>
+                                                <InputSelect @bind-Value="CurrentDoctor.Gender" class="form-select">
+                                                    <option value="">Select Gender</option>
+                                                    <option value="Male">Male</option>
+                                                    <option value="Female">Female</option>
+                                                    <option value="Other">Other</option>
+                                                </InputSelect>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Email</label>
+                                                <InputText @bind-Value="CurrentDoctor.Email" class="form-control" />
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Qualification</label>
+                                                <InputText @bind-Value="CurrentDoctor.Qualification" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Specialization</label>
+                                                <InputText @bind-Value="CurrentDoctor.Specialization" class="form-control" />
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Medical License Number</label>
+                                                <InputText @bind-Value="CurrentDoctor.MedicalLicenseNumber" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Years of Experience</label>
+                                                <InputNumber @bind-Value="CurrentDoctor.YearsOfExperience" class="form-control" />
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Consultation Fee</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text">$</span>
+                                                    <InputNumber @bind-Value="CurrentDoctor.ConsultationFee" class="form-control" />
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Department</label>
+                                                <InputSelect @bind-Value="CurrentDoctor.DepartmentId" class="form-select">
+                                                    <option value="0">Select Department</option>
+                                                    <option value="1">Cardiology</option>
+                                                    <option value="2">Orthopedics</option>
+                                                    <option value="3">Pediatrics</option>
+                                                    <option value="4">Neurology</option>
+                                                    <option value="5">Dermatology</option>
+                                                </InputSelect>
+                                            </div>
+                                        </div>
+
+                                        <div class="mt-4">
+                                            <button type="submit" class="btn btn-primary">Update Profile</button>
+                                        </div>
+                                    </EditForm>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 }
             </div>
@@ -581,6 +697,40 @@
     </div>
 }
 
+<!-- Reschedule Appointment Modal -->
+@if (ShowRescheduleDialog && SelectedAppointment != null)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reschedule Appointment</h5>
+                    <button type="button" class="btn-close" @onclick="CloseRescheduleModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Patient: <strong>@SelectedAppointment.PatientName</strong></p>
+                    <p>Original Time: <strong>@SelectedAppointment.AppointmentDate.ToString("MMM dd, yyyy | hh:mm tt")</strong></p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">New Date & Time <span class="text-danger">*</span></label>
+                        <input type="datetime-local" @bind="NewRescheduleDate" class="form-control" />
+                    </div>
+
+                    <div class="alert alert-info small">
+                        The patient will be notified of this change.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseRescheduleModal">Cancel</button>
+                    <button type="button" class="btn btn-warning" @onclick="ConfirmReschedule">
+                        Confirm Reschedule
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [SupplyParameterFromQuery]
     public string? Tab { get; set; }
@@ -608,8 +758,10 @@
     private DateTime EndTimeInput { get; set; } = DateTime.Today.AddHours(17);
 
     private bool ShowRejectDialog = false;
+    private bool ShowRescheduleDialog = false;
     private Appointment? SelectedAppointment;
     private string RejectionMessage = "";
+    private DateTime NewRescheduleDate = DateTime.Now;
 
     protected override async Task OnInitializedAsync()
     {
@@ -725,6 +877,31 @@
         StateHasChanged();
     }
 
+    private void UpdateProfile()
+    {
+        if (CurrentDoctor == null) return;
+        
+        try
+        {
+            DoctorRepo.UpdateDoctor(CurrentDoctor);
+            StatusMessage = "Profile updated successfully!";
+            StatusMessageClass = "alert-success";
+            
+            // Auto-clear message
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(5000);
+                StatusMessage = "";
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+        catch (Exception ex)
+        {
+             StatusMessage = "Error updating profile: " + ex.Message;
+             StatusMessageClass = "alert-danger";
+        }
+    }
+
     private void SaveShift()
     {
         if (CurrentDoctor == null) return;
@@ -800,24 +977,19 @@
                 NotificationRepo.CreateNotification(new Notification
                 {
                     PatientId = appt.PatientId,
-                    DoctorId = CurrentDoctor?.DoctorId,
                     Title = "Appointment Approved",
-                    Message = $"Your appointment with Dr. {CurrentDoctor?.FullName} on {appt.AppointmentDate:f} has been approved.",
+                    Message = $"Dr. {CurrentDoctor.FullName} has approved your appointment for {appt.AppointmentDate}",
                     CreatedDate = DateTime.Now,
                     IsRead = false
                 });
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Notification failed: {ex.Message}");
-            }
+            catch {}
 
             StatusMessage = $"Appointment for {appt.PatientName} has been approved.";
             StatusMessageClass = "alert-success";
             
             LoadAppointments();
-            await InvokeAsync(StateHasChanged);
-
+            
             // Auto-clear message
             _ = Task.Run(async () =>
             {
@@ -830,7 +1002,6 @@
         {
             StatusMessage = $"Error approving appointment: {ex.Message}";
             StatusMessageClass = "alert-danger";
-            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -845,65 +1016,96 @@
     {
         ShowRejectDialog = false;
         SelectedAppointment = null;
-        RejectionMessage = "";
     }
 
-    private async Task ConfirmReject()
+    private void ShowRescheduleModal(Appointment appt)
     {
-        if (SelectedAppointment == null || string.IsNullOrWhiteSpace(RejectionMessage)) return;
+        SelectedAppointment = appt;
+        NewRescheduleDate = appt.AppointmentDate;
+        ShowRescheduleDialog = true;
+    }
 
-        try
+    private void CloseRescheduleModal()
+    {
+        ShowRescheduleDialog = false;
+        SelectedAppointment = null;
+    }
+
+    private void ConfirmReschedule()
+    {
+        if (SelectedAppointment != null)
         {
-            var patientName = SelectedAppointment.PatientName;
+             AppointmentRepo.UpdateAppointmentStatus(SelectedAppointment.AppointmentId, "Rescheduled", rescheduledDate: NewRescheduleDate);
+             NotificationRepo.CreateNotification(new Notification 
+             {
+                PatientId = SelectedAppointment.PatientId,
+                Title = "Appointment Rescheduled",
+                Message = $"Dr. {CurrentDoctor.FullName} has rescheduled your appointment to {NewRescheduleDate.ToString("MMM dd | hh:mm tt")}.",
+                CreatedDate = DateTime.Now,
+                IsRead = false
+             });
+             LoadAppointments();
+             CloseRescheduleModal();
+        }
+    }
+
+    private void ConfirmReject()
+    {
+        if (SelectedAppointment != null)
+        {
             AppointmentRepo.UpdateAppointmentStatus(SelectedAppointment.AppointmentId, "Rejected", rejectionReason: RejectionMessage);
-            
-            try
-            {
-                NotificationRepo.CreateNotification(new Notification
-                {
-                    PatientId = SelectedAppointment.PatientId,
-                    DoctorId = CurrentDoctor?.DoctorId,
-                    Title = "Appointment Rejected",
-                    Message = $"Your appointment request for {SelectedAppointment.AppointmentDate:f} was rejected. Reason: {RejectionMessage}",
-                    CreatedDate = DateTime.Now,
-                    IsRead = false
-                });
-            }
-            catch (Exception ex)
-            {
-                 Console.WriteLine($"Notification failed: {ex.Message}");
-            }
-
-            StatusMessage = $"Appointment for {patientName} has been rejected.";
-            StatusMessageClass = "alert-warning";
-
+            NotificationRepo.CreateNotification(new Notification 
+             {
+                PatientId = SelectedAppointment.PatientId,
+                Title = "Appointment Rejected",
+                Message = $"Dr. {CurrentDoctor.FullName} has rejected your appointment. Reason: {RejectionMessage}",
+                CreatedDate = DateTime.Now,
+                IsRead = false
+             });
             LoadAppointments();
             CloseRejectModal();
-            await InvokeAsync(StateHasChanged);
-
-            // Auto-clear message
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(5000);
-                StatusMessage = "";
-                await InvokeAsync(StateHasChanged);
-            });
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Error rejecting appointment: {ex.Message}";
-            StatusMessageClass = "alert-danger";
-            await InvokeAsync(StateHasChanged);
         }
     }
+
+    private void NavigateToPrescription(int patientId, int? appointmentId = null)
+    {
+        if (appointmentId.HasValue)
+        {
+            Nav.NavigateTo($"/Doctor/Prescribe/{patientId}?AppointmentId={appointmentId}");
+        }
+        else
+        {
+            Nav.NavigateTo($"/Doctor/Prescribe/{patientId}");
+        }
+    }
+
+    private void NavigateToReport(int patientId, int? appointmentId = null)
+    {
+        if (appointmentId.HasValue)
+        {
+             Nav.NavigateTo($"/Doctor/UploadReport/{patientId}?AppointmentId={appointmentId}");
+        }
+        else
+        {
+             Nav.NavigateTo($"/Doctor/UploadReport/{patientId}");
+        }
+    }
+
+    private void NavigateToOperation(int patientId, int? appointmentId = null)
+    {
+        if (appointmentId.HasValue)
+        {
+            Nav.NavigateTo($"/Doctor/RecommendOperation/{patientId}?AppointmentId={appointmentId}");
+        }
+        else
+        {
+            Nav.NavigateTo($"/Doctor/RecommendOperation/{patientId}");
+        }
+    }
+
 
     private string FormatTime(TimeSpan time)
     {
         return DateTime.Today.Add(time).ToString("hh:mm tt");
-    }
-
-    private void NavigateToPrescription(int patientId)
-    {
-        Nav.NavigateTo($"/Doctor/Prescribe/{patientId}");
     }
 }

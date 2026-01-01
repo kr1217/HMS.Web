@@ -193,11 +193,13 @@ namespace HMS.Web.Models
     {
         public int OperationId { get; set; }
         public int PatientId { get; set; }
-        public int PackageId { get; set; }
+        public int? PackageId { get; set; }
         public string PackageName { get; set; } = string.Empty;
         public string Status { get; set; } = "Scheduled"; // Scheduled, In Progress, Completed
         public DateTime ScheduledDate { get; set; }
         public string Notes { get; set; } = string.Empty;
+        public int DoctorId { get; set; }
+        public string? Urgency { get; set; } // Low, Medium, High, Critical
     }
 
     public class SupportTicket

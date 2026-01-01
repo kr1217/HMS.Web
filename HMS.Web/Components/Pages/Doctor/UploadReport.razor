@@ -1,0 +1,223 @@
+@page "/Doctor/UploadReport/{PatientId:int}"
+@using Microsoft.AspNetCore.Authorization
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using HMS.Web.Data
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Hosting
+@using System.IO
+@attribute [Authorize(Roles = "Doctor")]
+@rendermode InteractiveServer
+@inject DoctorRepository DoctorRepo
+@inject PatientRepository PatientRepo
+@inject ReportRepository ReportRepo
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Nav
+@inject NotificationRepository NotificationRepo
+@inject AppointmentRepository AppointmentRepo
+@inject IWebHostEnvironment Environment
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Upload Medical Report</h2>
+            @if (Patient != null)
+            {
+                <div class="text-muted">For Patient: <span class="fw-bold text-dark">@Patient.FullName</span> (ID:
+                    @PatientId)</div>
+            }
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="GoBack">
+            <i class="bi bi-arrow-left me-1"></i> Back
+        </button>
+    </div>
+
+    @if (CurrentDoctor == null)
+    {
+        <div class="alert alert-warning">Loading doctor profile...</div>
+    }
+    else
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <EditForm Model="NewReport" OnValidSubmit="SaveReport">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="text-danger" />
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Report Name <span class="text-danger">*</span></label>
+                                    <InputText @bind-Value="NewReport.ReportName" class="form-control"
+                                        placeholder="e.g. CBC Blood Test" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Report Type <span class="text-danger">*</span></label>
+                                    <InputSelect @bind-Value="NewReport.ReportType" class="form-select">
+                                        <option value="">Select Type</option>
+                                        <option value="Lab Test">Lab Test</option>
+                                        <option value="Radiology">Radiology (X-Ray, MRI)</option>
+                                        <option value="Diagnosis">Diagnosis / Prescription</option>
+                                        <option value="Other">Other</option>
+                                    </InputSelect>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Observations / Conclusion</label>
+                                <InputTextArea @bind-Value="NewReport.Observations" class="form-control" rows="3"
+                                    placeholder="Summary of findings..." />
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">Attach File (PDF, Image) <span
+                                        class="text-danger">*</span></label>
+                                <InputFile OnChange="HandleFileSelected" class="form-control"
+                                    accept=".pdf,.png,.jpg,.jpeg" />
+                                @if (!string.IsNullOrEmpty(UploadedFileName))
+                                {
+                                    <div class="mt-2 text-success small">
+                                        <i class="bi bi-check-circle me-1"></i> Selected: @UploadedFileName
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="button" class="btn btn-secondary" @onclick="GoBack">Cancel</button>
+                                <button type="submit" class="btn btn-primary"
+                                    disabled="@(IsUploading || string.IsNullOrEmpty(UploadedFilePath))">
+                                    @if (IsUploading)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"
+                                            aria-hidden="true"></span>
+                                        <span>Uploading...</span>
+                                    }
+                                    else
+                                    {
+                                        <span><i class="bi bi-cloud-upload me-2"></i>Upload Report</span>
+                                    }
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int PatientId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int? AppointmentId { get; set; }
+
+    private Doctor? CurrentDoctor;
+    private Patient? Patient;
+    private Report NewReport { get; set; } = new();
+
+    private string UploadedFilePath = "";
+    private string UploadedFileName = "";
+    private long MaxFileSize = 10 * 1024 * 1024; // 10 MB
+    private bool IsUploading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userClaims = authState.User;
+
+        if (userClaims.Identity?.IsAuthenticated == true)
+        {
+            var userId = UserManager.GetUserId(userClaims);
+            if (!string.IsNullOrEmpty(userId))
+            {
+                CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+            }
+        }
+
+        Patient = PatientRepo.GetPatientById(PatientId);
+        NewReport.ReportDate = DateTime.Now;
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file != null)
+            {
+                if (file.Size > MaxFileSize)
+                {
+                    // Handle error
+                    return;
+                }
+
+                UploadedFileName = file.Name;
+                IsUploading = true;
+                StateHasChanged();
+
+                // Ensure directory exists
+                var uploadPath = Path.Combine(Environment.WebRootPath, "uploads", "reports");
+                if (!Directory.Exists(uploadPath))
+                {
+                    Directory.CreateDirectory(uploadPath);
+                }
+
+                // Generate unique filename
+                var uniqueFileName = $"{Guid.NewGuid()}_{file.Name}";
+                var filePath = Path.Combine(uploadPath, uniqueFileName);
+
+                await using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.OpenReadStream(MaxFileSize).CopyToAsync(stream);
+                }
+
+                UploadedFilePath = $"/uploads/reports/{uniqueFileName}";
+                IsUploading = false;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"File upload failed: {ex.Message}");
+            IsUploading = false;
+        }
+    }
+    private void SaveReport()
+    {
+        if (CurrentDoctor == null || string.IsNullOrEmpty(UploadedFilePath)) return;
+
+        NewReport.PatientId = PatientId;
+        NewReport.DoctorId = CurrentDoctor.DoctorId;
+        NewReport.AppointmentId = AppointmentId;
+        NewReport.FilePath = UploadedFilePath;
+        NewReport.Status = "Finalized";
+        NewReport.ReportDate = DateTime.Now;
+
+        ReportRepo.CreateReport(NewReport);
+
+        // Mark appointment as Completed if linked
+        if (AppointmentId.HasValue)
+        {
+            AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
+        }
+
+        NotificationRepo.CreateNotification(new Notification
+            {
+                PatientId = PatientId,
+                Title = "New Medical Report",
+                Message = $"Dr. {CurrentDoctor.FullName} has uploaded a new report: {NewReport.ReportName}.",
+                CreatedDate = DateTime.Now,
+                IsRead = false
+            });
+
+        Nav.NavigateTo("/Doctor/Dashboard?tab=patients");
+    }
+
+    private void GoBack()
+    {
+        Nav.NavigateTo("/Doctor/Dashboard");
+    }
+}

@@ -40,7 +40,8 @@
                                     <option value="0">-- Select Doctor --</option>
                                     @foreach (var doc in Doctors)
                                     {
-                                        <option value="@doc.DoctorId">@doc.FullName (@doc.DepartmentName)</option>
+                                        <option value="@doc.DoctorId">@doc.FullName (@doc.DepartmentName) -
+                                            @doc.ConsultationFee.ToString("C")</option>
                                     }
                                 </InputSelect>
                             </div>

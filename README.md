@@ -70,13 +70,37 @@ A modern, full-stack **Blazor Web App** implemented with **.NET 8+** (Interactiv
 ---
 *Created by [kr1217](https://github.com/kr1217)*
 
+## 🌟 Key Capabilities
+### 🔌 Doctor ↔ Patient Communication Model
+The system enforces a strict separation of concerns where doctors and patients **never** communicate directly. All interaction is mediated through shared domain entities, ensuring security, auditability, and distinct role management.
+
+*   **Appointment Workflow**: 
+    *   Patient requests (Status: Pending) → Doctor Approves/Rejects/Reschedules → Patient Notified.
+*   **Prescriptions**: Doctor creates and digitally signs → Patient views and downloads (Immutable).
+*   **Medical Reports**: Doctor uploads reports → Patient downloads safely.
+*   **Operations**: Doctor recommends procedures with estimated costs → Patient reviews details.
+
+### 👨‍⚕️ Doctor Portal (Business Logic)
+*   **Dashboard Analytics**: 
+    *   Real-time view of **Revenue Today**, **Total Revenue**, **Active Cases**, and **Completed Appointments**.
+    *   Visual "Today's Schedule" and "Pending Requests" overview.
+*   **Shift Management**: Doctors define their availability (Days/Times), which validates all incoming patient requests.
+*   **Clinical Tools**:
+    *   **Prescribe**: Digital prescription generation with medicine, dosage, and notes.
+    *   **Reports**: Secure file upload for lab results and radiology.
+    *   **Operations**: Recommendation engine for surgical procedures.
+*   **Profile Control**: Full control over professional details, consultation fees, and contact info.
+
+### 😷 Patient Portal
+*   **Zero-Friction Booking**: Smart booking system that only shows slots during a doctor's active shifts.
+*   **Medical History**: Centralized view of all past prescriptions, reports, and operation recommendations.
+*   **Live Updates**: Real-time status badges and notifications for all interactions.
+
 ## 🔄 Recent Updates
-*   **Prescription Management**:
-    *   Fixed "Save Prescription" button interactivity.
-    *   Enabled "Cancel" button functionality in the prescription form.
-*   **Appointment Flow**:
-    *   Validated end-to-end appointment approval process.
-    *   Enhanced doctor dashboard interactivity.
-*   **Shift Management**:
-    *   Implemented logic for doctors to add and manage shifts.
-    *   Integrated shift validation with appointment booking.
+*   **Revenue Tracking**: Implemented dynamic revenue calculation for doctors (Daily & Total).
+*   **Profile Editor**: Added comprehensive "Edit Profile" capability for doctors.
+*   **Fixes**: Resolved data mapping issues for Consultation Fees and file upload stability.
+*   **Foundation**: Laid the groundwork for a future **Admin Module**.
+
+---
+*Created by [kr1217](https://github.com/kr1217)*

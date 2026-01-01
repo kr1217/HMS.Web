@@ -1,0 +1,246 @@
+@page "/Doctor/RecommendOperation/{PatientId:int}"
+@using Microsoft.AspNetCore.Authorization
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using HMS.Web.Data
+@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims
+@attribute [Authorize(Roles = "Doctor")]
+@rendermode InteractiveServer
+@inject DoctorRepository DoctorRepo
+@inject OperationRepository OperationRepo
+@inject PatientRepository PatientRepo
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Nav
+@inject NotificationRepository NotificationRepo
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Recommend Operation</h2>
+            @if (Patient != null)
+            {
+                <div class="text-muted">For Patient: <span class="fw-bold text-dark">@Patient.FullName</span> (ID:
+                    @PatientId)</div>
+            }
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="GoBack">
+            <i class="bi bi-arrow-left me-1"></i> Back
+        </button>
+    </div>
+
+    @if (CurrentDoctor == null)
+    {
+        <div class="alert alert-warning">Loading doctor profile...</div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <EditForm Model="NewOperation" OnValidSubmit="SaveOperation">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="text-danger" />
+
+                            <div class="mb-3">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="customOpCheck"
+                                        @onchange="ToggleCustomOperation" />
+                                    <label class="form-check-label" for="customOpCheck">
+                                        Recommend Custom Operation (Not in list)
+                                    </label>
+                                </div>
+
+                                @if (!IsCustomOperation)
+                                {
+                                    <label class="form-label">Operation Package <span class="text-danger">*</span></label>
+                                    <InputSelect @bind-Value="NewOperation.PackageId" class="form-select">
+                                        <option value="0">Select Operation Type</option>
+                                        @foreach (var pkg in Packages)
+                                        {
+                                            <option value="@pkg.PackageId">@pkg.PackageName (@pkg.Cost.ToString("C"))</option>
+                                        }
+                                    </InputSelect>
+                                }
+                                else
+                                {
+                                    <label class="form-label">Operation Name <span class="text-danger">*</span></label>
+                                    <InputText @bind-Value="NewOperation.PackageName" class="form-control"
+                                        placeholder="Enter custom operation name" />
+                                    <div class="form-text">Cost will be determined by administration.</div>
+                                }
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Scheduled Date <span class="text-danger">*</span></label>
+                                    <InputDate @bind-Value="NewOperation.ScheduledDate" class="form-control" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Urgency <span class="text-danger">*</span></label>
+                                    <InputSelect @bind-Value="NewOperation.Urgency" class="form-select">
+                                        <option value="">Select Urgency</option>
+                                        <option value="Low">Low</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="High">High</option>
+                                        <option value="Critical">Critical</option>
+                                    </InputSelect>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Notes & Requirements </label>
+                                <div class="form-text text-muted mb-1">List required medicines, equipment, and any specific
+                                    instructions.</div>
+                                <InputTextArea @bind-Value="NewOperation.Notes" class="form-control" rows="5"
+                                    placeholder="e.g. Requires general anesthesia. Reserve ICU bed type B. Pre-op medicines: ..." />
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2 mt-4">
+                                <button type="button" class="btn btn-secondary" @onclick="GoBack">Cancel</button>
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="bi bi-heart-pulse me-2"></i>Recommend Operation
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Package Details Sidebar -->
+            <div class="col-md-4">
+                @if (NewOperation.PackageId > 0)
+                {
+                    var selectedPkg = Packages.FirstOrDefault(p => p.PackageId == NewOperation.PackageId);
+                    if (selectedPkg != null)
+                    {
+                        <div class="card border-0 shadow-sm bg-light mb-3">
+                            <div class="card-body">
+                                <h5 class="fw-bold">@selectedPkg.PackageName</h5>
+                                <h3 class="text-primary fw-bold mb-3">@selectedPkg.Cost.ToString("C")</h3>
+                                <p class="text-muted">@selectedPkg.Description</p>
+                                <hr />
+                                <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Patient will be notified to review
+                                    and accept this recommendation.</small>
+                            </div>
+                        </div>
+                    }
+                }
+
+                <div class="card border-0 shadow-sm bg-info text-white">
+                    <div class="card-body">
+                        <h6 class="fw-bold"><i class="bi bi-lightbulb me-2"></i>Tip</h6>
+                        <p class="small mb-0">Ensure the scheduled date allows enough time for patient preparation and
+                            financial clearance.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int PatientId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int? AppointmentId { get; set; }
+
+    private Doctor? CurrentDoctor;
+    private Patient? Patient;
+    private PatientOperation NewOperation { get; set; } = new();
+    private List<OperationPackage> Packages = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userClaims = authState.User;
+
+        if (userClaims.Identity?.IsAuthenticated == true)
+        {
+            var userId = UserManager.GetUserId(userClaims);
+            if (!string.IsNullOrEmpty(userId))
+            {
+                CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+            }
+        }
+
+        Patient = PatientRepo.GetPatientById(PatientId);
+        Packages = OperationRepo.GetOperationPackages();
+
+        NewOperation.ScheduledDate = DateTime.Today.AddDays(1);
+    }
+
+    @inject AppointmentRepository AppointmentRepo
+
+    <!-- ... inside code ... -->
+    private bool IsCustomOperation = false;
+
+    private void ToggleCustomOperation(ChangeEventArgs e)
+    {
+        IsCustomOperation = (bool)(e.Value ?? false);
+        if (IsCustomOperation)
+        {
+            NewOperation.PackageId = null;
+            NewOperation.PackageName = "";
+        }
+        else
+        {
+            NewOperation.PackageId = 0;
+        }
+    }
+
+    private void SaveOperation()
+    {
+        if (CurrentDoctor == null || Patient == null) return;
+
+        // Validation for Custom vs Package
+        if (!IsCustomOperation && (NewOperation.PackageId == 0 || NewOperation.PackageId == null))
+        {
+            // Error: Select a package
+            return;
+        }
+        if (IsCustomOperation && string.IsNullOrWhiteSpace(NewOperation.PackageName))
+        {
+            // Error: Enter operation name
+            return;
+        }
+
+        // Set PackageName if Package selected (for redundancy or UI display)
+        if (!IsCustomOperation && NewOperation.PackageId > 0)
+        {
+            var pkg = Packages.FirstOrDefault(p => p.PackageId == NewOperation.PackageId);
+            NewOperation.PackageName = pkg?.PackageName ?? "";
+        }
+
+        NewOperation.PatientId = PatientId;
+        NewOperation.DoctorId = CurrentDoctor.DoctorId;
+        NewOperation.Status = "Recommended";
+
+        OperationRepo.CreatePatientOperation(NewOperation);
+
+        // Mark appointment as Completed if linked
+        if (AppointmentId.HasValue)
+        {
+            AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
+        }
+
+        NotificationRepo.CreateNotification(new Notification
+            {
+                PatientId = PatientId,
+                Title = "Operation Recommended",
+                Message = $"Dr. {CurrentDoctor.FullName} has recommended a procedure: {NewOperation.PackageName}. Please review.",
+                CreatedDate = DateTime.Now,
+                IsRead = false
+            });
+
+        Nav.NavigateTo("/Doctor/Dashboard?tab=patients");
+    }
+
+    private void GoBack()
+    {
+        Nav.NavigateTo("/Doctor/Dashboard");
+    }
+}
