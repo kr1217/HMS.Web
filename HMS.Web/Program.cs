@@ -5,6 +5,7 @@ using HMS.Web.Client.Pages;
 using HMS.Web.Components;
 using HMS.Web.Components.Account;
 using HMS.Web.Data;
+using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,6 +57,14 @@ builder.Services.AddScoped<HMS.Web.DAL.BillingRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.OperationRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.SupportRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.NotificationRepository>();
+builder.Services.AddScoped<HMS.Web.DAL.StaffRepository>();
+builder.Services.AddScoped<HMS.Web.DAL.FacilityRepository>();
+builder.Services.AddScoped<HMS.Web.DAL.FinanceRepository>();
+
+builder.Services.AddScoped<DialogService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<TooltipService>();
+builder.Services.AddScoped<ContextMenuService>();
 
 var app = builder.Build();
 
@@ -87,5 +96,19 @@ app.MapAdditionalIdentityEndpoints();
 
 // Initialize Database
 HMS.Web.Data.DbInitializer.Initialize(app.Services);
+
+// Seed User Accounts (Run once to create test accounts)
+// Comment out after first run to avoid duplicate attempts
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        await HMS.Web.SeedUsers.UserAccountSeeder.SeedUserAccounts(scope.ServiceProvider);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"User seeding skipped or failed: {ex.Message}");
+    }
+}
 
 app.Run();

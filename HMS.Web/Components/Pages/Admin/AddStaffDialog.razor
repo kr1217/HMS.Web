@@ -1,0 +1,144 @@
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using Microsoft.AspNetCore.Identity
+@using HMS.Web.Data
+@using Radzen.Blazor
+@inject StaffRepository StaffRepo
+@inject UserManager<ApplicationUser> UserManager
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenTemplateForm TItem="Staff" Data="@model" Submit="@HandleValidSubmit">
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <RadzenLabel Text="Full Name" />
+            <RadzenTextBox @bind-Value="model.FullName" Name="FullName" Class="w-100" />
+            <RadzenRequiredValidator Component="FullName" Text="Name is required" />
+        </div>
+        <div class="col-md-6 mb-3">
+            <RadzenLabel Text="Email (Login ID)" />
+            <RadzenTextBox @bind-Value="model.Email" Name="Email" Class="w-100" Disabled="@IsEdit" />
+            <RadzenRequiredValidator Component="Email" Text="Email is required" />
+            <RadzenEmailValidator Component="Email" Text="Invalid email" />
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <RadzenLabel Text="Role" />
+            <RadzenDropDown @bind-Value="model.Role" Data="@roles" Class="w-100" Name="Role" />
+            <RadzenRequiredValidator Component="Role" Text="Role is required" />
+        </div>
+        <div class="col-md-6 mb-3">
+            <RadzenLabel Text="Department" />
+            <RadzenDropDown @bind-Value="model.Department" Data="@departments" Class="w-100" Name="Dept" />
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <RadzenLabel Text="Salary" />
+            <RadzenNumeric @bind-Value="model.Salary" Name="Salary" Class="w-100" />
+        </div>
+        <div class="col-md-6 mb-3">
+            <RadzenLabel Text="Shift" />
+            <RadzenDropDown @bind-Value="model.Shift" Data="@shifts" Class="w-100" />
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <RadzenLabel Text="Phone" />
+            <RadzenTextBox @bind-Value="model.PhoneNumber" Class="w-100" />
+        </div>
+        <div class="col-md-6 mb-3 pt-4">
+            <RadzenCheckBox @bind-Value="model.IsActive" Name="Active" />
+            <RadzenLabel Text="Active Account" Component="Active" Class="ms-2" />
+        </div>
+    </div>
+
+    @if (!IsEdit)
+    {
+        <div class="alert alert-warning mt-2">
+            Default password will be: <strong>Hospital@123</strong>
+        </div>
+    }
+
+    <div class="row mt-4">
+        <div class="col text-end">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Save Staff" ButtonStyle="ButtonStyle.Primary" />
+            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+        </div>
+    </div>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public Staff StaffModel { get; set; }
+    [Parameter] public bool IsEdit { get; set; } = false;
+
+    private Staff model = new();
+    private List<string> roles = new() { "Admin", "Nurse", "Receptionist", "Pharmacist", "Doctor" };
+    private List<string> departments = new() { "Cardiology", "Neurology", "General", "Orthopedics", "Administration",
+"Pharmacy" };
+    private List<string> shifts = new() { "Morning", "Evening", "Night" };
+
+    protected override void OnInitialized()
+    {
+        if (IsEdit && StaffModel != null)
+        {
+            model = new Staff
+                {
+                    StaffId = StaffModel.StaffId,
+                    UserId = StaffModel.UserId,
+                    FullName = StaffModel.FullName,
+                    Email = StaffModel.Email,
+                    Role = StaffModel.Role,
+                    Department = StaffModel.Department,
+                    Shift = StaffModel.Shift,
+                    Salary = StaffModel.Salary,
+                    IsActive = StaffModel.IsActive,
+                    PhoneNumber = StaffModel.PhoneNumber
+                };
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            if (IsEdit)
+            {
+                StaffRepo.UpdateStaff(model);
+                DialogService.Close(true);
+            }
+            else
+            {
+                // 1. Create Identity User
+                var user = new ApplicationUser { UserName = model.Email, Email = model.Email, EmailConfirmed = true };
+                var result = await UserManager.CreateAsync(user, "Hospital@123");
+
+                if (result.Succeeded)
+                {
+                    // 2. Assign Role
+                    await UserManager.AddToRoleAsync(user, model.Role);
+
+                    // 3. Create Staff
+                    model.UserId = user.Id;
+                    StaffRepo.CreateStaff(model);
+                    DialogService.Close(true);
+                }
+                else
+                {
+                    foreach (var error in result.Errors)
+                    {
+                        NotificationService.Notify(NotificationSeverity.Error, "Error", error.Description);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "System Error", ex.Message);
+        }
+    }
+}

@@ -1,0 +1,37 @@
+/* Bed Status Cards */
+.bed-card {
+    transition: all 0.2s ease-in-out;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.bed-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
+
+.bed-status-available {
+    border-left: 5px solid #28a745;
+}
+
+.bed-status-occupied {
+    border-left: 5px solid #dc3545;
+    background-color: #fff5f5;
+}
+
+.bed-status-maintenance {
+    border-left: 5px solid #ffc107;
+    background-color: #fffae6;
+}
+
+.bed-status-cleaning {
+    border-left: 5px solid #17a2b8;
+    background-color: #f0fcff;
+}
+
+.room-container {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    height: 100%;
+}

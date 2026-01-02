@@ -1,0 +1,88 @@
+@page "/admin/admissions"
+@layout HMS.Web.Components.Layout.AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin,Receptionist")]
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using Radzen
+@using Radzen.Blazor
+@inject FacilityRepository FacilityRepo
+@inject PatientRepository PatientRepo
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<PageTitle>Patient Admissions | Admin</PageTitle>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <h3 class="text-primary">Patient Admissions</h3>
+        <p class="text-muted">Manage active patient admissions and bed assignments.</p>
+    </div>
+    <div class="col-md-6 text-end">
+        <RadzenButton Icon="add" Text="New Admission" ButtonStyle="ButtonStyle.Primary"
+            Click="@(args => ShowAdmissionDialog())" />
+    </div>
+</div>
+
+<RadzenDataGrid Data="@activeAdmissions" TItem="Admission" AllowFiltering="true" AllowPaging="true" PageSize="10"
+    AllowSorting="true">
+    <Columns>
+        <RadzenDataGridColumn TItem="Admission" Property="AdmissionId" Title="ID" Width="60px" />
+        <RadzenDataGridColumn TItem="Admission" Property="PatientName" Title="Patient" />
+        <RadzenDataGridColumn TItem="Admission" Property="WardName" Title="Ward" />
+        <RadzenDataGridColumn TItem="Admission" Property="BedNumber" Title="Bed" />
+        <RadzenDataGridColumn TItem="Admission" Property="AdmissionDate" Title="Admitted On" FormatString="{0:d}" />
+        <RadzenDataGridColumn TItem="Admission" Property="Status" Title="Status">
+            <Template Context="data">
+                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@data.Status" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Admission" Title="Actions" Sortable="false" Filterable="false"
+            TextAlign="TextAlign.Right">
+            <Template Context="data">
+                <RadzenButton Text="Discharge" Icon="input" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small"
+                    Click="@(() => DischargePatient(data))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    List<Admission> activeAdmissions = new();
+
+    protected override void OnInitialized()
+    {
+        LoadAdmissions();
+    }
+
+    void LoadAdmissions()
+    {
+        activeAdmissions = FacilityRepo.GetActiveAdmissions();
+    }
+
+    async Task ShowAdmissionDialog()
+    {
+        var result = await DialogService.OpenAsync<AdmissionDialog>("New Patient Admission",
+        new Dictionary<string, object>(),
+        new DialogOptions() { Width = "600px", Height = "auto" });
+
+        if (result == true)
+        {
+            LoadAdmissions();
+            NotificationService.Notify(NotificationSeverity.Success, "Admission Successful", "Patient has been admitted.");
+        }
+    }
+
+    async Task DischargePatient(Admission admission)
+    {
+        var result = await DialogService.OpenAsync<DischargeDialog>("Discharge Patient",
+        new Dictionary<string, object> { { "Admission", admission } },
+        new DialogOptions() { Width = "600px", Height = "auto" });
+
+        if (result == true)
+        {
+            LoadAdmissions();
+            NotificationService.Notify(NotificationSeverity.Success, "Patient Discharged", "Bill has been generated.");
+        }
+    }
+}

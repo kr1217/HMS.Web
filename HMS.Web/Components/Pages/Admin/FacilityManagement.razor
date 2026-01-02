@@ -1,0 +1,374 @@
+@page "/admin/facilities"
+@layout HMS.Web.Components.Layout.AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@inject FacilityRepository FacilityRepo
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using Radzen
+@using Radzen.Blazor
+
+<PageTitle>Facility Management | Admin</PageTitle>
+
+<div class="row mb-3">
+    <div class="col-12">
+        <h3 class="text-primary">Infrastructure & Facilities</h3>
+        <p class="text-muted">Manage hospital wards, rooms, types, and bed capacity.</p>
+    </div>
+</div>
+
+<RadzenTabs RenderMode="TabRenderMode.Client">
+    <Tabs>
+        <!-- Live Status Tab -->
+        <RadzenTabsItem Text="Live Status">
+            <div class="row">
+                @foreach (var wardGroup in beds.GroupBy(b => b.WardName).OrderBy(g => g.Key))
+                {
+                    <div class="col-12 mb-4">
+                        <RadzenCard class="w-100">
+                            <h4 class="text-primary mb-3">
+                                <RadzenIcon Icon="domain" class="me-2" /> @(wardGroup.Key ?? "Unassigned Ward")
+                            </h4>
+                            
+                            <div class="row g-3">
+                                @foreach (var roomGroup in wardGroup.GroupBy(b => b.RoomNumber).OrderBy(g => g.Key))
+                                {
+                                    <div class="col-md-4 col-lg-3">
+                                        <div class="room-container">
+                                            <h6 class="text-secondary border-bottom pb-2 mb-2">
+                                                Room @(roomGroup.Key ?? "N/A")
+                                            </h6>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                @foreach (var bed in roomGroup)
+                                                {
+                                                    <div class="card bed-card @GetBedStatusCssClass(bed.Status) p-2 flex-grow-1 text-center" 
+                                                         style="min-width: 80px; cursor: pointer;"
+                                                         @onclick="() => EditBed(bed)">
+                                                        <div class="fw-bold small">@bed.BedNumber</div>
+                                                        <div class="x-small text-muted" style="font-size: 0.75rem;">@bed.Status</div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </RadzenCard>
+                    </div>
+                }
+            </div>
+        </RadzenTabsItem>
+
+        <!-- Wards Tab -->
+        <RadzenTabsItem Text="Wards">
+            <RadzenButton Icon="add" Text="Add Ward" ButtonStyle="ButtonStyle.Primary" Click="@InsertWard"
+                Class="mb-3" />
+            <RadzenDataGrid @ref="wardGrid" Data="@wards" TItem="Ward" RowUpdate="@OnUpdateWard"
+                RowCreate="@OnCreateWard" AllowFiltering="true" AllowPaging="true" PageSize="10">
+                <Columns>
+                    <RadzenDataGridColumn TItem="Ward" Property="WardId" Title="ID" Width="50px" />
+                    <RadzenDataGridColumn TItem="Ward" Property="WardName" Title="Ward Name">
+                        <EditTemplate Context="ward">
+                            <RadzenTextBox @bind-Value="ward.WardName" Style="width:100%" Name="WardName" />
+                            <RadzenRequiredValidator Text="Name is required" Component="WardName" Popup="true" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="Ward" Property="Floor" Title="Floor">
+                        <EditTemplate Context="ward">
+                            <RadzenTextBox @bind-Value="ward.Floor" Style="width:100%" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="Ward" Property="Wing" Title="Wing">
+                        <EditTemplate Context="ward">
+                            <RadzenTextBox @bind-Value="ward.Wing" Style="width:100%" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="Ward" Property="IsActive" Title="Active">
+                        <Template Context="ward">
+                            <RadzenBadge BadgeStyle="@(ward.IsActive ? BadgeStyle.Success : BadgeStyle.Danger)"
+                                Text="@(ward.IsActive ? "Yes" : "No")" />
+                        </Template>
+                        <EditTemplate Context="ward">
+                            <RadzenSwitch @bind-Value="ward.IsActive" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="Ward" Context="ward" Filterable="false" Sortable="false"
+                        TextAlign="TextAlign.Right" Width="156px">
+                        <Template Context="ward">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat"
+                                Size="ButtonSize.Medium" Click="@(args => EditWard(ward))"
+                                @onclick:stopPropagation="true" />
+                        </Template>
+                        <EditTemplate Context="ward">
+                            <RadzenButton Icon="save" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat"
+                                Size="ButtonSize.Medium" Click="@((args) => SaveWard(ward))" />
+                            <RadzenButton Icon="cancel" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat"
+                                Size="ButtonSize.Medium" Click="@((args) => CancelEditWard(ward))" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenTabsItem>
+
+        <!-- Room Types Tab -->
+        <RadzenTabsItem Text="Room Types">
+            <RadzenButton Icon="add" Text="Add Room Type" ButtonStyle="ButtonStyle.Primary" Click="@InsertRoomType"
+                Class="mb-3" />
+            <RadzenDataGrid @ref="roomTypeGrid" Data="@roomTypes" TItem="RoomType" RowUpdate="@OnUpdateRoomType"
+                RowCreate="@OnCreateRoomType" AllowFiltering="true" PageSize="10">
+                <Columns>
+                    <RadzenDataGridColumn TItem="RoomType" Property="TypeName" Title="Type Name">
+                        <EditTemplate Context="type">
+                            <RadzenTextBox @bind-Value="type.TypeName" Style="width:100%" Name="TypeName" />
+                            <RadzenRequiredValidator Component="TypeName" Text="Required" Popup="true" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="RoomType" Property="DailyRate" Title="Daily Rate">
+                        <Template Context="type">
+                            @type.DailyRate.ToString("C")
+                        </Template>
+                        <EditTemplate Context="type">
+                            <RadzenNumeric @bind-Value="type.DailyRate" Style="width:100%" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="RoomType" Property="Description" Title="Description">
+                        <EditTemplate Context="type">
+                            <RadzenTextBox @bind-Value="type.Description" Style="width:100%" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="RoomType" Context="type" Filterable="false" Sortable="false"
+                        TextAlign="TextAlign.Right" Width="156px">
+                        <Template Context="type">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat"
+                                Size="ButtonSize.Medium" Click="@(args => EditRoomType(type))" />
+                        </Template>
+                        <EditTemplate Context="type">
+                            <RadzenButton Icon="save" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat"
+                                Size="ButtonSize.Medium" Click="@((args) => SaveRoomType(type))" />
+                            <RadzenButton Icon="cancel" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat"
+                                Size="ButtonSize.Medium" Click="@((args) => CancelEditRoomType(type))" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenTabsItem>
+
+        <!-- Rooms Tab -->
+        <RadzenTabsItem Text="Rooms">
+            <!-- Simplified for brevity, will implement if requested separately or add now -->
+            <div class="alert alert-info">Manage Rooms associated with Wards.</div>
+            <RadzenButton Icon="add" Text="Add Room" ButtonStyle="ButtonStyle.Primary" Click="@InsertRoom"
+                Class="mb-3" />
+            <RadzenDataGrid @ref="roomGrid" Data="@rooms" TItem="Room" RowUpdate="@OnUpdateRoom"
+                RowCreate="@OnCreateRoom" AllowFiltering="true" PageSize="10">
+                <Columns>
+                    <RadzenDataGridColumn TItem="Room" Property="RoomNumber" Title="Room #">
+                        <EditTemplate Context="room">
+                            <RadzenTextBox @bind-Value="room.RoomNumber" Style="width:100%" Name="RoomNumber" />
+                            <RadzenRequiredValidator Component="RoomNumber" Text="Required" Popup="true" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="Room" Property="WardId" Title="Ward">
+                        <Template Context="room">@room.WardName</Template>
+                        <EditTemplate Context="room">
+                            <RadzenDropDown @bind-Value="room.WardId" Data="@wards" TextProperty="WardName"
+                                ValueProperty="WardId" Style="width:100%" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="Room" Property="RoomTypeId" Title="Type">
+                        <Template Context="room">@room.RoomTypeName</Template>
+                        <EditTemplate Context="room">
+                            <RadzenDropDown @bind-Value="room.RoomTypeId" Data="@roomTypes" TextProperty="TypeName"
+                                ValueProperty="RoomTypeId" Style="width:100%" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="Room" Context="room" Width="156px">
+                        <Template Context="room">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light"
+                                Click="@(args => EditRoom(room))" />
+                        </Template>
+                        <EditTemplate Context="room">
+                            <RadzenButton Icon="save" ButtonStyle="ButtonStyle.Success"
+                                Click="@((args) => SaveRoom(room))" />
+                            <RadzenButton Icon="cancel" ButtonStyle="ButtonStyle.Light"
+                                Click="@((args) => CancelEditRoom(room))" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenTabsItem>
+
+        <!-- Beds Tab -->
+        <RadzenTabsItem Text="Beds">
+            <div class="alert alert-info">Manage Beds within Rooms.</div>
+            <RadzenButton Icon="add" Text="Add Bed" ButtonStyle="ButtonStyle.Primary" Click="@InsertBed" Class="mb-3" />
+            <RadzenDataGrid @ref="bedGrid" Data="@beds" TItem="Bed" RowUpdate="@OnUpdateBed" RowCreate="@OnCreateBed"
+                AllowFiltering="true" PageSize="10">
+                <Columns>
+                    <RadzenDataGridColumn TItem="Bed" Property="BedNumber" Title="Bed Number">
+                        <EditTemplate Context="bed">
+                            <RadzenTextBox @bind-Value="bed.BedNumber" Style="width:100%" Name="BedNumber" />
+                            <RadzenRequiredValidator Component="BedNumber" Text="Required" Popup="true" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="Bed" Property="RoomId" Title="Room">
+                        <Template Context="bed">@bed.RoomNumber (@bed.WardName)</Template>
+                        <EditTemplate Context="bed">
+                            <RadzenDropDown @bind-Value="bed.RoomId" Data="@rooms" TextProperty="RoomNumber"
+                                ValueProperty="RoomId" Style="width:100%" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="Bed" Property="Status" Title="Status">
+                        <EditTemplate Context="bed">
+                            <RadzenDropDown @bind-Value="bed.Status"
+                                Data="@(new[] { "Available", "Occupied", "Maintenance", "Cleaning" })"
+                                Style="width:100%" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="Bed" Context="bed" Width="156px">
+                        <Template Context="bed">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Click="@(args => EditBed(bed))" />
+                        </Template>
+                        <EditTemplate Context="bed">
+                            <RadzenButton Icon="save" ButtonStyle="ButtonStyle.Success"
+                                Click="@((args) => SaveBed(bed))" />
+                            <RadzenButton Icon="cancel" ButtonStyle="ButtonStyle.Light"
+                                Click="@((args) => CancelEditBed(bed))" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenTabsItem>
+    </Tabs>
+</RadzenTabs>
+
+@code {
+    string GetBedStatusCssClass(string status)
+    {
+        return status switch
+        {
+            "Available" => "bed-status-available",
+            "Occupied" => "bed-status-occupied",
+            "Maintenance" => "bed-status-maintenance",
+            "Cleaning" => "bed-status-cleaning",
+            _ => ""
+        };
+    }
+
+    RadzenDataGrid<Ward> wardGrid = default!;
+    RadzenDataGrid<RoomType> roomTypeGrid = default!;
+    RadzenDataGrid<Room> roomGrid = default!;
+    RadzenDataGrid<Bed> bedGrid = default!;
+
+    List<Ward> wards = new();
+    List<RoomType> roomTypes = new();
+    List<Room> rooms = new();
+    List<Bed> beds = new();
+
+    protected override void OnInitialized()
+    {
+        RefreshAll();
+    }
+
+    void RefreshAll()
+    {
+        wards = FacilityRepo.GetWards();
+        roomTypes = FacilityRepo.GetRoomTypes();
+        rooms = FacilityRepo.GetRooms();
+        beds = FacilityRepo.GetBeds();
+    }
+
+    // --- Ward CRUD ---
+    async Task InsertWard()
+    {
+        var ward = new Ward() { WardName = "New Ward" };
+        await wardGrid.InsertRow(ward);
+    }
+    async Task EditWard(Ward ward) { await wardGrid.EditRow(ward); }
+    async Task SaveWard(Ward ward) { await wardGrid.UpdateRow(ward); }
+    void CancelEditWard(Ward ward) { wardGrid.CancelEditRow(ward); }
+
+    void OnCreateWard(Ward ward)
+    {
+        FacilityRepo.SaveWard(ward);
+        RefreshAll();
+        NotificationService.Notify(NotificationSeverity.Success, "Ward Created");
+    }
+    void OnUpdateWard(Ward ward)
+    {
+        FacilityRepo.SaveWard(ward);
+        RefreshAll();
+        NotificationService.Notify(NotificationSeverity.Success, "Ward Updated");
+    }
+
+    // --- RoomType CRUD ---
+    async Task InsertRoomType()
+    {
+        var type = new RoomType() { TypeName = "New Type" };
+        await roomTypeGrid.InsertRow(type);
+    }
+    async Task EditRoomType(RoomType type) { await roomTypeGrid.EditRow(type); }
+    async Task SaveRoomType(RoomType type) { await roomTypeGrid.UpdateRow(type); }
+    void CancelEditRoomType(RoomType type) { roomTypeGrid.CancelEditRow(type); }
+
+    void OnCreateRoomType(RoomType type)
+    {
+        FacilityRepo.SaveRoomType(type);
+        RefreshAll();
+        NotificationService.Notify(NotificationSeverity.Success, "Type Created");
+    }
+    void OnUpdateRoomType(RoomType type)
+    {
+        FacilityRepo.SaveRoomType(type);
+        RefreshAll();
+        NotificationService.Notify(NotificationSeverity.Success, "Type Updated");
+    }
+
+    // --- Room CRUD ---
+    async Task InsertRoom()
+    {
+        var room = new Room() { RoomNumber = "101" };
+        await roomGrid.InsertRow(room);
+    }
+    async Task EditRoom(Room room) { await roomGrid.EditRow(room); }
+    async Task SaveRoom(Room room) { await roomGrid.UpdateRow(room); }
+    void CancelEditRoom(Room room) { roomGrid.CancelEditRow(room); }
+
+    void OnCreateRoom(Room room)
+    {
+        FacilityRepo.SaveRoom(room);
+        RefreshAll();
+        NotificationService.Notify(NotificationSeverity.Success, "Room Created");
+    }
+    void OnUpdateRoom(Room room)
+    {
+        FacilityRepo.SaveRoom(room);
+        RefreshAll();
+        NotificationService.Notify(NotificationSeverity.Success, "Room Updated");
+    }
+
+    // --- Bed CRUD ---
+    async Task InsertBed()
+    {
+        var bed = new Bed() { BedNumber = "A" };
+        await bedGrid.InsertRow(bed);
+    }
+    async Task EditBed(Bed bed) { await bedGrid.EditRow(bed); }
+    async Task SaveBed(Bed bed) { await bedGrid.UpdateRow(bed); }
+    void CancelEditBed(Bed bed) { bedGrid.CancelEditRow(bed); }
+
+    void OnCreateBed(Bed bed)
+    {
+        FacilityRepo.SaveBed(bed);
+        RefreshAll();
+        NotificationService.Notify(NotificationSeverity.Success, "Bed Created");
+    }
+    void OnUpdateBed(Bed bed)
+    {
+        FacilityRepo.SaveBed(bed);
+        RefreshAll();
+        NotificationService.Notify(NotificationSeverity.Success, "Bed Updated");
+    }
+}

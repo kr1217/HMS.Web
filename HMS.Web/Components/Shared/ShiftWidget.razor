@@ -1,0 +1,131 @@
+@rendermode InteractiveServer
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using Radzen
+@using Radzen.Blazor
+@using Microsoft.AspNetCore.Components.Authorization
+@inject FinanceRepository FinanceRepo
+@inject AuthenticationStateProvider AuthProvider
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject NavigationManager Navigation
+
+<div class="d-flex align-items-center">
+    @if (isLoading)
+    {
+        <RadzenProgressBarCircular ShowValue="true" Mode="ProgressBarMode.Indeterminate"
+            Size="ProgressBarCircularSize.Small" />
+    }
+    else if (currentShift != null)
+    {
+        <div class="me-3 text-end d-none d-md-block">
+            <div class="text-success fw-bold small">Shift Active</div>
+            <div class="text-muted small">@currentShift.StartTime.ToString("t")</div>
+        </div>
+        <RadzenButton Icon="timer_off" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Text="End Shift"
+            Click="@EndShiftDialog" />
+    }
+    else
+    {
+        <RadzenButton Icon="timer" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Text="Start Shift"
+            Click="@StartShiftDialog" />
+    }
+</div>
+
+@code {
+    bool isLoading = true;
+    UserShift? currentShift;
+    string userId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadShiftStatus();
+    }
+
+    async Task LoadShiftStatus()
+    {
+        isLoading = true;
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                currentShift = FinanceRepo.GetCurrentShift(userId);
+            }
+        }
+        isLoading = false;
+    }
+
+    async Task StartShiftDialog()
+    {
+        var result = await DialogService.OpenAsync("Start Shift", ds =>
+    @<div class="p-3">
+        <p class="mb-3">Enter starting cash amount in drawer:</p>
+        <RadzenNumeric TValue="decimal" @bind-Value="startingCash" Class="w-100 mb-3" Format="c" />
+        <div class="d-flex justify-content-end gap-2">
+            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="() => ds.Close(false)" />
+            <RadzenButton Text="Start Shift" ButtonStyle="ButtonStyle.Success" Click="() => ds.Close(true)" />
+        </div>
+    </div>
+            , new DialogOptions { Width = "300px", Height = "auto" });
+
+        if (result == true)
+        {
+            FinanceRepo.StartShift(userId, startingCash);
+            await LoadShiftStatus();
+            StateHasChanged(); // Force UI refresh
+            NotificationService.Notify(NotificationSeverity.Success, "Shift Started", "You are now on duty.");
+        }
+    }
+
+    decimal startingCash = 0;
+    decimal closingActualCash = 0;
+    string closingNotes = "";
+
+    async Task EndShiftDialog()
+    {
+        if (currentShift == null) return;
+
+        var expectedRev = FinanceRepo.GetShiftRevenue(currentShift.ShiftId);
+
+        var result = await DialogService.OpenAsync("End Shift", ds =>
+    @<div class="p-3">
+        <p class="mb-2">Shift Started: <strong>@currentShift?.StartTime.ToString("g")</strong></p>
+        <p class="mb-2 text-primary">System Expected Revenue: <strong>@expectedRev.ToString("C")</strong></p>
+        <hr />
+        <div class="mb-3">
+            <RadzenLabel Text="Physical Cash Counted" Component="cash" />
+            <RadzenNumeric Name="cash" TValue="decimal" @bind-Value="closingActualCash" Class="w-100" Format="c" />
+            @if (closingActualCash != expectedRev && closingActualCash > 0)
+        {
+            <div class="small text-danger mt-1">Variance: @((closingActualCash - expectedRev).ToString("C"))</div>
+        }
+        </div>
+        <div class="mb-3">
+            <RadzenLabel Text="Notes / Handover" Component="notes" />
+            <RadzenTextArea Name="notes" @bind-Value="closingNotes" Class="w-100" Rows="3"
+                Placeholder="Explain variances if any..." />
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="() => ds.Close(false)" />
+            <RadzenButton Text="End Shift" ButtonStyle="ButtonStyle.Danger" Click="() => ds.Close(true)" />
+        </div>
+    </div>
+, new DialogOptions { Width = "400px", Height = "auto" });
+
+        if (result == true)
+        {
+            FinanceRepo.CloseShift(currentShift.ShiftId, closingActualCash, closingNotes);
+            
+            NotificationService.Notify(NotificationSeverity.Info, "Shift Ended", "Shift report has been locked. Page will reload...");
+            
+            // Force page reload to refresh all components
+            await Task.Delay(1000); // Give user time to see the notification
+            Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+        }
+    }
+}

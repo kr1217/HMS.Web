@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -71,6 +72,20 @@ namespace HMS.Web.DAL
                     return command.ExecuteScalar();
                 }
             }
+        }
+
+        public List<T> ExecuteQuery<T>(string query, Func<DataRow, T> map, SqlParameter[] parameters = null)
+        {
+            var table = ExecuteDataTable(query, parameters);
+            var list = new List<T>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(map(row));
+                }
+            }
+            return list;
         }
     }
 }

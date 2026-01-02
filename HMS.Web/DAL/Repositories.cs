@@ -16,6 +16,7 @@ namespace HMS.Web.DAL
 
         public Patient? GetPatientByUserId(string userId)
         {
+            // ... (existing implementation)
             string query = "SELECT * FROM Patients WHERE UserId = @UserId";
             var parameters = new[] { new SqlParameter("@UserId", userId) };
             var table = _db.ExecuteDataTable(query, parameters);
@@ -23,36 +24,56 @@ namespace HMS.Web.DAL
             if (table != null && table.Rows.Count > 0)
             {
                 var row = table.Rows[0];
-                return new Patient
-                {
-                    PatientId = (int)row["PatientId"],
-                    UserId = row["UserId"]?.ToString() ?? "",
-                    FullName = row["FullName"]?.ToString() ?? "",
-                    DateOfBirth = row["DateOfBirth"] == DBNull.Value ? null : (DateTime?)row["DateOfBirth"],
-                    Gender = row["Gender"]?.ToString() ?? "",
-                    ContactNumber = row["ContactNumber"]?.ToString() ?? "",
-                    Address = row["Address"]?.ToString() ?? "",
-                    CNIC = row["CNIC"]?.ToString() ?? "",
-                    BloodGroup = row["BloodGroup"]?.ToString() ?? "",
-                    MaritalStatus = row["MaritalStatus"]?.ToString() ?? "",
-                    EmergencyContactName = row["EmergencyContactName"]?.ToString() ?? "",
-                    EmergencyContactNumber = row["EmergencyContactNumber"]?.ToString() ?? "",
-                    RelationshipToEmergencyContact = row["RelationshipToEmergencyContact"]?.ToString() ?? "",
-                    Allergies = row["Allergies"] == DBNull.Value ? null : row["Allergies"]?.ToString(),
-                    ChronicDiseases = row["ChronicDiseases"] == DBNull.Value ? null : row["ChronicDiseases"]?.ToString(),
-                    CurrentMedications = row["CurrentMedications"] == DBNull.Value ? null : row["CurrentMedications"]?.ToString(),
-                    DisabilityStatus = row["DisabilityStatus"] == DBNull.Value ? null : row["DisabilityStatus"]?.ToString(),
-                    RegistrationDate = row["RegistrationDate"] == DBNull.Value ? DateTime.Now : (DateTime)row["RegistrationDate"],
-                    IsActive = row["IsActive"] == DBNull.Value ? true : (bool)row["IsActive"],
-                    PatientType = row["PatientType"] == DBNull.Value ? null : row["PatientType"]?.ToString(),
-                    Email = row["Email"] == DBNull.Value ? null : row["Email"]?.ToString(),
-                    City = row["City"] == DBNull.Value ? null : row["City"]?.ToString(),
-                    Country = row["Country"] == DBNull.Value ? null : row["Country"]?.ToString(),
-                    LastVisitDate = row["LastVisitDate"] == DBNull.Value ? null : (DateTime?)row["LastVisitDate"],
-                    PrimaryDoctorId = row["PrimaryDoctorId"] == DBNull.Value ? null : row["PrimaryDoctorId"]?.ToString()
-                };
+                return MapPatient(row);
             }
             return null;
+        }
+
+        public List<Patient> GetAllPatients()
+        {
+            string query = "SELECT * FROM Patients WHERE IsActive = 1 ORDER BY FullName";
+            var table = _db.ExecuteDataTable(query);
+            var list = new List<Patient>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapPatient(row));
+                }
+            }
+            return list;
+        }
+
+        private Patient MapPatient(DataRow row)
+        {
+            return new Patient
+            {
+                PatientId = (int)row["PatientId"],
+                UserId = row["UserId"]?.ToString() ?? "",
+                FullName = row["FullName"]?.ToString() ?? "",
+                DateOfBirth = row["DateOfBirth"] == DBNull.Value ? null : (DateTime?)row["DateOfBirth"],
+                Gender = row["Gender"]?.ToString() ?? "",
+                ContactNumber = row["ContactNumber"]?.ToString() ?? "",
+                Address = row["Address"]?.ToString() ?? "",
+                CNIC = row["CNIC"]?.ToString() ?? "",
+                BloodGroup = row["BloodGroup"]?.ToString() ?? "",
+                MaritalStatus = row["MaritalStatus"]?.ToString() ?? "",
+                EmergencyContactName = row["EmergencyContactName"]?.ToString() ?? "",
+                EmergencyContactNumber = row["EmergencyContactNumber"]?.ToString() ?? "",
+                RelationshipToEmergencyContact = row["RelationshipToEmergencyContact"]?.ToString() ?? "",
+                Allergies = row["Allergies"] == DBNull.Value ? null : row["Allergies"]?.ToString(),
+                ChronicDiseases = row["ChronicDiseases"] == DBNull.Value ? null : row["ChronicDiseases"]?.ToString(),
+                CurrentMedications = row["CurrentMedications"] == DBNull.Value ? null : row["CurrentMedications"]?.ToString(),
+                DisabilityStatus = row["DisabilityStatus"] == DBNull.Value ? null : row["DisabilityStatus"]?.ToString(),
+                RegistrationDate = row["RegistrationDate"] == DBNull.Value ? DateTime.Now : (DateTime)row["RegistrationDate"],
+                IsActive = row["IsActive"] == DBNull.Value ? true : (bool)row["IsActive"],
+                PatientType = row["PatientType"] == DBNull.Value ? null : row["PatientType"]?.ToString(),
+                Email = row["Email"] == DBNull.Value ? null : row["Email"]?.ToString(),
+                City = row["City"] == DBNull.Value ? null : row["City"]?.ToString(),
+                Country = row["Country"] == DBNull.Value ? null : row["Country"]?.ToString(),
+                LastVisitDate = row["LastVisitDate"] == DBNull.Value ? null : (DateTime?)row["LastVisitDate"],
+                PrimaryDoctorId = row["PrimaryDoctorId"] == DBNull.Value ? null : row["PrimaryDoctorId"]?.ToString()
+            };
         }
 
         public Patient? GetPatientById(int patientId)
@@ -201,6 +222,21 @@ namespace HMS.Web.DAL
                 return MapDoctor(table.Rows[0]);
             }
             return null;
+        }
+
+        public List<Doctor> GetDoctors()
+        {
+            string query = "SELECT d.*, dep.DepartmentName FROM Doctors d LEFT JOIN Departments dep ON d.DepartmentId = dep.DepartmentId WHERE d.IsActive = 1 ORDER BY d.FullName";
+            var table = _db.ExecuteDataTable(query);
+            var list = new List<Doctor>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapDoctor(row));
+                }
+            }
+            return list;
         }
 
         public void CreateDoctor(Doctor doc)
@@ -625,6 +661,24 @@ namespace HMS.Web.DAL
                 }
             }
             return list;
+        }
+
+        public void CreateBill(Bill bill)
+        {
+            bill.DueAmount = bill.TotalAmount - bill.PaidAmount;
+            string query = "INSERT INTO Bills (PatientId, TotalAmount, PaidAmount, DueAmount, Status, BillDate, ShiftId, CreatedBy) VALUES (@PatientId, @TotalAmount, @PaidAmount, @DueAmount, @Status, @BillDate, @ShiftId, @CreatedBy)";
+            var parameters = new[]
+            {
+                new SqlParameter("@PatientId", bill.PatientId),
+                new SqlParameter("@TotalAmount", bill.TotalAmount),
+                new SqlParameter("@PaidAmount", bill.PaidAmount),
+                new SqlParameter("@DueAmount", bill.DueAmount),
+                new SqlParameter("@Status", bill.Status),
+                new SqlParameter("@BillDate", bill.BillDate),
+                new SqlParameter("@ShiftId", (object?)bill.ShiftId ?? DBNull.Value),
+                new SqlParameter("@CreatedBy", (object?)bill.CreatedBy ?? DBNull.Value)
+            };
+            _db.ExecuteNonQuery(query, parameters);
         }
     }
 

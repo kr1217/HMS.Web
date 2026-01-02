@@ -1,0 +1,99 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@inject FacilityRepository FacilityRepo
+@inject BillingRepository BillingRepo
+@inject FinanceRepository FinanceRepo
+@inject AuthenticationStateProvider AuthProvider
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<div class="row">
+    <div class="col-md-12">
+        <RadzenCard class="mb-3">
+            <h4 class="mb-3">Admission Summary</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Patient:</strong> @Admission.PatientName</p>
+                    <p><strong>Ward:</strong> @Admission.WardName</p>
+                    <p><strong>Room:</strong> @Admission.BedNumber (@Admission.RoomTypeName)</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Admitted On:</strong> @Admission.AdmissionDate.ToShortDateString()</p>
+                    <p><strong>Discharge Date:</strong> @DateTime.Now.ToShortDateString()</p>
+                </div>
+            </div>
+        </RadzenCard>
+
+        <RadzenCard class="mb-3">
+            <h4 class="mb-3">Billing Estimate</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Daily Rate:</strong> @Admission.DailyRate.ToString("C")</p>
+                    <p><strong>Duration:</strong> @DurationDays days</p>
+                </div>
+                <div class="col-md-6">
+                    <h3 class="text-success">Total: @TotalAmount.ToString("C")</h3>
+                </div>
+            </div>
+        </RadzenCard>
+
+        <div class="form-group mb-3">
+            <RadzenLabel Text="Discharge Notes" />
+            <RadzenTextArea @bind-Value="notes" Rows="3" Class="w-100" />
+        </div>
+
+        <div class="text-end">
+            <RadzenButton Text="Confirm Discharge & Create Bill" ButtonStyle="ButtonStyle.Danger"
+                Click="@ConfirmDischarge" />
+            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))"
+                Class="ms-2" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Admission Admission { get; set; } = default!;
+
+    string notes = "";
+    int DurationDays => (DateTime.Now - Admission.AdmissionDate).Days == 0 ? 1 : (DateTime.Now -
+    Admission.AdmissionDate).Days;
+    decimal TotalAmount => DurationDays * Admission.DailyRate;
+
+    async Task ConfirmDischarge()
+    {
+        // 0. Security & Anti-Fraud Check
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "User context not found.");
+            return;
+        }
+
+        var currentShift = FinanceRepo.GetCurrentShift(userId);
+        if (currentShift == null)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Action Blocked", "You must 'Clock In' (Start Shift) to process discharges and billing.");
+            return;
+        }
+
+        // 1. Discharge Patient (Update Bed Status, Set Discharge Date)
+        FacilityRepo.DischargePatient(Admission.AdmissionId);
+
+        // 2. Create Bill with Tagging
+        var bill = new Bill
+            {
+                PatientId = Admission.PatientId,
+                TotalAmount = TotalAmount,
+                PaidAmount = 0,
+                Status = "Pending",
+                BillDate = DateTime.Now,
+                ShiftId = currentShift.ShiftId,
+                CreatedBy = userId
+            };
+        BillingRepo.CreateBill(bill);
+
+        DialogService.Close(true);
+    }
+}

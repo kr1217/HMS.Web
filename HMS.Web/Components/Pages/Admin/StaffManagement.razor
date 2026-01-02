@@ -1,0 +1,123 @@
+@page "/admin/staff"
+@layout HMS.Web.Components.Layout.AdminLayout
+@rendermode InteractiveServer
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using Microsoft.AspNetCore.Identity
+@using HMS.Web.Data
+@using Radzen.Blazor
+@attribute [Authorize(Roles = "Admin")]
+@inject StaffRepository StaffRepo
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+
+<PageTitle>Staff Management | Admin</PageTitle>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <h3>Staff Registry</h3>
+    </div>
+    <div class="col-md-6 text-end">
+        <RadzenButton Icon="add" Text="Add New Staff" ButtonStyle="ButtonStyle.Primary" Click="@ShowAddStaffDialog" />
+    </div>
+</div>
+
+<RadzenDataGrid Data="@staffList" TItem="Staff" AllowFiltering="true" AllowPaging="true" PageSize="10"
+    AllowSorting="true" ColumnWidth="150px" Style="height: calc(100vh - 200px);">
+    <Columns>
+        <RadzenDataGridColumn TItem="Staff" Property="StaffId" Title="ID" Width="50px" />
+        <RadzenDataGridColumn TItem="Staff" Property="FullName" Title="Name" />
+        <RadzenDataGridColumn TItem="Staff" Property="Role" Title="Role">
+            <Template Context="data">
+                <span class="badge @GetRoleBadgeClass(data.Role)">@data.Role</span>
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Staff" Property="Department" Title="Department" />
+        <RadzenDataGridColumn TItem="Staff" Property="Shift" Title="Shift" />
+        <RadzenDataGridColumn TItem="Staff" Property="IsActive" Title="Status">
+            <Template Context="data">
+                <RadzenBadge BadgeStyle="@(data.IsActive ? BadgeStyle.Success : BadgeStyle.Danger)"
+                    Text="@(data.IsActive ? "Active" : "Inactive")" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Staff" Title="Actions" Sortable="false" Filterable="false">
+            <Template Context="data">
+                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat"
+                    Size="ButtonSize.Medium" Click="@(() => EditStaff(data))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+<HMS.Web.Components.Shared.RadzenInfrastructure />
+
+@code {
+    private List<Staff> staffList = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStaff();
+        await EnsureRoles();
+    }
+
+    private async Task LoadStaff()
+    {
+        staffList = StaffRepo.GetAllStaff();
+        // Fallback for demo if empty
+        if (!staffList.Any())
+        {
+            // Optional: load dummy data? No, let's keep it clean.
+        }
+    }
+
+    private string GetRoleBadgeClass(string role)
+    {
+        return role switch
+        {
+            "Admin" => "bg-danger",
+            "Doctor" => "bg-primary",
+            "Nurse" => "bg-info text-dark",
+            "Receptionist" => "bg-warning text-dark",
+            _ => "bg-secondary"
+        };
+    }
+
+    private async Task ShowAddStaffDialog()
+    {
+        var result = await DialogService.OpenAsync<AddStaffDialog>("Register New Staff",
+        new Dictionary<string, object>(),
+        new DialogOptions() { Width = "700px", Height = "auto" });
+
+        if (result == true)
+        {
+            await LoadStaff();
+            NotificationService.Notify(NotificationSeverity.Success, "Staff Created", "New staff member added successfully.");
+        }
+    }
+
+    private async Task EditStaff(Staff staff)
+    {
+        var result = await DialogService.OpenAsync<AddStaffDialog>("Edit Staff",
+        new Dictionary<string, object> { { "StaffModel", staff }, { "IsEdit", true } },
+        new DialogOptions() { Width = "700px", Height = "auto" });
+
+        if (result == true)
+        {
+            await LoadStaff();
+            NotificationService.Notify(NotificationSeverity.Success, "Staff Updated", "Staff details updated successfully.");
+        }
+    }
+
+    private async Task EnsureRoles()
+    {
+        string[] roles = { "Admin", "Nurse", "Receptionist", "Pharmacist", "Doctor", "Patient" };
+        foreach (var role in roles)
+        {
+            if (!await RoleManager.RoleExistsAsync(role))
+            {
+                await RoleManager.CreateAsync(new IdentityRole(role));
+            }
+        }
+    }
+}

@@ -1,0 +1,43 @@
+.navbar-brand {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: white !important;
+    padding-left: 1rem;
+}
+
+.nav-scrollable {
+    height: calc(100vh - 3.5rem);
+    overflow-y: auto;
+    background-color: transparent; 
+}
+
+.nav-link {
+    color: rgba(255, 255, 255, 0.75);
+    border-radius: 4px;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    line-height: 3rem;
+    transition: all 0.2s ease-in-out;
+}
+
+.nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    transform: translateX(4px);
+}
+
+.nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-weight: 600;
+}
+
+.nav-item {
+    font-size: 0.95rem;
+    padding-bottom: 0.5rem;
+}
+
+::deep .rz-icon-wrapper {
+    margin-right: 12px !important;
+}

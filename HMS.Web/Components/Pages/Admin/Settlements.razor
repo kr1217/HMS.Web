@@ -1,0 +1,183 @@
+@page "/admin/settlements"
+@layout HMS.Web.Components.Layout.AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@inject DoctorRepository DoctorRepo
+@inject FinanceRepository FinanceRepo
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<PageTitle>Doctor Settlements | Admin</PageTitle>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <h3 class="text-primary">Doctor Settlements</h3>
+        <p class="text-muted">Calculate and process doctor payouts based on completed appointments.</p>
+    </div>
+    <div class="col-md-6 text-end">
+        <RadzenButton Icon="calculate" Text="Calculate Settlements" ButtonStyle="ButtonStyle.Primary"
+            Click="@ShowSettlementDialog" />
+    </div>
+</div>
+
+<RadzenTabs>
+    <Tabs>
+        <RadzenTabsItem Text="Pending Settlements">
+            <RadzenCard Class="mt-3">
+                <RadzenDataGrid Data="@doctors" TItem="Doctor" AllowFiltering="true" AllowPaging="true" PageSize="10">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="Doctor" Property="DoctorId" Title="ID" Width="60px" />
+                        <RadzenDataGridColumn TItem="Doctor" Property="FullName" Title="Doctor Name" />
+                        <RadzenDataGridColumn TItem="Doctor" Property="DepartmentName" Title="Department" />
+                        <RadzenDataGridColumn TItem="Doctor" Property="CommissionRate" Title="Commission %"
+                            Width="120px">
+                            <Template Context="data">
+                                @data.CommissionRate.ToString("0.00")%
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="Doctor" Title="Actions" Sortable="false" Filterable="false"
+                            Width="150px">
+                            <Template Context="data">
+                                <RadzenButton Text="Settle" Icon="payments" ButtonStyle="ButtonStyle.Success"
+                                    Size="ButtonSize.Small" Click="@(() => ProcessSettlement(data))" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </RadzenCard>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Payment History">
+            <RadzenCard Class="mt-3">
+                <div class="mb-3">
+                    <RadzenLabel Text="Select Doctor" />
+                    <RadzenDropDown @bind-Value="selectedDoctorId" Data="@doctors" TextProperty="FullName"
+                        ValueProperty="DoctorId" Change="@LoadPaymentHistory" Class="w-100" />
+                </div>
+
+                @if (paymentHistory.Any())
+                {
+                    <RadzenDataGrid Data="@paymentHistory" TItem="DoctorPayment" AllowPaging="true" PageSize="10">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="DoctorPayment" Property="PaymentId" Title="ID" Width="60px" />
+                            <RadzenDataGridColumn TItem="DoctorPayment" Property="PaymentDate" Title="Payment Date"
+                                FormatString="{0:d}" />
+                            <RadzenDataGridColumn TItem="DoctorPayment" Property="PeriodStart" Title="Period Start"
+                                FormatString="{0:d}" />
+                            <RadzenDataGridColumn TItem="DoctorPayment" Property="PeriodEnd" Title="Period End"
+                                FormatString="{0:d}" />
+                            <RadzenDataGridColumn TItem="DoctorPayment" Property="Amount" Title="Amount">
+                                <Template Context="data">
+                                    <strong class="text-success">@data.Amount.ToString("C")</strong>
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="DoctorPayment" Property="Status" Title="Status">
+                                <Template Context="data">
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@data.Status" />
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+                }
+                else
+                {
+                    <div class="alert alert-info">No payment history available for this doctor.</div>
+                }
+            </RadzenCard>
+        </RadzenTabsItem>
+    </Tabs>
+</RadzenTabs>
+
+@code {
+    List<Doctor> doctors = new();
+    List<DoctorPayment> paymentHistory = new();
+    int? selectedDoctorId;
+
+    protected override void OnInitialized()
+    {
+        LoadDoctors();
+    }
+
+    void LoadDoctors()
+    {
+        doctors = DoctorRepo.GetDoctors();
+    }
+
+    void LoadPaymentHistory()
+    {
+        if (selectedDoctorId.HasValue)
+        {
+            paymentHistory = FinanceRepo.GetDoctorPayments(selectedDoctorId.Value);
+        }
+    }
+
+    async Task ShowSettlementDialog()
+    {
+        await DialogService.OpenAsync("Settlement Period", ds =>
+    @<div class="p-3">
+        <div class="mb-3">
+            <RadzenLabel Text="Period Start" />
+            <RadzenDatePicker @bind-Value="periodStart" Class="w-100" />
+        </div>
+        <div class="mb-3">
+            <RadzenLabel Text="Period End" />
+            <RadzenDatePicker @bind-Value="periodEnd" Class="w-100" />
+        </div>
+        <div class="text-end">
+            <RadzenButton Text="Close" ButtonStyle="ButtonStyle.Light" Click="() => ds.Close()" />
+        </div>
+    </div>
+            , new DialogOptions { Width = "400px" });
+    }
+
+    DateTime periodStart = DateTime.Now.AddMonths(-1);
+    DateTime periodEnd = DateTime.Now;
+
+    async Task ProcessSettlement(Doctor doctor)
+    {
+        var amount = FinanceRepo.CalculateDoctorSettlement(doctor.DoctorId, periodStart, periodEnd);
+
+        if (amount == 0)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "No Earnings",
+                $"Dr. {doctor.FullName} has no completed appointments in this period.");
+            return;
+        }
+
+        var result = await DialogService.OpenAsync($"Settle Payment for Dr. {doctor.FullName}", ds =>
+    @<div class="p-3">
+        <div class="alert alert-info mb-3">
+            <strong>Period:</strong> @periodStart.ToShortDateString() to @periodEnd.ToShortDateString()<br />
+            <strong>Commission Rate:</strong> @doctor.CommissionRate%<br />
+            <strong>Calculated Amount:</strong> <span class="text-success fw-bold">@amount.ToString("C")</span>
+        </div>
+        <div class="mb-3">
+            <RadzenLabel Text="Payment Notes" />
+            <RadzenTextArea @bind-Value="paymentNotes" Class="w-100" Rows="3" Placeholder="Optional notes..." />
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="() => ds.Close(false)" />
+            <RadzenButton Text="Process Payment" ButtonStyle="ButtonStyle.Success" Click="() => ds.Close(true)" />
+        </div>
+    </div>
+, new DialogOptions { Width = "500px" });
+
+        if (result == true)
+        {
+            var payment = new DoctorPayment
+                {
+                    DoctorId = doctor.DoctorId,
+                    Amount = amount,
+                    PeriodStart = periodStart,
+                    PeriodEnd = periodEnd,
+                    Notes = paymentNotes
+                };
+
+            FinanceRepo.ProcessDoctorPayment(payment);
+            NotificationService.Notify(NotificationSeverity.Success, "Payment Processed",
+            $"Settlement of {amount:C} processed for Dr. {doctor.FullName}");
+        }
+    }
+
+    string paymentNotes = "";
+}

@@ -1,0 +1,101 @@
+@page "/admin/dashboard"
+@layout HMS.Web.Components.Layout.AdminLayout
+@rendermode InteractiveServer
+@using Radzen.Blazor
+@attribute [Authorize(Roles = "Admin")]
+@inject NotificationService NotificationService
+@inject FinanceRepository FinanceRepo
+
+<PageTitle>Admin Dashboard | Hospital Control</PageTitle>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="text-primary">Admin Control Center</h2>
+        <p class="text-muted">Overview of hospital operations, financials, and resources.</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Financial Pulse -->
+    <div class="col-md-3">
+        <RadzenCard Class="rz-p-4 mb-4" Style="min-height: 140px; display: flex; align-items: center;">
+            <div class="d-flex flex-row align-items-center w-100">
+                <RadzenIcon Icon="payments" Class="rz-mr-2" Style="font-size: 3rem; color: #28a745;" />
+                <div class="ms-3">
+                    <h6 class="mb-0 text-muted">Today's Revenue</h6>
+                    <h3 class="mb-0">@stats.TodayRevenue.ToString("C")</h3>
+                </div>
+            </div>
+        </RadzenCard>
+    </div>
+
+    <!-- Occupancy -->
+    <div class="col-md-3">
+        <RadzenCard Class="rz-p-4 mb-4" Style="min-height: 140px; display: flex; align-items: center;">
+            <div class="d-flex flex-row align-items-center w-100">
+                <RadzenIcon Icon="bed" Class="rz-mr-2" Style="font-size: 3rem; color: #007bff;" />
+                <div class="ms-3">
+                    <h6 class="mb-0 text-muted">Bed Occupancy</h6>
+                    <h3 class="mb-0">@stats.OccupiedBeds / @stats.TotalBeds</h3>
+                </div>
+            </div>
+        </RadzenCard>
+    </div>
+
+    <!-- Staff Active -->
+    <div class="col-md-3">
+        <RadzenCard Class="rz-p-4 mb-4" Style="min-height: 140px; display: flex; align-items: center;">
+            <div class="d-flex flex-row align-items-center w-100">
+                <RadzenIcon Icon="people" Class="rz-mr-2" Style="font-size: 3rem; color: #dc3545;" />
+                <div class="ms-3">
+                    <h6 class="mb-0 text-muted">Staff On Shift</h6>
+                    <h3 class="mb-0">@stats.StaffOnShift</h3>
+                </div>
+            </div>
+        </RadzenCard>
+    </div>
+
+    <!-- Operations -->
+    <div class="col-md-3">
+        <RadzenCard Class="rz-p-4 mb-4" Style="min-height: 140px; display: flex; align-items: center;">
+            <div class="d-flex flex-row align-items-center w-100">
+                <RadzenIcon Icon="local_hospital" Class="rz-mr-2" Style="font-size: 3rem; color: #ffc107;" />
+                <div class="ms-3">
+                    <h6 class="mb-0 text-muted">Surgeries Today</h6>
+                    <h3 class="mb-0">@stats.SurgeriesToday</h3>
+                </div>
+            </div>
+        </RadzenCard>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <RadzenCard>
+            <h5 class="mb-3">Recent Alerts</h5>
+            <div class="alert alert-info">System initialized. No critical alerts.</div>
+        </RadzenCard>
+    </div>
+    <div class="col-md-6">
+        <RadzenCard>
+            <h5 class="mb-3">Quick Actions</h5>
+            <div class="d-grid gap-2">
+                <RadzenButton Text="Register New Staff" Icon="person_add" ButtonStyle="ButtonStyle.Primary"
+                    Click="@(() => Navigation.NavigateTo("admin/staff"))" />
+                <RadzenButton Text="View Shift Report" Icon="assessment" ButtonStyle="ButtonStyle.Secondary"
+                    Click="@(() => Navigation.NavigateTo("admin/shift-report"))" />
+            </div>
+        </RadzenCard>
+    </div>
+</div>
+<HMS.Web.Components.Shared.RadzenInfrastructure />
+
+@code {
+    [Inject] NavigationManager Navigation { get; set; } = default!;
+    DashboardStats stats = new();
+
+    protected override void OnInitialized()
+    {
+        stats = FinanceRepo.GetDashboardStats();
+    }
+}

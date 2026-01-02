@@ -1,0 +1,114 @@
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using Radzen
+@using Radzen.Blazor
+@inject FacilityRepository FacilityRepo
+@inject PatientRepository PatientRepo
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenTemplateForm TItem="Admission" Data="@model" Submit="@OnSubmit">
+    <div class="row">
+        <div class="col-md-12 mb-3">
+            <RadzenLabel Text="Select Patient" Component="PatientId" />
+            <RadzenDropDown Name="PatientId" Data="@patients" TextProperty="FullName" ValueProperty="PatientId"
+                @bind-Value="model.PatientId" Style="width: 100%;" AllowFiltering="true"
+                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+            <RadzenRequiredValidator Component="PatientId" Text="Patient is required" Popup="true" />
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <RadzenLabel Text="Ward" Component="WardId" />
+            <RadzenDropDown Name="WardId" Data="@wards" TextProperty="WardName" ValueProperty="WardId"
+                @bind-Value="selectedWardId" Style="width: 100%;" Change="@(args => OnWardChange())" />
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <RadzenLabel Text="Room" Component="RoomId" />
+            <RadzenDropDown Name="RoomId" Data="@filteredRooms" TextProperty="RoomNumber" ValueProperty="RoomId"
+                @bind-Value="selectedRoomId" Style="width: 100%;" Change="@(args => OnRoomChange())"
+                Disabled="@(selectedWardId == 0)" />
+        </div>
+
+        <div class="col-md-12 mb-3">
+            <RadzenLabel Text="Available Bed" Component="BedId" />
+            <RadzenDropDown Name="BedId" Data="@filteredBeds" ValueProperty="BedId" @bind-Value="model.BedId"
+                Style="width: 100%;" Disabled="@(selectedRoomId == 0)">
+                <Template Context="bed">
+                    @bed.BedNumber (@bed.Status)
+                </Template>
+            </RadzenDropDown>
+            <RadzenRequiredValidator Component="BedId" Text="Bed is required" DefaultValue="0" Popup="true" />
+        </div>
+
+        <div class="col-md-12 mb-3">
+            <RadzenLabel Text="Admission Notes" />
+            <RadzenTextArea @bind-Value="model.Notes" Rows="3" Style="width: 100%;" />
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12 text-end">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Admit Patient" ButtonStyle="ButtonStyle.Success" />
+            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))"
+                Class="ms-2" />
+        </div>
+    </div>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public Admission? AdmissionModel { get; set; }
+
+    Admission model = new Admission();
+    List<Patient> patients = new();
+    List<Ward> wards = new();
+    List<Room> allRooms = new();
+    List<Room> filteredRooms = new();
+    List<Bed> allBeds = new();
+    List<Bed> filteredBeds = new();
+
+    int selectedWardId = 0;
+    int selectedRoomId = 0;
+
+    protected override void OnInitialized()
+    {
+        patients = PatientRepo.GetAllPatients();
+        wards = FacilityRepo.GetWards();
+        allRooms = FacilityRepo.GetRooms();
+        allBeds = FacilityRepo.GetBeds(); // Ideally fetch only available beds or filter later
+    }
+
+    void OnWardChange()
+    {
+        filteredRooms = allRooms.Where(r => r.WardId == selectedWardId).ToList();
+        selectedRoomId = 0;
+        filteredBeds.Clear();
+        model.BedId = 0;
+    }
+
+    void OnRoomChange()
+    {
+        // Filter for Available beds in the selected room
+        filteredBeds = allBeds.Where(b => b.RoomId == selectedRoomId && b.Status == "Available").ToList();
+        model.BedId = 0;
+    }
+
+    async Task OnSubmit(Admission args)
+    {
+        try
+        {
+            if (args.PatientId == 0 || args.BedId == 0)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "Validation Error", "Please select both patient and bed.");
+                return;
+            }
+
+            FacilityRepo.AdmitPatient(args);
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Admission Error", ex.Message);
+        }
+    }
+}

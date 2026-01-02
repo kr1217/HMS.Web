@@ -110,6 +110,22 @@ namespace HMS.Web.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public bool IsAvailable { get; set; }
+        public decimal CommissionRate { get; set; } = 100.00m; // Percentage of consultation fee doctor receives
+    }
+
+    public class DoctorPayment
+    {
+        public int PaymentId { get; set; }
+        public int DoctorId { get; set; }
+        public decimal Amount { get; set; }
+        public DateTime PaymentDate { get; set; } = DateTime.Now;
+        public DateTime PeriodStart { get; set; }
+        public DateTime PeriodEnd { get; set; }
+        public string Status { get; set; } = "Processed";
+        public string? Notes { get; set; }
+
+        // Optional Joined Properties
+        public string? DoctorName { get; set; }
     }
 
     public class Appointment
@@ -179,6 +195,8 @@ namespace HMS.Web.Models
         public decimal DueAmount { get; set; }
         public string Status { get; set; } = "Pending"; // Paid, Pending, Partial
         public DateTime BillDate { get; set; }
+        public int? ShiftId { get; set; }
+        public string? CreatedBy { get; set; }
     }
 
     public class OperationPackage
@@ -263,5 +281,118 @@ namespace HMS.Web.Models
         public string Frequency { get; set; } = "";
         public string Duration { get; set; } = "";
         public string Instructions { get; set; } = "";
+    }
+
+    public class Staff
+    {
+        public int StaffId { get; set; }
+        public string UserId { get; set; } = string.Empty; // IdentityUser Id
+
+        [Required]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required]
+        public string Role { get; set; } = string.Empty; // Admin, Nurse, Receptionist, Pharmacist
+
+        public string? Department { get; set; }
+
+        public string? Shift { get; set; } // Morning, Evening, Night
+
+        public decimal Salary { get; set; }
+
+        public DateTime JoinDate { get; set; } = DateTime.Now;
+
+        public bool IsActive { get; set; } = true;
+
+        [EmailAddress]
+        public string? Email { get; set; }
+
+        [Phone]
+        public string? PhoneNumber { get; set; }
+    }
+
+    public class Admission
+    {
+        public int AdmissionId { get; set; }
+        public int PatientId { get; set; }
+        public int BedId { get; set; }
+        public DateTime AdmissionDate { get; set; } = DateTime.Now;
+        public DateTime? DischargeDate { get; set; }
+        public string Status { get; set; } = "Admitted"; // Admitted, Discharged
+        public string Notes { get; set; } = string.Empty;
+
+        // Optional Joined Properties
+        public string? PatientName { get; set; }
+        public string? BedNumber { get; set; }
+        public string? WardName { get; set; }
+        public string? RoomTypeName { get; set; }
+        public decimal DailyRate { get; set; }
+    }
+
+    public class Ward
+    {
+        public int WardId { get; set; }
+        [Required]
+        public string WardName { get; set; } = string.Empty;
+        public string Floor { get; set; } = string.Empty;
+        public string Wing { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
+    }
+
+    public class RoomType
+    {
+        public int RoomTypeId { get; set; }
+        [Required]
+        public string TypeName { get; set; } = string.Empty; // General, Private, Deluxe
+        public decimal DailyRate { get; set; }
+        public string Description { get; set; } = string.Empty;
+    }
+
+    public class Room
+    {
+        public int RoomId { get; set; }
+        public int WardId { get; set; }
+        public string RoomNumber { get; set; } = string.Empty;
+        public int RoomTypeId { get; set; }
+        public bool IsActive { get; set; } = true;
+
+        // Optional Joined Properties
+        public string? WardName { get; set; }
+        public string? RoomTypeName { get; set; }
+    }
+
+    public class Bed
+    {
+        public int BedId { get; set; }
+        public int RoomId { get; set; }
+        public string BedNumber { get; set; } = string.Empty; // e.g. "ICU-101-A"
+        public string Status { get; set; } = "Available"; // Available, Occupied, Maintenance, Cleaning
+        public bool IsActive { get; set; } = true;
+
+        // Optional Joined Properties
+        public string? RoomNumber { get; set; }
+        public string? WardName { get; set; }
+    }
+
+    public class UserShift
+    {
+        public int ShiftId { get; set; }
+        public string UserId { get; set; } = string.Empty;
+        public DateTime StartTime { get; set; } = DateTime.Now;
+        public DateTime? EndTime { get; set; }
+        public decimal StartingCash { get; set; }
+        public decimal? EndingCash { get; set; }
+        public decimal? ActualCash { get; set; }
+        public string Status { get; set; } = "Open";
+        public string? Notes { get; set; }
+    }
+
+    public class DashboardStats
+    {
+        public decimal TodayRevenue { get; set; }
+        public int OccupiedBeds { get; set; }
+        public int TotalBeds { get; set; }
+        public int StaffOnShift { get; set; }
+        public int SurgeriesToday { get; set; }
     }
 }
