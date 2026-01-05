@@ -47,6 +47,10 @@
                             {
                                 link = "patient/prescriptions";
                             }
+                            else if (note.Title.Contains("Bill", StringComparison.OrdinalIgnoreCase))
+                            {
+                                link = "patient/bills";
+                            }
                         }
                         <a href="@link" class="dropdown-item @(note.IsRead ? "" : "bg-light")">
                             <div class="d-flex justify-content-between">

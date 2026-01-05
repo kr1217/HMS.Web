@@ -11,41 +11,65 @@
 <div class="nav-scrollable">
     <nav class="nav flex-column">
         @using Radzen.Blazor
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin/dashboard">
-                <RadzenIcon Icon="dashboard" Style="margin-right: 10px;" /> Dashboard
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin/staff">
-                <RadzenIcon Icon="people" Style="margin-right: 10px;" /> Staff Registry
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin/finance">
-                <RadzenIcon Icon="attach_money" /> Financials
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin/facilities">
-                <RadzenIcon Icon="meeting_room" /> Facilities
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin/admissions">
-                <RadzenIcon Icon="local_hospital" Style="margin-right: 10px;" /> Admissions
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin/settlements">
-                <RadzenIcon Icon="payments" Style="margin-right: 10px;" /> Settlements
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin/shift-report">
-                <RadzenIcon Icon="assessment" Style="margin-right: 10px;" /> Shift Reports
-            </NavLink>
-        </div>
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/dashboard">
+                        <RadzenIcon Icon="dashboard" Style="margin-right: 10px;" /> Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/staff">
+                        <RadzenIcon Icon="people" Style="margin-right: 10px;" /> Staff Registry
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/finance">
+                        <RadzenIcon Icon="attach_money" /> Financials
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/facilities">
+                        <RadzenIcon Icon="meeting_room" /> Facilities
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/admissions">
+                        <RadzenIcon Icon="local_hospital" Style="margin-right: 10px;" /> Admissions
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="Admin/OperationRequests">
+                        <RadzenIcon Icon="emergency" Style="margin-right: 10px;" /> Pending Ops
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/settlements">
+                        <RadzenIcon Icon="payments" Style="margin-right: 10px;" /> Settlements
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/shift-report">
+                        <RadzenIcon Icon="assessment" Style="margin-right: 10px;" /> Shift Reports
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="Teller">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="teller/dashboard">
+                        <RadzenIcon Icon="point_of_sale" Style="margin-right: 10px;" /> Teller Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/shift-report">
+                        <RadzenIcon Icon="assessment" Style="margin-right: 10px;" /> Shift Reports
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
         <AuthorizeView>
             <Authorized>

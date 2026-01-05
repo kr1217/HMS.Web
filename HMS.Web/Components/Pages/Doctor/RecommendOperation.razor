@@ -78,7 +78,7 @@
                                     <label class="form-label">Scheduled Date <span class="text-danger">*</span></label>
                                     <InputDate @bind-Value="NewOperation.ScheduledDate" class="form-control" />
                                 </div>
-                                <div class="col-md-6 mb-3">
+                                <div class="col-md-3 mb-3">
                                     <label class="form-label">Urgency <span class="text-danger">*</span></label>
                                     <InputSelect @bind-Value="NewOperation.Urgency" class="form-select">
                                         <option value="">Select Urgency</option>
@@ -88,14 +88,31 @@
                                         <option value="Critical">Critical</option>
                                     </InputSelect>
                                 </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Est. Stay (Days) <span class="text-danger">*</span></label>
+                                    <InputNumber @bind-Value="NewOperation.ExpectedStayDays" class="form-control" />
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Required Medicines</label>
+                                    <div class="form-text text-muted mb-1">List meds for billing/inventory.</div>
+                                    <InputTextArea @bind-Value="NewOperation.RecommendedMedicines" class="form-control"
+                                        rows="3" placeholder="e.g. 2x Propofol, 1x Kit..." />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Required Equipment</label>
+                                    <div class="form-text text-muted mb-1">List equipment (e.g. Laser, Stent).</div>
+                                    <InputTextArea @bind-Value="NewOperation.RecommendedEquipment" class="form-control"
+                                        rows="3" placeholder="e.g. Laparoscopic Set..." />
+                                </div>
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Notes & Requirements </label>
-                                <div class="form-text text-muted mb-1">List required medicines, equipment, and any specific
-                                    instructions.</div>
-                                <InputTextArea @bind-Value="NewOperation.Notes" class="form-control" rows="5"
-                                    placeholder="e.g. Requires general anesthesia. Reserve ICU bed type B. Pre-op medicines: ..." />
+                                <label class="form-label">Notes & Instructions</label>
+                                <InputTextArea @bind-Value="NewOperation.Notes" class="form-control" rows="2"
+                                    placeholder="Any specific pre-op instructions..." />
                             </div>
 
                             <div class="d-flex justify-content-end gap-2 mt-4">

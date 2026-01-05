@@ -5,11 +5,12 @@
 @inject AuthenticationStateProvider AuthProvider
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@inject NotificationRepository NotificationRepo
 
 <div class="row">
     <div class="col-md-12">
         <RadzenCard class="mb-3">
-            <h4 class="mb-3">Admission Summary</h4>
+            <h4 class="mb-3">Discharge Summary & Billing</h4>
             <div class="row">
                 <div class="col-md-6">
                     <p><strong>Patient:</strong> @Admission.PatientName</p>
@@ -24,25 +25,56 @@
         </RadzenCard>
 
         <RadzenCard class="mb-3">
-            <h4 class="mb-3">Billing Estimate</h4>
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>Daily Rate:</strong> @Admission.DailyRate.ToString("C")</p>
-                    <p><strong>Duration:</strong> @DurationDays days</p>
+            <h5 class="mb-3">Bill Details</h5>
+            <RadzenDataGrid Data="@Items" TItem="BillItem" Density="Density.Compact">
+                <Columns>
+                    <RadzenDataGridColumn TItem="BillItem" Property="Category" Title="Category" Width="120px" />
+                    <RadzenDataGridColumn TItem="BillItem" Property="Description" Title="Description" />
+                    <RadzenDataGridColumn TItem="BillItem" Property="Amount" Title="Amount" FormatString="{0:C}"
+                        Width="100px">
+                        <FooterTemplate>
+                            <b>@TotalAmount.ToString("C")</b>
+                        </FooterTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="BillItem" Title="Action" Width="60px">
+                        <Template Context="item">
+                            @if (item.Category != "Room Charges")
+                            {
+                                <RadzenButton Icon="delete" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Danger"
+                                    Click="@(() => RemoveItem(item))" />
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+
+            <div class="row mt-3 align-items-end">
+                <div class="col-md-4">
+                    <RadzenLabel Text="Category" />
+                    <RadzenDropDown @bind-Value="newItemCategory" Data="@categories" Class="w-100" />
                 </div>
-                <div class="col-md-6">
-                    <h3 class="text-success">Total: @TotalAmount.ToString("C")</h3>
+                <div class="col-md-4">
+                    <RadzenLabel Text="Description" />
+                    <RadzenTextBox @bind-Value="newItemDesc" Class="w-100" />
+                </div>
+                <div class="col-md-2">
+                    <RadzenLabel Text="Amount" />
+                    <RadzenNumeric @bind-Value="newItemAmount" Class="w-100" />
+                </div>
+                <div class="col-md-2">
+                    <RadzenButton Text="Add" Icon="add" ButtonStyle="ButtonStyle.Secondary" Class="w-100"
+                        Click="@AddItem" />
                 </div>
             </div>
         </RadzenCard>
 
         <div class="form-group mb-3">
             <RadzenLabel Text="Discharge Notes" />
-            <RadzenTextArea @bind-Value="notes" Rows="3" Class="w-100" />
+            <RadzenTextArea @bind-Value="notes" Rows="2" Class="w-100" />
         </div>
 
         <div class="text-end">
-            <RadzenButton Text="Confirm Discharge & Create Bill" ButtonStyle="ButtonStyle.Danger"
+            <RadzenButton Text="Send Bill to Teller" Icon="send" ButtonStyle="ButtonStyle.Danger"
                 Click="@ConfirmDischarge" />
             <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))"
                 Class="ms-2" />
@@ -54,34 +86,114 @@
     [Parameter] public Admission Admission { get; set; } = default!;
 
     string notes = "";
+    List<BillItem> Items = new List<BillItem>();
+
+    // Add Item Form
+    string newItemCategory = "Services";
+    string newItemDesc = "";
+    decimal newItemAmount = 0;
+    List<string> categories = new List<string> { "Doctor Fees", "Medicines", "Lab Tests", "Services", "Procedures" };
+
+    decimal TotalAmount => Items.Sum(i => i.Amount);
     int DurationDays => (DateTime.Now - Admission.AdmissionDate).Days == 0 ? 1 : (DateTime.Now -
     Admission.AdmissionDate).Days;
-    decimal TotalAmount => DurationDays * Admission.DailyRate;
+
+    @inject OperationRepository OperationRepo
+
+    // ... inside code ...
+    protected override void OnInitialized()
+    {
+        // Calculate Room Rent automatically
+        Items.Add(new BillItem
+            {
+                Category = "Room Charges",
+                Description = $"Room Rent for {DurationDays} days @ {Admission.DailyRate:C}/day",
+                Amount = DurationDays * Admission.DailyRate
+            });
+
+        // Load Operations & Recommendations for billing
+        // Load Operations & Recommendations for billing.
+        // Include 'Scheduled' ones too as they are likely the ones we just performed/admitted for.
+        // Or 'Completed'.
+        var ops = OperationRepo.GetPatientOperations(Admission.PatientId);
+
+        foreach (var op in ops.Where(o => o.Status == "Completed" || o.Status == "Scheduled" || o.Status == "Recommended"))
+        {
+            // Add Procedure Cost
+            Items.Add(new BillItem
+                {
+                    Category = "Procedures",
+                    Description = $"Operation: {op.PackageName}",
+                    Amount = op.AgreedOperationCost ?? 0 // Use Agreed Cost if set
+                });
+
+            // Add Recommended Items
+            if (!string.IsNullOrEmpty(op.RecommendedMedicines))
+            {
+                string medDesc = $"Rec: {op.RecommendedMedicines}";
+                if (medDesc.Length > 250) medDesc = medDesc.Substring(0, 247) + "...";
+                Items.Add(new BillItem
+                    {
+                        Category = "Medicines",
+                        Description = medDesc,
+                        Amount = op.AgreedMedicineCost ?? 0
+                    });
+            }
+
+            if (!string.IsNullOrEmpty(op.RecommendedEquipment))
+            {
+                string eqDesc = $"Rec Eq: {op.RecommendedEquipment}";
+                if (eqDesc.Length > 250) eqDesc = eqDesc.Substring(0, 247) + "...";
+                Items.Add(new BillItem
+                    {
+                        Category = "Services",
+                        Description = eqDesc,
+                        Amount = op.AgreedEquipmentCost ?? 0
+                    });
+            }
+        }
+    }
+
+    void AddItem()
+    {
+        if (newItemAmount > 0 && !string.IsNullOrWhiteSpace(newItemDesc))
+        {
+            Items.Add(new BillItem
+                {
+                    Category = newItemCategory,
+                    Description = newItemDesc,
+                    Amount = newItemAmount
+                });
+            newItemDesc = "";
+            newItemAmount = 0;
+        }
+    }
+
+    void RemoveItem(BillItem item)
+    {
+        Items.Remove(item);
+    }
 
     async Task ConfirmDischarge()
     {
-        // 0. Security & Anti-Fraud Check
         var authState = await AuthProvider.GetAuthenticationStateAsync();
         var user = authState.User;
         var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
+        // Fallback for Admin testing if no claim found (though Auth is required for this page)
         if (string.IsNullOrEmpty(userId))
         {
-            NotificationService.Notify(NotificationSeverity.Error, "Error", "User context not found.");
-            return;
+            // Try name
+            userId = user.Identity?.Name;
         }
 
-        var currentShift = FinanceRepo.GetCurrentShift(userId);
-        if (currentShift == null)
+        if (string.IsNullOrEmpty(userId))
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Action Blocked", "You must 'Clock In' (Start Shift) to process discharges and billing.");
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "User identity not found. Cannot create bill.");
             return;
         }
 
-        // 1. Discharge Patient (Update Bed Status, Set Discharge Date)
-        FacilityRepo.DischargePatient(Admission.AdmissionId);
-
-        // 2. Create Bill with Tagging
+        // Create Detailed Bill
         var bill = new Bill
             {
                 PatientId = Admission.PatientId,
@@ -89,11 +201,28 @@
                 PaidAmount = 0,
                 Status = "Pending",
                 BillDate = DateTime.Now,
-                ShiftId = currentShift.ShiftId,
-                CreatedBy = userId
+                CreatedBy = userId,
+                AdmissionId = Admission.AdmissionId,
+                Items = Items
             };
-        BillingRepo.CreateBill(bill);
 
+        BillingRepo.CreateComprehensiveBill(bill);
+
+        // Notify Patient
+        NotificationRepo.CreateNotification(new Notification
+            {
+                PatientId = Admission.PatientId,
+                Title = "Bill Generated",
+                Message = $"A new bill of {TotalAmount:C} has been generated for your recent stay. Please view details in 'My Bills'.",
+                CreatedDate = DateTime.Now,
+                IsRead = false
+            });
+
+        // Note: We do NOT discharge the patient yet.
+        // We set status to "Payment Pending" or just rely on the existence of an unpaid bill linked to admission.
+        // For now, let's keep the admission status as is, the Teller will finalize it.
+
+        NotificationService.Notify(NotificationSeverity.Success, "Bill Generated", "Bill sent to Teller. Patient notified.");
         DialogService.Close(true);
     }
 }

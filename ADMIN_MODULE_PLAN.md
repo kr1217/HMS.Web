@@ -16,6 +16,7 @@ This document tracks the incremental implementation of the Admin Module.
 
 - [x] **1.2 Staff Registry (HR)**
     - [x] Extend `User` model to support new roles: `Admin`, `Nurse`, `Receptionist`.
+    - [x] **New Role**: `Teller` (Financial transactions/Cashier).
     - [x] Build **Staff Management UI** (CRUD) to hire/fire/edit staff.
     - [x] Manage Doctor contracts (Fixed Salary vs. Revenue Share configurations).
 
@@ -42,7 +43,7 @@ This document tracks the incremental implementation of the Admin Module.
 
 ---
 
-## 💰 PHASE 3: FINANCIAL CORE (The "Money") ✅ **COMPLETE**
+## 💰 PHASE 3: FINANCIAL CORE (The "Money")
 **Goal:** "Show me exactly where money comes from and where it goes." **(CRITICAL)**
 
 - [x] **3.1 Shift Management (Anti-Fraud)**
@@ -56,6 +57,16 @@ This document tracks the incremental implementation of the Admin Module.
     - [x] **Settlement UI**: Process doctor payments with historical tracking (`/admin/settlements`)
     - [ ] **Expense Logging**: Interface to log non-clinical costs (Maintenance, Utilities).
 
+- [x] **3.3 Teller Implementation**
+    - [x] **Teller Profile**: Profile specific for accepting payments from patients.
+    - [x] **Cash Custody**: Tellers are responsible for physical cash handling and shift reconciliation.
+
+- [x] **3.4 Detailed Surgical Billing (Enhanced)**
+    - [x] **Detailed Recommendations**: Doctors specify medicines & equipment for operations.
+    - [x] **Admin Approval & Costing**: Admin admits patient and sets approved costs for Op, Meds, and Eq.
+    - [x] **Automated Discharge Billing**: Final bill auto-populated with approved Surgical costs + Room Rent.
+    - [x] **Patient Transparency**: Patients receive bill notifications and view detailed invoices in their portal.
+
 **Phase 3 Deliverables:**
 - ✅ Shift Widget (Start/End shift with cash tracking)
 - ✅ Transaction tagging for all bills
@@ -64,16 +75,16 @@ This document tracks the incremental implementation of the Admin Module.
 - ✅ Doctor Payments history
 - ✅ Anti-fraud measures (must clock in to transact)
 - ✅ Complete audit trail for financial transactions
-
+- ✅ End-to-End Surgical Billing Flow (Recommendation -> Admin Costing -> Discharge -> Patient View)
 
 ---
 
 ## 👁️ PHASE 4: OVERSIGHT & AUDIT (The "Flow")
 **Goal:** High-level visualization and accountability.
 
-- [ ] **4.1 Operational Oversight**
-    - [ ] **OT Schedule View**: Admin view of all upcoming surgeries.
-    - [ ] **Discharge Workflow**: Approval gate for ensuring bills are paid before discharge.
+- [x] **4.1 Operational Oversight**
+    - [x] **Pending Ops View**: Admin view of all recommended surgeries for admission (`/admin/operation-requests`).
+    - [x] **Discharge Workflow**: Approval gate for ensuring bills are paid before discharge.
 
 - [ ] **4.2 Audit & Compliance**
     - [ ] **Audit Trail**: Immutable logs for sensitive actions (e.g., "Price Override", "Bill Deletion").
@@ -81,18 +92,10 @@ This document tracks the incremental implementation of the Admin Module.
 
 ---
 
-## 🏥 PHASE 5: SURGICAL CONSUMPTION & BILLING (The "Bill")
-**Goal:** Track every item used in surgery and automate the final invoice.
+## 🏥 PHASE 5: ADVANCED CONSUMPTION (Future)
+**Goal:** Granular inventory tracking.
 
 - [ ] **5.1 Chargeable Items Catalog**
     - [ ] Build **Master Catalog** for Medicines, Surgical Equipment, and Lab tests with unit pricing.
-- [ ] **5.2 Surgery Consumption Log**
-    - [ ] Create **Consumption Entry UI** for nurses/admins to log items used during a `PatientOperation`.
-    - [ ] Implement **Fee Management**: Track Surgeon consultation and OT charges per surgery.
-- [ ] **5.3 Financial Integration**
-    - [ ] Auto-generate **Surgical Invoice** line items for the final Patient Bill.
-    - [ ] Update **CEO Dashboard** to reflect surgery-specific revenue.
+    - [ ] Update "Admin Costing" flow to pick from Catalog instead of manual text entry.
 
----
-
-*Note: General Inventory Management (Stock Levels/Procurement) is out of scope. We focus exclusively on Patient Consumption & Billing.*

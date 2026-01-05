@@ -663,22 +663,62 @@ namespace HMS.Web.DAL
             return list;
         }
 
-        public void CreateBill(Bill bill)
+        public int CreateBill(Bill bill)
         {
-            bill.DueAmount = bill.TotalAmount - bill.PaidAmount;
-            string query = "INSERT INTO Bills (PatientId, TotalAmount, PaidAmount, DueAmount, Status, BillDate, ShiftId, CreatedBy) VALUES (@PatientId, @TotalAmount, @PaidAmount, @DueAmount, @Status, @BillDate, @ShiftId, @CreatedBy)";
-            var parameters = new[]
-            {
+            const string sql = @"INSERT INTO Bills (PatientId, TotalAmount, PaidAmount, DueAmount, Status, BillDate, ShiftId, CreatedBy, AdmissionId) 
+                               OUTPUT INSERTED.BillId
+                               VALUES (@PatientId, @TotalAmount, @PaidAmount, @DueAmount, @Status, @BillDate, @ShiftId, @CreatedBy, @AdmissionId)";
+
+            var billId = (int)_db.ExecuteScalar(sql, new[] {
                 new SqlParameter("@PatientId", bill.PatientId),
                 new SqlParameter("@TotalAmount", bill.TotalAmount),
                 new SqlParameter("@PaidAmount", bill.PaidAmount),
-                new SqlParameter("@DueAmount", bill.DueAmount),
+                new SqlParameter("@DueAmount", bill.TotalAmount), // Initial Due = Total
                 new SqlParameter("@Status", bill.Status),
                 new SqlParameter("@BillDate", bill.BillDate),
                 new SqlParameter("@ShiftId", (object?)bill.ShiftId ?? DBNull.Value),
-                new SqlParameter("@CreatedBy", (object?)bill.CreatedBy ?? DBNull.Value)
-            };
-            _db.ExecuteNonQuery(query, parameters);
+                new SqlParameter("@CreatedBy", (object?)bill.CreatedBy ?? DBNull.Value),
+                new SqlParameter("@AdmissionId", (object?)bill.AdmissionId ?? DBNull.Value)
+            });
+
+            // Insert Items
+            if (bill.Items != null && bill.Items.Any())
+            {
+                foreach (var item in bill.Items)
+                {
+                    const string itemSql = @"INSERT INTO BillItems (BillId, Description, Amount, Category) 
+                                           VALUES (@BillId, @Description, @Amount, @Category)";
+                    _db.ExecuteNonQuery(itemSql, new[] {
+                        new SqlParameter("@BillId", billId),
+                        new SqlParameter("@Description", item.Description),
+                        new SqlParameter("@Amount", item.Amount),
+                        new SqlParameter("@Category", item.Category)
+                    });
+                }
+            }
+
+            return billId;
+        }
+
+        public List<BillItem> GetBillItems(int billId)
+        {
+            const string sql = "SELECT * FROM BillItems WHERE BillId = @BillId";
+            return _db.ExecuteQuery(sql, r => new BillItem
+            {
+                BillItemId = (int)r["BillItemId"],
+                BillId = (int)r["BillId"],
+                Description = r["Description"].ToString()!,
+                Amount = (decimal)r["Amount"],
+                Category = r["Category"].ToString()!
+            }, new[] { new SqlParameter("@BillId", billId) });
+        }
+
+        public void CreateComprehensiveBill(Bill bill)
+        {
+            // This method assumes the Bill object already has its items populated and TotalAmount calculated.
+            // It creates the bill and its associated items in a single transaction.
+            int billId = CreateBill(bill); // Re-use the CreateBill logic which now handles items
+            bill.BillId = billId; // Assign the newly created BillId back to the object
         }
     }
 
@@ -710,9 +750,34 @@ namespace HMS.Web.DAL
 
         public List<PatientOperation> GetPatientOperations(int patientId)
         {
-            string query = "SELECT po.*, op.PackageName FROM PatientOperations po JOIN OperationPackages op ON po.PackageId = op.PackageId WHERE po.PatientId = @PatientId";
+            // Join Patients and Doctors for names if needed, or just handle at view level
+            // For Admin view, we often need all operations, not just by patientId. 
+            // So we might need a "GetAllPendingOperations" too.
+            string query = @"SELECT po.*, op.PackageName, p.FullName as PatientName, d.FullName as DoctorName 
+                             FROM PatientOperations po 
+                             LEFT JOIN OperationPackages op ON po.PackageId = op.PackageId 
+                             LEFT JOIN Patients p ON po.PatientId = p.PatientId
+                             LEFT JOIN Doctors d ON po.DoctorId = d.DoctorId
+                             WHERE po.PatientId = @PatientId";
             var parameters = new[] { new SqlParameter("@PatientId", patientId) };
             var table = _db.ExecuteDataTable(query, parameters);
+            return MapOperations(table);
+        }
+
+        public List<PatientOperation> GetPendingOperations()
+        {
+            string query = @"SELECT po.*, op.PackageName, p.FullName as PatientName, d.FullName as DoctorName 
+                             FROM PatientOperations po 
+                             LEFT JOIN OperationPackages op ON po.PackageId = op.PackageId 
+                             LEFT JOIN Patients p ON po.PatientId = p.PatientId
+                             LEFT JOIN Doctors d ON po.DoctorId = d.DoctorId
+                             WHERE po.Status = 'Recommended'";
+            var table = _db.ExecuteDataTable(query);
+            return MapOperations(table);
+        }
+
+        private List<PatientOperation> MapOperations(DataTable? table)
+        {
             var list = new List<PatientOperation>();
             if (table != null)
             {
@@ -722,21 +787,52 @@ namespace HMS.Web.DAL
                     {
                         OperationId = (int)row["OperationId"],
                         PatientId = (int)row["PatientId"],
-                        PackageId = (int)row["PackageId"],
-                        PackageName = row["PackageName"].ToString(),
+                        PackageId = row["PackageId"] != DBNull.Value ? (int)row["PackageId"] : null,
+                        PackageName = row["PackageName"] != DBNull.Value ? row["PackageName"].ToString() : (row["OperationName"]?.ToString() ?? ""),
                         Status = row["Status"].ToString(),
                         ScheduledDate = (DateTime)row["ScheduledDate"],
-                        Notes = row["Notes"].ToString()
+                        Notes = row["Notes"].ToString(),
+                        DoctorId = row.Table.Columns.Contains("DoctorId") ? ((row["DoctorId"] != DBNull.Value) ? (int)row["DoctorId"] : 0) : 0,
+                        Urgency = row.Table.Columns.Contains("Urgency") ? row["Urgency"]?.ToString() : null,
+                        ExpectedStayDays = row.Table.Columns.Contains("ExpectedStayDays") && row["ExpectedStayDays"] != DBNull.Value ? (int)row["ExpectedStayDays"] : 0,
+                        RecommendedMedicines = row.Table.Columns.Contains("RecommendedMedicines") ? row["RecommendedMedicines"]?.ToString() : null,
+                        RecommendedEquipment = row.Table.Columns.Contains("RecommendedEquipment") ? row["RecommendedEquipment"]?.ToString() : null,
+
+                        // Costs
+                        AgreedOperationCost = row.Table.Columns.Contains("AgreedOperationCost") && row["AgreedOperationCost"] != DBNull.Value ? (decimal)row["AgreedOperationCost"] : null,
+                        AgreedMedicineCost = row.Table.Columns.Contains("AgreedMedicineCost") && row["AgreedMedicineCost"] != DBNull.Value ? (decimal)row["AgreedMedicineCost"] : null,
+                        AgreedEquipmentCost = row.Table.Columns.Contains("AgreedEquipmentCost") && row["AgreedEquipmentCost"] != DBNull.Value ? (decimal)row["AgreedEquipmentCost"] : null,
+
+                        // Joined Names
+                        PatientName = row.Table.Columns.Contains("PatientName") ? row["PatientName"]?.ToString() : null,
+                        DoctorName = row.Table.Columns.Contains("DoctorName") ? row["DoctorName"]?.ToString() : null
                     });
                 }
             }
             return list;
         }
 
+        public void UpdateOperationStatusAndCosts(int opId, string status, decimal? opCost, decimal? medCost, decimal? eqCost)
+        {
+            string query = @"UPDATE PatientOperations 
+                             SET Status = @Status, 
+                                 AgreedOperationCost = @OpCost, 
+                                 AgreedMedicineCost = @MedCost, 
+                                 AgreedEquipmentCost = @EqCost 
+                             WHERE OperationId = @OpId";
+            _db.ExecuteNonQuery(query, new[] {
+                new SqlParameter("@Status", status),
+                new SqlParameter("@OpCost", (object?)opCost ?? DBNull.Value),
+                new SqlParameter("@MedCost", (object?)medCost ?? DBNull.Value),
+                new SqlParameter("@EqCost", (object?)eqCost ?? DBNull.Value),
+                new SqlParameter("@OpId", opId)
+            });
+        }
+
         public void CreatePatientOperation(PatientOperation op)
         {
-            string query = @"INSERT INTO PatientOperations (PatientId, PackageId, Status, ScheduledDate, Notes, DoctorId, Urgency, OperationName) 
-                             VALUES (@PatientId, @PackageId, @Status, @ScheduledDate, @Notes, @DoctorId, @Urgency, @OperationName)";
+            string query = @"INSERT INTO PatientOperations (PatientId, PackageId, Status, ScheduledDate, Notes, DoctorId, Urgency, OperationName, ExpectedStayDays, RecommendedMedicines, RecommendedEquipment) 
+                             VALUES (@PatientId, @PackageId, @Status, @ScheduledDate, @Notes, @DoctorId, @Urgency, @OperationName, @ExpectedStayDays, @RecMeds, @RecEq)";
             var parameters = new[]
             {
                 new SqlParameter("@PatientId", op.PatientId),
@@ -746,7 +842,10 @@ namespace HMS.Web.DAL
                 new SqlParameter("@Notes", (object?)op.Notes ?? DBNull.Value),
                 new SqlParameter("@DoctorId", op.DoctorId),
                 new SqlParameter("@Urgency", (object?)op.Urgency ?? DBNull.Value),
-                new SqlParameter("@OperationName", op.PackageName) // Use PackageName property as OperationName
+                new SqlParameter("@OperationName", (object?)op.PackageName ?? DBNull.Value),
+                new SqlParameter("@ExpectedStayDays", op.ExpectedStayDays),
+                new SqlParameter("@RecMeds", (object?)op.RecommendedMedicines ?? DBNull.Value),
+                new SqlParameter("@RecEq", (object?)op.RecommendedEquipment ?? DBNull.Value)
             };
             _db.ExecuteNonQuery(query, parameters);
         }

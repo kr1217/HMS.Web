@@ -4,6 +4,7 @@ using HMS.Web.Models;
 using System.Collections.Generic;
 using System;
 using System.Linq;
+using Microsoft.Data.SqlClient;
 
 namespace HMS.Web.DAL
 {
@@ -22,7 +23,7 @@ namespace HMS.Web.DAL
                                WHERE UserId = @UserId AND Status = 'Open' 
                                ORDER BY StartTime DESC";
 
-            var shifts = _db.ExecuteQuery(sql, MapUserShift, new[] { new Microsoft.Data.SqlClient.SqlParameter("@UserId", userId) });
+            var shifts = _db.ExecuteQuery(sql, MapUserShift, new[] { new SqlParameter("@UserId", userId) });
             return shifts.FirstOrDefault();
         }
 
@@ -34,18 +35,18 @@ namespace HMS.Web.DAL
 
         public UserShift StartShift(string userId, decimal startingCash)
         {
-            // Close any existing open shifts just in case (shouldn't happen if UI is good, but safety)
+            // Close any existing open shifts just in case
             const string closeOld = @"UPDATE UserShifts SET Status = 'Closed', EndTime = GETDATE(), Notes = 'Auto-closed by new shift' 
                                       WHERE UserId = @UserId AND Status = 'Open'";
-            _db.ExecuteNonQuery(closeOld, new[] { new Microsoft.Data.SqlClient.SqlParameter("@UserId", userId) });
+            _db.ExecuteNonQuery(closeOld, new[] { new SqlParameter("@UserId", userId) });
 
             const string sql = @"INSERT INTO UserShifts (UserId, StartTime, StartingCash, Status) 
                                OUTPUT INSERTED.* 
                                VALUES (@UserId, GETDATE(), @StartingCash, 'Open')";
 
             var shifts = _db.ExecuteQuery(sql, MapUserShift, new[] {
-                new Microsoft.Data.SqlClient.SqlParameter("@UserId", userId),
-                new Microsoft.Data.SqlClient.SqlParameter("@StartingCash", startingCash)
+                new SqlParameter("@UserId", userId),
+                new SqlParameter("@StartingCash", startingCash)
             });
 
             return shifts.Single();
@@ -53,20 +54,27 @@ namespace HMS.Web.DAL
 
         public decimal GetShiftRevenue(int shiftId)
         {
-            const string sql = "SELECT ISNULL(SUM(TotalAmount), 0) FROM Bills WHERE ShiftId = @ShiftId";
+            // Updated to check Payments table to get actual collected revenue for this shift
+            const string sql = "SELECT ISNULL(SUM(Amount), 0) FROM Payments WHERE ShiftId = @ShiftId";
             return Convert.ToDecimal(_db.ExecuteScalar(sql, new[] {
-                new Microsoft.Data.SqlClient.SqlParameter("@ShiftId", shiftId)
+                new SqlParameter("@ShiftId", shiftId)
             }));
         }
 
         public void CloseShift(int shiftId, decimal actualCash, string? notes)
         {
-            // Calculate EndingCash (System Expected) 
-            // Sum of all bills processed during this shift
-            const string calcSql = "SELECT ISNULL(SUM(TotalAmount), 0) FROM Bills WHERE ShiftId = @ShiftId";
-            decimal expectedCash = Convert.ToDecimal(_db.ExecuteScalar(calcSql, new[] {
-                new Microsoft.Data.SqlClient.SqlParameter("@ShiftId", shiftId)
+            // Calculate EndingCash (System Expected) from CASH Payments only + Starting Cash
+            const string calcSql = "SELECT ISNULL(SUM(Amount), 0) FROM Payments WHERE ShiftId = @ShiftId AND PaymentMethod = 'Cash'";
+            decimal collectedCash = Convert.ToDecimal(_db.ExecuteScalar(calcSql, new[] {
+                new SqlParameter("@ShiftId", shiftId)
             }));
+
+            // Get Starting Cash
+            const string startSql = "SELECT StartingCash FROM UserShifts WHERE ShiftId = @ShiftId";
+            var startResult = _db.ExecuteScalar(startSql, new[] { new SqlParameter("@ShiftId", shiftId) });
+            decimal startingCash = (startResult != null && startResult != DBNull.Value) ? Convert.ToDecimal(startResult) : 0;
+
+            decimal expectedCash = startingCash + collectedCash;
 
             // Update shift record
             const string sql = @"UPDATE UserShifts 
@@ -78,10 +86,10 @@ namespace HMS.Web.DAL
                                WHERE ShiftId = @ShiftId";
 
             _db.ExecuteNonQuery(sql, new[] {
-                new Microsoft.Data.SqlClient.SqlParameter("@ShiftId", shiftId),
-                new Microsoft.Data.SqlClient.SqlParameter("@ActualCash", actualCash),
-                new Microsoft.Data.SqlClient.SqlParameter("@Notes", (object?)notes ?? DBNull.Value),
-                new Microsoft.Data.SqlClient.SqlParameter("@ExpectedCash", expectedCash)
+                new SqlParameter("@ShiftId", shiftId),
+                new SqlParameter("@ActualCash", actualCash),
+                new SqlParameter("@Notes", (object?)notes ?? DBNull.Value),
+                new SqlParameter("@ExpectedCash", expectedCash)
             });
         }
 
@@ -92,8 +100,8 @@ namespace HMS.Web.DAL
                                ORDER BY StartTime DESC";
 
             return _db.ExecuteQuery(sql, MapUserShift, new[] {
-                new Microsoft.Data.SqlClient.SqlParameter("@From", fromDate),
-                new Microsoft.Data.SqlClient.SqlParameter("@To", toDate)
+                new SqlParameter("@From", fromDate),
+                new SqlParameter("@To", toDate)
             });
         }
 
@@ -101,8 +109,8 @@ namespace HMS.Web.DAL
         {
             var stats = new DashboardStats();
 
-            // 1. Revenue
-            var revSql = "SELECT SUM(TotalAmount) FROM Bills WHERE CAST(BillDate AS DATE) = CAST(GETDATE() AS DATE)";
+            // 1. Revenue (Actual Collected Cash/Card today)
+            var revSql = "SELECT SUM(Amount) FROM Payments WHERE CAST(PaymentDate AS DATE) = CAST(GETDATE() AS DATE)";
             var revenue = _db.ExecuteScalar(revSql);
             stats.TodayRevenue = (revenue != null && revenue != DBNull.Value) ? Convert.ToDecimal(revenue) : 0;
 
@@ -131,18 +139,16 @@ namespace HMS.Web.DAL
 
         public decimal CalculateDoctorSettlement(int doctorId, DateTime periodStart, DateTime periodEnd)
         {
-            // Get doctor's commission rate
             const string doctorSql = "SELECT CommissionRate FROM Doctors WHERE DoctorId = @DoctorId";
             var commissionRate = _db.ExecuteScalar(doctorSql, new[] {
-                new Microsoft.Data.SqlClient.SqlParameter("@DoctorId", doctorId)
+                new SqlParameter("@DoctorId", doctorId)
             });
 
             if (commissionRate == null || commissionRate == DBNull.Value)
                 return 0;
 
-            decimal rate = Convert.ToDecimal(commissionRate) / 100; // Convert percentage to decimal
+            decimal rate = Convert.ToDecimal(commissionRate) / 100;
 
-            // Sum all completed appointments in the period
             const string appointmentSql = @"
                 SELECT ISNULL(SUM(d.ConsultationFee), 0) 
                 FROM Appointments a
@@ -152,9 +158,9 @@ namespace HMS.Web.DAL
                 AND a.AppointmentDate BETWEEN @PeriodStart AND @PeriodEnd";
 
             var totalFees = Convert.ToDecimal(_db.ExecuteScalar(appointmentSql, new[] {
-                new Microsoft.Data.SqlClient.SqlParameter("@DoctorId", doctorId),
-                new Microsoft.Data.SqlClient.SqlParameter("@PeriodStart", periodStart),
-                new Microsoft.Data.SqlClient.SqlParameter("@PeriodEnd", periodEnd)
+                new SqlParameter("@DoctorId", doctorId),
+                new SqlParameter("@PeriodStart", periodStart),
+                new SqlParameter("@PeriodEnd", periodEnd)
             }));
 
             return totalFees * rate;
@@ -166,13 +172,13 @@ namespace HMS.Web.DAL
                                 VALUES (@DoctorId, @Amount, @PaymentDate, @PeriodStart, @PeriodEnd, @Status, @Notes)";
 
             _db.ExecuteNonQuery(sql, new[] {
-                new Microsoft.Data.SqlClient.SqlParameter("@DoctorId", payment.DoctorId),
-                new Microsoft.Data.SqlClient.SqlParameter("@Amount", payment.Amount),
-                new Microsoft.Data.SqlClient.SqlParameter("@PaymentDate", payment.PaymentDate),
-                new Microsoft.Data.SqlClient.SqlParameter("@PeriodStart", payment.PeriodStart),
-                new Microsoft.Data.SqlClient.SqlParameter("@PeriodEnd", payment.PeriodEnd),
-                new Microsoft.Data.SqlClient.SqlParameter("@Status", payment.Status),
-                new Microsoft.Data.SqlClient.SqlParameter("@Notes", (object?)payment.Notes ?? DBNull.Value)
+                new SqlParameter("@DoctorId", payment.DoctorId),
+                new SqlParameter("@Amount", payment.Amount),
+                new SqlParameter("@PaymentDate", payment.PaymentDate),
+                new SqlParameter("@PeriodStart", payment.PeriodStart),
+                new SqlParameter("@PeriodEnd", payment.PeriodEnd),
+                new SqlParameter("@Status", payment.Status),
+                new SqlParameter("@Notes", (object?)payment.Notes ?? DBNull.Value)
             });
         }
 
@@ -185,9 +191,90 @@ namespace HMS.Web.DAL
                                 ORDER BY p.PaymentDate DESC";
 
             return _db.ExecuteQuery(sql, MapDoctorPayment, new[] {
-                new Microsoft.Data.SqlClient.SqlParameter("@DoctorId", doctorId)
+                new SqlParameter("@DoctorId", doctorId)
             });
         }
+
+        // --- NEW TELLER METHODS ---
+
+        public List<Bill> GetPendingBills()
+        {
+            // Note: Assuming Patients table has FullName.
+            const string sql = @"SELECT b.*, p.FullName as PatientName 
+                                FROM Bills b
+                                INNER JOIN Patients p ON b.PatientId = p.PatientId
+                                WHERE b.Status IN ('Pending', 'Partial')
+                                ORDER BY b.BillDate DESC";
+            return _db.ExecuteQuery(sql, MapBill);
+        }
+
+        public Bill? GetBillById(int billId)
+        {
+            const string sql = @"SELECT b.*, p.FullName as PatientName 
+                                FROM Bills b
+                                INNER JOIN Patients p ON b.PatientId = p.PatientId
+                                WHERE b.BillId = @BillId";
+            var bills = _db.ExecuteQuery(sql, MapBill, new[] { new SqlParameter("@BillId", billId) });
+            return bills.FirstOrDefault();
+        }
+
+        public void AddPayment(Payment payment)
+        {
+            // 1. Insert Payment
+            const string sqlInfo = @"INSERT INTO Payments (BillId, Amount, PaymentMethod, PaymentDate, ReferenceNumber, TellerId, ShiftId, Remarks)
+                                     VALUES (@BillId, @Amount, @Method, GETDATE(), @Ref, @Teller, @ShiftId, @Remarks)";
+
+            _db.ExecuteNonQuery(sqlInfo, new[] {
+                new SqlParameter("@BillId", payment.BillId),
+                new SqlParameter("@Amount", payment.Amount),
+                new SqlParameter("@Method", payment.PaymentMethod),
+                new SqlParameter("@Ref", (object?)payment.ReferenceNumber ?? DBNull.Value),
+                new SqlParameter("@Teller", payment.TellerId),
+                new SqlParameter("@ShiftId", payment.ShiftId),
+                new SqlParameter("@Remarks", (object?)payment.Remarks ?? DBNull.Value)
+            });
+
+            // 2. Update Bill Status
+            const string sumSql = "SELECT SUM(Amount) FROM Payments WHERE BillId = @BillId";
+            decimal totalPaid = Convert.ToDecimal(_db.ExecuteScalar(sumSql, new[] { new SqlParameter("@BillId", payment.BillId) }));
+
+            const string billSql = "SELECT TotalAmount FROM Bills WHERE BillId = @BillId";
+            decimal totalAmount = Convert.ToDecimal(_db.ExecuteScalar(billSql, new[] { new SqlParameter("@BillId", payment.BillId) }));
+
+            decimal due = totalAmount - totalPaid;
+            string status = (due <= 0.01m) ? "Paid" : "Partial"; // Tolerance for float math
+
+            const string updateBill = @"UPDATE Bills SET PaidAmount = @Paid, DueAmount = @Due, Status = @Status WHERE BillId = @BillId";
+            _db.ExecuteNonQuery(updateBill, new[] {
+                new SqlParameter("@Paid", totalPaid),
+                new SqlParameter("@Due", (due < 0 ? 0 : due)),
+                new SqlParameter("@Status", status),
+                new SqlParameter("@BillId", payment.BillId)
+            });
+
+            // 3. Auto-Discharge if Paid & Linked to Admission
+            if (status == "Paid")
+            {
+                const string checkAdmission = "SELECT AdmissionId FROM Bills WHERE BillId = @BillId";
+                var admObj = _db.ExecuteScalar(checkAdmission, new[] { new SqlParameter("@BillId", payment.BillId) });
+
+                if (admObj != null && admObj != DBNull.Value)
+                {
+                    int admissionId = Convert.ToInt32(admObj);
+                    const string dischargeSql = @"UPDATE Admissions SET Status = 'Discharged', DischargeDate = GETDATE() 
+                                                WHERE AdmissionId = @AdmissionId AND Status != 'Discharged'";
+                    _db.ExecuteNonQuery(dischargeSql, new[] { new SqlParameter("@AdmissionId", admissionId) });
+
+                    // Also free up the bed
+                    // This logic usually resides in FacilityRepository but we can run the SQL here for atomicity/simplicity in this context
+                    const string updateBed = @"UPDATE Beds SET Status = 'Available' 
+                                             WHERE BedId = (SELECT BedId FROM Admissions WHERE AdmissionId = @AdmissionId)";
+                    _db.ExecuteNonQuery(updateBed, new[] { new SqlParameter("@AdmissionId", admissionId) });
+                }
+            }
+        }
+
+        // --- MAPPERS ---
 
         private DoctorPayment MapDoctorPayment(System.Data.DataRow r)
         {
@@ -201,7 +288,7 @@ namespace HMS.Web.DAL
                 PeriodEnd = (DateTime)r["PeriodEnd"],
                 Status = r["Status"].ToString()!,
                 Notes = r["Notes"] != DBNull.Value ? r["Notes"].ToString() : null,
-                DoctorName = r["DoctorName"]?.ToString()
+                DoctorName = r.Table.Columns.Contains("DoctorName") ? r["DoctorName"].ToString() : null
             };
         }
 
@@ -218,6 +305,23 @@ namespace HMS.Web.DAL
                 ActualCash = r["ActualCash"] != DBNull.Value ? (decimal?)r["ActualCash"] : null,
                 Status = r["Status"].ToString()!,
                 Notes = r["Notes"]?.ToString()
+            };
+        }
+
+        private Bill MapBill(System.Data.DataRow r)
+        {
+            return new Bill
+            {
+                BillId = (int)r["BillId"],
+                PatientId = (int)r["PatientId"],
+                TotalAmount = (decimal)r["TotalAmount"],
+                PaidAmount = r["PaidAmount"] != DBNull.Value ? (decimal)r["PaidAmount"] : 0,
+                DueAmount = r["DueAmount"] != DBNull.Value ? (decimal)r["DueAmount"] : 0,
+                Status = r["Status"].ToString()!,
+                BillDate = (DateTime)r["BillDate"],
+                ShiftId = r["ShiftId"] != DBNull.Value ? (int)r["ShiftId"] : (int?)null,
+                CreatedBy = r["CreatedBy"] != DBNull.Value ? r["CreatedBy"].ToString() : null,
+                PatientName = r.Table.Columns.Contains("PatientName") ? r["PatientName"].ToString() : null
             };
         }
     }

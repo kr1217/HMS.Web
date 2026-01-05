@@ -8,25 +8,24 @@ namespace DebugTool
         static void Main(string[] args)
         {
             string connectionString = "Server=LAPTOP-CPSNA65M;Database=HospitalManagement;Integrated Security=True;TrustServerCertificate=True;";
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            string sqlFilePath = @"c:\Users\kills\.gemini\antigravity\scratch\HMS.Web\HMS.Web\setup_payments_table.sql";
+
+            try
             {
-                conn.Open();
-                string query = "SELECT TOP 1 PrescriptionId, Medications FROM Prescriptions ORDER BY PrescriptionId DESC";
-                using (SqlCommand cmd = new SqlCommand(query, conn))
+                string script = System.IO.File.ReadAllText(sqlFilePath);
+                using (SqlConnection conn = new SqlConnection(connectionString))
                 {
-                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    conn.Open();
+                    using (SqlCommand cmd = new SqlCommand(script, conn))
                     {
-                        if (reader.Read())
-                        {
-                            Console.WriteLine($"ID: {reader["PrescriptionId"]}");
-                            Console.WriteLine($"JSON: {reader["Medications"]}");
-                        }
-                        else
-                        {
-                            Console.WriteLine("No prescriptions found.");
-                        }
+                        cmd.ExecuteNonQuery();
+                        Console.WriteLine("SQL script executed successfully.");
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
             }
         }
     }

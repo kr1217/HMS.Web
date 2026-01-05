@@ -197,6 +197,20 @@ namespace HMS.Web.Models
         public DateTime BillDate { get; set; }
         public int? ShiftId { get; set; }
         public string? CreatedBy { get; set; }
+
+        // Optional Joined Properties
+        public string? PatientName { get; set; }
+        public int? AdmissionId { get; set; }
+        public List<BillItem> Items { get; set; } = new List<BillItem>();
+    }
+
+    public class BillItem
+    {
+        public int BillItemId { get; set; }
+        public int BillId { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public string Category { get; set; } = "General"; // Room, Doctor, Medicine, Lab, etc.
     }
 
     public class OperationPackage
@@ -218,6 +232,19 @@ namespace HMS.Web.Models
         public string Notes { get; set; } = string.Empty;
         public int DoctorId { get; set; }
         public string? Urgency { get; set; } // Low, Medium, High, Critical
+
+        // New Detailed Recommendation Fields
+        public int ExpectedStayDays { get; set; }
+        public string? RecommendedMedicines { get; set; }
+        public string? RecommendedEquipment { get; set; }
+
+        // Admin Approved Estimation Fields
+        public decimal? AgreedOperationCost { get; set; }
+        public decimal? AgreedMedicineCost { get; set; }
+        public decimal? AgreedEquipmentCost { get; set; }
+
+        public string? PatientName { get; set; } // Optional Joined
+        public string? DoctorName { get; set; } // Optional Joined
     }
 
     public class SupportTicket
@@ -394,5 +421,17 @@ namespace HMS.Web.Models
         public int TotalBeds { get; set; }
         public int StaffOnShift { get; set; }
         public int SurgeriesToday { get; set; }
+    }
+    public class Payment
+    {
+        public int PaymentId { get; set; }
+        public int BillId { get; set; }
+        public decimal Amount { get; set; }
+        public string PaymentMethod { get; set; } = string.Empty; // Cash, Card, BankTransfer
+        public DateTime PaymentDate { get; set; } = DateTime.Now;
+        public string? ReferenceNumber { get; set; }
+        public string TellerId { get; set; } = string.Empty;
+        public int ShiftId { get; set; }
+        public string? Remarks { get; set; }
     }
 }

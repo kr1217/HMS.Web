@@ -1,0 +1,86 @@
+@page "/Admin/OperationRequests"
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using Microsoft.AspNetCore.Authorization
+@layout HMS.Web.Components.Layout.AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@inject OperationRepository OperationRepo
+@inject FacilityRepository FacilityRepo
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<div class="container-fluid mt-3">
+    <h3><i class="bi bi-heart-pulse-fill text-danger me-2"></i>Operation Requests</h3>
+    <p class="text-muted">Review doctor recommendations and admit patients for surgery.</p>
+
+    @if (Requests == null)
+    {
+        <div class="spinner-border text-primary" role="status"></div>
+    }
+    else if (!Requests.Any())
+    {
+        <div class="alert alert-info">No pending operation requests found.</div>
+    }
+    else
+    {
+        <RadzenDataGrid Data="@Requests" TItem="PatientOperation" AllowPaging="true" PageSize="10" AllowSorting="true">
+            <Columns>
+                <RadzenDataGridColumn TItem="PatientOperation" Property="ScheduledDate" Title="Date" FormatString="{0:d}"
+                    Width="120px" />
+                <RadzenDataGridColumn TItem="PatientOperation" Property="PatientName" Title="Patient" />
+                <RadzenDataGridColumn TItem="PatientOperation" Property="DoctorName" Title="Surgeon" />
+                <RadzenDataGridColumn TItem="PatientOperation" Property="PackageName" Title="Operation" />
+                <RadzenDataGridColumn TItem="PatientOperation" Property="Urgency" Title="Urgency" Width="100px">
+                    <Template Context="op">
+                        <span class="badge @GetUrgencyBadge(op.Urgency)">@op.Urgency</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="PatientOperation" Title="Action" Width="180px">
+                    <Template Context="op">
+                        <RadzenButton Text="Admit & Approve" Icon="Login" ButtonStyle="ButtonStyle.Primary"
+                            Size="ButtonSize.Small" Click="@(() => OpenAdmitDialog(op))" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    }
+</div>
+
+@code {
+    List<PatientOperation> Requests;
+
+    protected override void OnInitialized()
+    {
+        LoadRequests();
+    }
+
+    void LoadRequests()
+    {
+        Requests = OperationRepo.GetPendingOperations();
+    }
+
+    string GetUrgencyBadge(string urgency)
+    {
+        return urgency switch
+        {
+            "Critical" => "bg-danger",
+            "High" => "bg-warning text-dark",
+            "Medium" => "bg-info text-dark",
+            _ => "bg-secondary"
+        };
+    }
+
+    async Task OpenAdmitDialog(PatientOperation op)
+    {
+        var result = await DialogService.OpenAsync<AdmitForOperationDialog>($"Admit for Surgery - {op.PatientName}",
+        new Dictionary<string, object> { { "Operation", op } },
+        new DialogOptions { Width = "700px", Height = "600px" });
+
+        if (result == true)
+        {
+            NotificationService.Notify(NotificationSeverity.Success, "Success", "Patient admitted and operation approved.");
+            LoadRequests();
+        }
+    }
+}

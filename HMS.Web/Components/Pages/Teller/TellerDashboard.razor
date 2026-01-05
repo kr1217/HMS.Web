@@ -1,0 +1,133 @@
+@page "/teller/dashboard"
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using HMS.Web.Components.Shared
+@using Microsoft.AspNetCore.Authorization
+@inject FinanceRepository FinanceRepo
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject AuthenticationStateProvider AuthStateProvider
+@attribute [Authorize(Roles = "Teller,Admin")]
+@layout HMS.Web.Components.Layout.AdminLayout
+@rendermode InteractiveServer
+
+<PageTitle>Teller Dashboard</PageTitle>
+
+<h1>Teller Dashboard</h1>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <HMS.Web.Components.Shared.ShiftWidget />
+    </div>
+</div>
+
+@if (!IsShiftActive)
+{
+    <div class="row mb-3">
+        <div class="col-12">
+            <RadzenAlert Severity="AlertSeverity.Warning" AllowClose="false" Variant="Variant.Flat" Shade="Shade.Lighter">
+                <RadzenIcon Icon="warning" Class="me-1" />
+                <strong>Action Required:</strong> Please start your shift using the timer widget above to process payments.
+            </RadzenAlert>
+        </div>
+    </div>
+}
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.Subtitle2" TagName="TagName.H3">Pending Payments</RadzenText>
+            <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H2" Class="mb-0">@PendingBills.Count</RadzenText>
+        </RadzenCard>
+    </div>
+    <div class="col-md-3">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.Subtitle2" TagName="TagName.H3">Cash Collected (Shift)</RadzenText>
+             <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H2" Class="mb-0">@ShiftRevenue.ToString("C")</RadzenText>
+        </RadzenCard>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.H5">Payment Queue</RadzenText>
+            <RadzenDataGrid Data="@PendingBills" TItem="Bill" AllowSorting="false" AllowFiltering="false">
+                <Columns>
+                    <RadzenDataGridColumn TItem="Bill" Property="BillDate" Title="Date" FormatString="{0:g}" />
+                    <RadzenDataGridColumn TItem="Bill" Property="PatientName" Title="Patient" />
+                    <RadzenDataGridColumn TItem="Bill" Property="TotalAmount" Title="Total Amount" FormatString="{0:C}" />
+                    <RadzenDataGridColumn TItem="Bill" Property="DueAmount" Title="Due Amount" FormatString="{0:C}" />
+                    <RadzenDataGridColumn TItem="Bill" Property="Status" Title="Status" />
+                     <RadzenDataGridColumn TItem="Bill" Title="Action">
+                        <Template Context="bill">
+                            <RadzenButton Text="Collect Payment" 
+                                          Click="@(args => OpenPaymentDialog(bill))" 
+                                          ButtonStyle="ButtonStyle.Success" 
+                                          Size="ButtonSize.Small" 
+                                          Disabled="@(!IsShiftActive)"
+                                          title="@(IsShiftActive ? "Collect Payment" : "Start shift first")" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenCard>
+    </div>
+</div>
+
+@code {
+    List<Bill> PendingBills = new();
+    decimal ShiftRevenue = 0;
+    string? UserId;
+    bool IsShiftActive = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        PendingBills = FinanceRepo.GetPendingBills();
+        
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        UserId = authState.User.FindFirst(u => u.Type.Contains("nameidentifier"))?.Value;
+
+        if(UserId != null)
+        {
+             var shift = FinanceRepo.GetCurrentShift(UserId);
+             IsShiftActive = (shift != null);
+
+             if(shift != null)
+             {
+                 ShiftRevenue = FinanceRepo.GetShiftRevenue(shift.ShiftId);
+             }
+             else
+             {
+                 ShiftRevenue = 0;
+             }
+        }
+    }
+
+    async Task OpenPaymentDialog(Bill bill)
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(u => u.Type.Contains("nameidentifier"))?.Value;
+
+        if (userId == null) return;
+
+        // Double check if shift is open (redundant but safe)
+        var shift = FinanceRepo.GetCurrentShift(userId);
+        if (shift == null)
+        {
+             NotificationService.Notify(NotificationSeverity.Warning, "Shift Required", "You must clock in before collecting payments.");
+             return;
+        }
+
+        var result = await DialogService.OpenAsync<PaymentDialog>($"Collect Payment - Bill #{bill.BillId}",
+               new Dictionary<string, object>() { { "BillId", bill.BillId }, { "ShiftId", shift.ShiftId } },
+               new DialogOptions() { Width = "500px", Height = "550px" });
+
+        await LoadData(); // Refresh after dialog close
+    }
+}

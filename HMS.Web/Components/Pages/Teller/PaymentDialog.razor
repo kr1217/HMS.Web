@@ -1,0 +1,167 @@
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@inject FinanceRepository FinanceRepo
+@inject BillingRepository BillingRepo
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+
+<div class="row gap-3">
+    <!-- Detailed Bill View -->
+    <div class="col-12 mb-2">
+        <RadzenCard class="p-0">
+            <RadzenAccordion>
+                <Items>
+                    <RadzenAccordionItem Text="View Detailed Bill" Icon="receipt_long">
+                        <div id="printable-bill">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5>Hospital Bill Invoice</h5>
+                                <small class="text-muted">Bill #@BillId</small>
+                            </div>
+
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Description</th>
+                                        <th class="text-end">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in BillItems)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-secondary me-2">@item.Category</span>
+                                                @item.Description
+                                            </td>
+                                            <td class="text-end">@item.Amount.ToString("C")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr class="fw-bold">
+                                        <td>Total</td>
+                                        <td class="text-end">@BillAmount.ToString("C")</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <div class="text-end">
+                            <RadzenButton Text="Print Bill" Icon="print" Size="ButtonSize.Small"
+                                ButtonStyle="ButtonStyle.Secondary" Click="@PrintBill" />
+                        </div>
+                    </RadzenAccordionItem>
+                </Items>
+            </RadzenAccordion>
+        </RadzenCard>
+    </div>
+
+    <!-- Payment Form -->
+    <div class="col-12">
+        <RadzenTemplateForm Data="@paymentModel" Submit="@(async (Payment args) => await SubmitPayment(args))">
+            <RadzenCard Class="mb-3">
+                <RadzenText TextStyle="TextStyle.Overline">Total Bill Amount</RadzenText>
+                <RadzenText TextStyle="TextStyle.H4">@BillAmount.ToString("C")</RadzenText>
+
+                <RadzenText TextStyle="TextStyle.Overline" Class="mt-2">Amount Due</RadzenText>
+                <RadzenText TextStyle="TextStyle.H5" Class="text-danger">@DueAmount.ToString("C")</RadzenText>
+            </RadzenCard>
+
+            <div class="mb-3">
+                <RadzenLabel Component="Amount" Text="Amount Received" />
+                <RadzenNumeric @bind-Value="paymentModel.Amount" Name="Amount" Class="w-100" Max="@DueAmount"
+                    Format="C" />
+                <RadzenRequiredValidator Component="Amount" Text="Amount is required" />
+                <RadzenCompareValidator Value="@(0.01m)" Component="Amount" Text="Amount must be greater than 0"
+                    Operator="CompareOperator.GreaterThanEqual" />
+            </div>
+
+            <div class="mb-3">
+                <RadzenLabel Component="PaymentMethod" Text="Payment Method" />
+                <RadzenDropDown @bind-Value="paymentModel.PaymentMethod" Data="@paymentMethods" Name="PaymentMethod"
+                    Class="w-100" />
+                <RadzenRequiredValidator Component="PaymentMethod" Text="Method is required" />
+            </div>
+
+            @if (paymentModel.PaymentMethod != "Cash")
+            {
+                <div class="mb-3">
+                    <RadzenLabel Component="ReferenceNumber" Text="Reference Number / Transaction ID" />
+                    <RadzenTextBox @bind-Value="paymentModel.ReferenceNumber" Name="ReferenceNumber" Class="w-100" />
+                    <RadzenRequiredValidator Component="ReferenceNumber"
+                        Text="Reference Number is required for digital payments" />
+                </div>
+            }
+
+            <div class="mb-3">
+                <RadzenLabel Component="Remarks" Text="Remarks (Optional)" />
+                <RadzenTextArea @bind-Value="paymentModel.Remarks" Name="Remarks" Class="w-100" />
+            </div>
+
+            <div class="text-end mt-4">
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Confirm Payment" ButtonStyle="ButtonStyle.Primary"
+                    Icon="check_circle" />
+                <RadzenButton Text="Cancel" Click="@(() => DialogService.Close(false))" ButtonStyle="ButtonStyle.Light"
+                    Class="ms-2" />
+            </div>
+        </RadzenTemplateForm>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int BillId { get; set; }
+    [Parameter] public int ShiftId { get; set; }
+
+    Payment paymentModel = new Payment();
+    decimal BillAmount = 0;
+    decimal DueAmount = 0;
+    List<string> paymentMethods = new List<string> { "Cash", "Card", "Bank Transfer" };
+    List<BillItem> BillItems = new List<BillItem>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var bill = FinanceRepo.GetBillById(BillId);
+        if (bill != null)
+        {
+            BillAmount = bill.TotalAmount;
+            DueAmount = bill.DueAmount;
+
+            // Load Items
+            BillItems = BillingRepo.GetBillItems(BillId);
+
+            if (bill.Status == "Pending" && bill.PaidAmount == 0)
+            {
+                DueAmount = BillAmount;
+            }
+
+            paymentModel.BillId = BillId;
+            paymentModel.ShiftId = ShiftId;
+            paymentModel.Amount = DueAmount; // Default to full amount
+            paymentModel.PaymentMethod = "Cash";
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            paymentModel.TellerId = user.FindFirst(u => u.Type.Contains("nameidentifier"))?.Value ?? "";
+        }
+    }
+
+    async Task PrintBill()
+    {
+        await JSRuntime.InvokeVoidAsync("print");
+    }
+
+    async Task SubmitPayment(Payment payment)
+    {
+        try
+        {
+            FinanceRepo.AddPayment(payment);
+            NotificationService.Notify(NotificationSeverity.Success, "Payment Recorded", "Receipt generated successfully.");
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+        }
+    }
+}

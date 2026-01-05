@@ -1,0 +1,140 @@
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@inject FacilityRepository FacilityRepo
+@inject OperationRepository OperationRepo
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<div class="container-fluid">
+    <div class="alert alert-light border">
+        <h6><i class="bi bi-info-circle me-2"></i>Doctor's Recommendation</h6>
+        <div class="small">
+            <strong>Op:</strong> @Operation.PackageName <br />
+            <strong>Notes:</strong> @Operation.Notes <br />
+            <strong>Medicines:</strong> @Operation.RecommendedMedicines <br />
+            <strong>Equipment:</strong> @Operation.RecommendedEquipment
+        </div>
+    </div>
+
+    <EditForm Model="CurrentAdmission" OnValidSubmit="ConfirmAdmission">
+        <div class="row">
+            <!-- Cost Estimations -->
+            <div class="col-md-12 mb-3">
+                <h6 class="text-secondary border-bottom pb-2">Approved Cost Estimates</h6>
+                <div class="row">
+                    <div class="col-4">
+                        <label class="form-label small">Operation Cost</label>
+                        <InputNumber @bind-Value="AgreedOpCost" class="form-control" />
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small">Est. Medicine Cost</label>
+                        <InputNumber @bind-Value="AgreedMedCost" class="form-control" />
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small">Est. Equipment Cost</label>
+                        <InputNumber @bind-Value="AgreedEqCost" class="form-control" />
+                    </div>
+                </div>
+                <div class="form-text text-muted">These costs will be used as a base for final billing.</div>
+            </div>
+
+            <!-- Admission Details -->
+            <div class="col-md-12">
+                <h6 class="text-secondary border-bottom pb-2">Admission Details</h6>
+
+                <div class="mb-3">
+                    <label class="form-label">Select Ward</label>
+                    <RadzenDropDown Data="@Wards" TextProperty="WardName" ValueProperty="WardId"
+                        @bind-Value="SelectedWardId" Change="@OnWardChange" Class="w-100" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Select Room / Bed</label>
+                    @if (AvailableBeds == null || !AvailableBeds.Any())
+                    {
+                        <div class="text-danger small">No beds available in selected ward.</div>
+                    }
+                    else
+                    {
+                        <RadzenDropDown Data="@AvailableBeds" TextProperty="BedNumber" ValueProperty="BedId"
+                            @bind-Value="CurrentAdmission.BedId" Class="w-100" Placeholder="Select available bed..." />
+                    }
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Daily Room Rate</label>
+                    <InputNumber @bind-Value="CurrentAdmission.DailyRate" class="form-control" />
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Admit & Approve" ButtonStyle="ButtonStyle.Success"
+                Icon="check_circle" />
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    [Parameter] public PatientOperation Operation { get; set; }
+
+    Admission CurrentAdmission = new Admission();
+    List<Ward> Wards = new List<Ward>();
+    List<Bed> AvailableBeds = new List<Bed>();
+    int SelectedWardId;
+
+    decimal AgreedOpCost;
+    decimal AgreedMedCost;
+    decimal AgreedEqCost;
+
+    protected override void OnInitialized()
+    {
+        Wards = FacilityRepo.GetWards();
+        CurrentAdmission.PatientId = Operation.PatientId;
+        CurrentAdmission.AdmissionDate = DateTime.Now;
+
+        // Default Cost logic:
+        // Ideally fetch package cost for OpCost default
+        // For now, defaulting to placeholder values if 0
+        AgreedOpCost = 5000;
+        AgreedMedCost = 500;
+        AgreedEqCost = 1000;
+        CurrentAdmission.DailyRate = 500; // Default
+    }
+
+    void OnWardChange()
+    {
+        // Load beds for ward
+        var allBeds = FacilityRepo.GetBeds();
+        string selectedWardName = Wards.FirstOrDefault(w => w.WardId == SelectedWardId)?.WardName ?? "";
+
+        if (!string.IsNullOrEmpty(selectedWardName))
+        {
+            // Filter by name if available, else fallback to show all available
+            AvailableBeds = allBeds.Where(b => b.Status == "Available" &&
+            (string.IsNullOrEmpty(b.WardName) || b.WardName == selectedWardName)).ToList();
+        }
+        else
+        {
+            AvailableBeds = allBeds.Where(b => b.Status == "Available").ToList();
+        }
+    }
+
+    void ConfirmAdmission()
+    {
+        if (CurrentAdmission.BedId == 0)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Bed Required", "Please select a bed.");
+            return;
+        }
+
+        // 1. Create Admission
+        FacilityRepo.AdmitPatient(CurrentAdmission);
+
+        // 2. Update Operation Status & Costs
+        OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, "Scheduled", AgreedOpCost, AgreedMedCost,
+        AgreedEqCost);
+
+        DialogService.Close(true);
+    }
+}

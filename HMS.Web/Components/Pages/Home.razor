@@ -36,7 +36,15 @@
                 // Refresh roles from DB to avoid claim-caching issues
                 var roles = await UserManager.GetRolesAsync(appUser);
 
-                if (roles.Contains("Doctor"))
+                if (roles.Contains("Admin"))
+                {
+                    NavigationManager.NavigateTo("admin/dashboard", true);
+                }
+                else if (roles.Contains("Teller"))
+                {
+                    NavigationManager.NavigateTo("teller/dashboard", true);
+                }
+                else if (roles.Contains("Doctor"))
                 {
                     NavigationManager.NavigateTo("Doctor/Dashboard", true); // Force load
                 }

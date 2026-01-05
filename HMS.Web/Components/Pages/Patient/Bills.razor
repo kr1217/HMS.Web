@@ -2,11 +2,16 @@
 @using HMS.Web.DAL
 @using HMS.Web.Models
 @using Microsoft.AspNetCore.Authorization
+@layout HMS.Web.Components.Layout.MainLayout
+@rendermode InteractiveServer
 @attribute [Authorize]
 @inject BillingRepository BillRepo
 @inject PatientRepository PatientRepo
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IJSRuntime JS
+@inject DialogService DialogService
+
+<RadzenDialog />
 
 <h3>My Bills & Payments</h3>
 
@@ -34,11 +39,15 @@ else
                                     Invoice #@bill.BillId</div>
                                 <div class="h5 mb-0 font-weight-bold text-gray-800">$@bill.TotalAmount</div>
                                 <div class="mt-2">
-                                    <span class="badge @(bill.Status == "Paid" ? "bg-success" : "bg-warning")">@bill.Status</span>
+                                    <span
+                                        class="badge @(bill.Status == "Paid" ? "bg-success" : "bg-warning")">@bill.Status</span>
                                 </div>
                                 <small class="text-muted">@bill.BillDate.ToShortDateString()</small>
                             </div>
                             <div class="col-auto">
+                                <button class="btn btn-sm btn-outline-info me-2" @onclick="() => ViewDetails(bill)">
+                                    View Details <i class="fas fa-eye"></i>
+                                </button>
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="() => DownloadInvoice(bill.BillId)">
                                     Download <i class="fas fa-download"></i>
                                 </button>
@@ -81,5 +90,28 @@ else
     {
         // Mock download
         JS.InvokeVoidAsync("alert", $"Downloading Invoice #{id}...");
+    }
+
+    private async Task ViewDetails(Bill bill)
+    {
+        var items = BillRepo.GetBillItems(bill.BillId);
+        await DialogService.OpenAsync("Bill Details", ds =>
+    @<div class="row">
+        <div class="col-12">
+            <p><strong>Bill ID:</strong> #@bill.BillId</p>
+            <p><strong>Date:</strong> @bill.BillDate.ToShortDateString()</p>
+            <p><strong>Status:</strong> <span class="badge bg-secondary">@bill.Status</span></p>
+            <hr />
+            <RadzenDataGrid Data="@items" TItem="BillItem" Density="Density.Compact">
+                <Columns>
+                    <RadzenDataGridColumn TItem="BillItem" Property="Category" Title="Category" />
+                    <RadzenDataGridColumn TItem="BillItem" Property="Description" Title="Description" />
+                    <RadzenDataGridColumn TItem="BillItem" Property="Amount" Title="Amount" FormatString="{0:C}" />
+                </Columns>
+            </RadzenDataGrid>
+            <hr />
+            <h5 class="text-end">Total: @bill.TotalAmount.ToString("C")</h5>
+        </div>
+    </div>, new DialogOptions { Width = "600px" });
     }
 }

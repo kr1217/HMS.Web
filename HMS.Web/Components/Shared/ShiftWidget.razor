@@ -79,6 +79,8 @@
             await LoadShiftStatus();
             StateHasChanged(); // Force UI refresh
             NotificationService.Notify(NotificationSeverity.Success, "Shift Started", "You are now on duty.");
+            await Task.Delay(1000);
+            Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
         }
     }
 
