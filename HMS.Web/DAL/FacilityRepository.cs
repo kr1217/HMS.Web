@@ -242,5 +242,46 @@ namespace HMS.Web.DAL
                 PatientName = r.Table.Columns.Contains("PatientName") ? r["PatientName"]?.ToString() : "Unknown"
             });
         }
+        public List<OperationTheater> GetTheaters()
+        {
+            return _db.ExecuteQuery("SELECT * FROM OperationTheaters WHERE IsActive = 1", r => new OperationTheater
+            {
+                TheaterId = (int)r["TheaterId"],
+                TheaterName = r["TheaterName"].ToString()!,
+                Status = r["Status"].ToString()!,
+                IsActive = (bool)r["IsActive"]
+            });
+        }
+        public void SaveTheater(OperationTheater theater)
+        {
+            if (theater.TheaterId == 0)
+            {
+                string sql = "INSERT INTO OperationTheaters (TheaterName, Status, IsActive) VALUES (@TheaterName, @Status, @IsActive)";
+                _db.ExecuteNonQuery(sql, new[] {
+                    new SqlParameter("@TheaterName", theater.TheaterName),
+                    new SqlParameter("@Status", theater.Status),
+                    new SqlParameter("@IsActive", theater.IsActive)
+                });
+            }
+            else
+            {
+                string sql = "UPDATE OperationTheaters SET TheaterName=@TheaterName, Status=@Status, IsActive=@IsActive WHERE TheaterId=@TheaterId";
+                _db.ExecuteNonQuery(sql, new[] {
+                    new SqlParameter("@TheaterId", theater.TheaterId),
+                    new SqlParameter("@TheaterName", theater.TheaterName),
+                    new SqlParameter("@Status", theater.Status),
+                    new SqlParameter("@IsActive", theater.IsActive)
+                });
+            }
+        }
+
+        public void UpdateTheaterStatus(int theaterId, string status)
+        {
+            string sql = "UPDATE OperationTheaters SET Status = @Status WHERE TheaterId = @TheaterId";
+            _db.ExecuteNonQuery(sql, new[] {
+                new SqlParameter("@TheaterId", theaterId),
+                new SqlParameter("@Status", status)
+            });
+        }
     }
 }

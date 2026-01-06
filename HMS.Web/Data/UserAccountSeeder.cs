@@ -25,7 +25,7 @@ namespace HMS.Web.SeedUsers
             Console.WriteLine("========================================");
 
             // Ensure roles exist
-            string[] roles = { "Patient", "Doctor", "Admin" };
+            string[] roles = { "Patient", "Doctor", "Admin", "Teller", "OTStaff" };
             foreach (var role in roles)
             {
                 if (!await roleManager.RoleExistsAsync(role))
@@ -120,6 +120,32 @@ namespace HMS.Web.SeedUsers
                     {
                         Console.WriteLine($"- Skipped: {email} (already exists)");
                     }
+                }
+            }
+
+            // Seed OT Staff Account
+            var otEmail = "ot@hospital.com";
+            if (await userManager.FindByEmailAsync(otEmail) == null)
+            {
+                var user = new ApplicationUser { UserName = otEmail, Email = otEmail, EmailConfirmed = true };
+                var result = await userManager.CreateAsync(user, "Test@123");
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(user, "OTStaff");
+                    Console.WriteLine($"✓ Created: {otEmail} (Password: Test@123)");
+                }
+            }
+
+            // Seed Teller Account
+            var tellerEmail = "teller@hospital.com";
+            if (await userManager.FindByEmailAsync(tellerEmail) == null)
+            {
+                var user = new ApplicationUser { UserName = tellerEmail, Email = tellerEmail, EmailConfirmed = true };
+                var result = await userManager.CreateAsync(user, "Test@123");
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(user, "Teller");
+                    Console.WriteLine($"✓ Created: {tellerEmail} (Password: Test@123)");
                 }
             }
 

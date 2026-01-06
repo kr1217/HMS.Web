@@ -127,6 +127,18 @@
         if (result.Succeeded)
         {
             Logger.LogInformation("User logged in.");
+            if (string.IsNullOrEmpty(ReturnUrl) || ReturnUrl == "/")
+            {
+                var user = await UserManager.FindByEmailAsync(Input.Email);
+                if (user != null)
+                {
+                    if (await UserManager.IsInRoleAsync(user, "Admin")) ReturnUrl = "admin/dashboard";
+                    else if (await UserManager.IsInRoleAsync(user, "Doctor")) ReturnUrl = "doctor/dashboard";
+                    else if (await UserManager.IsInRoleAsync(user, "Patient")) ReturnUrl = "patient/dashboard";
+                    else if (await UserManager.IsInRoleAsync(user, "Teller")) ReturnUrl = "teller/dashboard";
+                    else if (await UserManager.IsInRoleAsync(user, "OTStaff")) ReturnUrl = "ot-staff/dashboard";
+                }
+            }
             RedirectManager.RedirectTo(ReturnUrl);
         }
         else if (result.RequiresTwoFactor)

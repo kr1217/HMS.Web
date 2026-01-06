@@ -1,0 +1,154 @@
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@inject OperationRepository OperationRepo
+@inject FacilityRepository FacilityRepo
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <strong>Patient:</strong> @Operation.PatientName <br />
+            <strong>Procedure:</strong> @Operation.PackageName <br />
+            <strong>Current Status:</strong>
+            <RadzenBadge BadgeStyle="@GetStatusBadge(Operation.Status)" Text="@Operation.Status" />
+            @if (IsOverdue)
+            {
+                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="OVERDUE" Class="ms-2" />
+            }
+        </div>
+    </div>
+
+    <div class="row mb-3 p-3 bg-light border rounded">
+        <div class="col-md-6">
+            <label class="form-label small text-muted">Start Time</label>
+            <RadzenDatePicker @bind-Value="NewStartTime" ShowTime="true" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt"
+                Change="@CheckConflicts" Class="w-100" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label small text-muted">Duration (mins)</label>
+            <RadzenNumeric TValue="int" @bind-Value="NewDuration" Min="15" Step="15"
+                Change="@(args => CheckConflicts())" Class="w-100" />
+        </div>
+        <div class="col-12 mt-2 text-muted small">
+            End Time: @NewStartTime.AddMinutes(NewDuration).ToString("hh:mm tt")
+        </div>
+        @if (ConflictCount > 0)
+        {
+            <div class="col-12 mt-2 text-danger small">
+                <i class="bi bi-exclamation-octagon-fill"></i> Warning: Updating this schedule will overlap with
+                @ConflictCount other operation(s).
+            </div>
+        }
+    </div>
+
+    <div class="row">
+        <div class="col-md-12 text-end">
+            @if (Operation.Status == "Scheduled")
+            {
+                <RadzenButton Text="Start Operation" ButtonStyle="ButtonStyle.Info" Icon="play_arrow"
+                    Click="@(() => UpdateStatus("Running"))" Class="me-2" />
+            }
+            @if (Operation.Status == "Running")
+            {
+                <RadzenButton Text="Complete Operation" ButtonStyle="ButtonStyle.Success" Icon="check"
+                    Click="@(() => UpdateStatus("Completed"))" Class="me-2" />
+            }
+
+            <RadzenButton Text="Update Schedule" ButtonStyle="ButtonStyle.Primary" Icon="save" Click="@SaveSchedule"
+                Disabled="@(ConflictCount > 0 && !ForceUpdate)" />
+            @if (ConflictCount > 0)
+            {
+                <div class="d-inline-block ms-2 text-start">
+                    <RadzenCheckBox @bind-Value="ForceUpdate" Name="Force" />
+                    <label class="small text-muted">Force</label>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public PatientOperation Operation { get; set; }
+
+    DateTime NewStartTime;
+    int NewDuration;
+    int ConflictCount = 0;
+    bool ForceUpdate = false;
+
+    bool IsOverdue => Operation.Status == "Running" && DateTime.Now >
+    Operation.ScheduledDate.AddMinutes(Operation.DurationMinutes);
+
+    protected override void OnInitialized()
+    {
+        NewStartTime = Operation.ScheduledDate;
+        NewDuration = Operation.DurationMinutes;
+    }
+
+    BadgeStyle GetStatusBadge(string status)
+    {
+        return status switch
+        {
+            "Scheduled" => BadgeStyle.Info,
+            "Running" => BadgeStyle.Warning,
+            "Completed" => BadgeStyle.Success,
+            _ => BadgeStyle.Light
+        };
+    }
+
+    void CheckConflicts()
+    {
+        ConflictCount = 0;
+        ForceUpdate = false;
+
+        if (Operation.TheaterId != null)
+        {
+            // Simple generic check logic
+            var dayOps = OperationRepo.GetOperationsByTheaterAndDate(Operation.TheaterId.Value, NewStartTime);
+
+            var myStart = NewStartTime;
+            var myEnd = NewStartTime.AddMinutes(NewDuration);
+
+            foreach (var op in dayOps)
+            {
+                // Skip self
+                if (op.OperationId == Operation.OperationId) continue;
+
+                var opStart = op.ScheduledDate;
+                var opEnd = op.ScheduledDate.AddMinutes(op.DurationMinutes);
+
+                if (myStart < opEnd && myEnd > opStart)
+                {
+                    ConflictCount++;
+                }
+            }
+        }
+    }
+
+    void UpdateStatus(string newStatus)
+    {
+        OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, newStatus,
+        Operation.AgreedOperationCost, Operation.AgreedMedicineCost, Operation.AgreedEquipmentCost, Operation.TheaterId);
+
+        NotificationService.Notify(NotificationSeverity.Success, "Status Updated", $"Operation marked as {newStatus}.");
+        DialogService.Close(true);
+    }
+
+    void SaveSchedule()
+    {
+        OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, Operation.Status,
+        Operation.AgreedOperationCost, Operation.AgreedMedicineCost, Operation.AgreedEquipmentCost, Operation.TheaterId,
+        NewStartTime, NewDuration);
+
+        if (ConflictCount > 0)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Schedule Conflict", "Schedule updated despite conflicts.");
+        }
+        else
+        {
+            NotificationService.Notify(NotificationSeverity.Success, "Updated", "Operation schedule updated.");
+        }
+
+        DialogService.Close(true);
+    }
+}

@@ -1,0 +1,104 @@
+@page "/admin/ot-schedule"
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@inject OperationRepository OperationRepo
+@inject FacilityRepository FacilityRepo
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@layout HMS.Web.Components.Layout.AdminLayout
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3><i class="bi bi-calendar3 me-2"></i>Operation Theater Schedule</h3>
+        <div>
+            <RadzenDatePicker @bind-Value="CurrentDate" DateFormat="MMMM dd, yyyy" Change="@OnDateChange"
+                Class="me-2" />
+            <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Light" Click="@LoadData" />
+        </div>
+    </div>
+
+    @if (Theaters == null)
+    {
+        <p>Loading theaters...</p>
+    }
+    else
+    {
+        <RadzenScheduler @ref="scheduler" SlotRender="@OnSlotRender" AppointmentRender="@OnAppointmentRender"
+            AppointmentSelect="@OnAppointmentSelect" style="height: 768px;" TItem="PatientOperation" Data="@Operations"
+            StartProperty="ScheduledDate" EndProperty="EndDate" TextProperty="PatientName" SelectedIndex="2">
+            <RadzenDayView />
+            <RadzenWeekView />
+            <RadzenMonthView />
+        </RadzenScheduler>
+    }
+</div>
+
+@code {
+    RadzenScheduler<PatientOperation> scheduler;
+    DateTime CurrentDate = DateTime.Now;
+    List<OperationTheater> Theaters;
+    List<PatientOperation> Operations;
+
+    protected override void OnInitialized()
+    {
+        Theaters = FacilityRepo.GetTheaters();
+        LoadData();
+    }
+
+    void OnDateChange(DateTime? value)
+    {
+        if (value.HasValue)
+        {
+            CurrentDate = value.Value;
+            LoadData();
+        }
+    }
+
+    void LoadData()
+    {
+        Operations = OperationRepo.GetAllScheduledOperations();
+    }
+
+    async Task OnAppointmentSelect(SchedulerAppointmentSelectEventArgs<PatientOperation> args)
+    {
+        var result = await DialogService.OpenAsync<ManageOperationDialog>("Manage Operation",
+        new Dictionary<string, object> { { "Operation", args.Data } },
+        new DialogOptions() { Width = "600px", Height = "500px" });
+
+        if (result == true)
+        {
+            LoadData();
+            await scheduler.Reload();
+        }
+    }
+
+    void OnSlotRender(SchedulerSlotRenderEventArgs args)
+    {
+        if (args.View.Text == "Month" && args.Start.Date == DateTime.Today)
+        {
+            args.Attributes["style"] = "background: rgba(255,220,40,.2);";
+        }
+    }
+
+    void OnAppointmentRender(SchedulerAppointmentRenderEventArgs<PatientOperation> args)
+    {
+        // Custom Styling based on Status / Delay
+
+        if (args.Data.Status == "Running")
+        {
+            // Check for Delay
+            if (DateTime.Now > args.Data.EndDate)
+            {
+                args.Attributes["style"] = "background: #dc3545; color: white;"; // Red for Overdue
+            }
+            else
+            {
+                args.Attributes["style"] = "background: #ffc107; color: black;"; // Yellow for Running
+            }
+        }
+        else if (args.Data.Status == "Completed")
+        {
+            args.Attributes["style"] = "background: #28a745; color: white;"; // Green
+        }
+    }
+}

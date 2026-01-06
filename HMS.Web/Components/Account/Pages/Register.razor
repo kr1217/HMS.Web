@@ -48,6 +48,7 @@
                     <option value="Patient">Patient</option>
                     <option value="Doctor">Doctor</option>
                     <option value="Teller">Teller</option>
+                    <option value="OTStaff">Operation Staff</option>
                 </InputSelect>
                 <label for="Input.Role">Register as</label>
                 <ValidationMessage For="() => Input.Role" class="text-danger" />
@@ -100,6 +101,7 @@
         if (!await RoleManager.RoleExistsAsync("Patient")) await RoleManager.CreateAsync(new IdentityRole("Patient"));
         if (!await RoleManager.RoleExistsAsync("Doctor")) await RoleManager.CreateAsync(new IdentityRole("Doctor"));
         if (!await RoleManager.RoleExistsAsync("Teller")) await RoleManager.CreateAsync(new IdentityRole("Teller"));
+        if (!await RoleManager.RoleExistsAsync("OTStaff")) await RoleManager.CreateAsync(new IdentityRole("OTStaff"));
 
         await UserManager.AddToRoleAsync(user, roleName);
 

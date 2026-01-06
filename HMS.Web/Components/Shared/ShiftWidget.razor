@@ -18,17 +18,10 @@
     }
     else if (currentShift != null)
     {
-        <div class="me-3 text-end d-none d-md-block">
-            <div class="text-success fw-bold small">Shift Active</div>
-            <div class="text-muted small">@currentShift.StartTime.ToString("t")</div>
+        <div class="me-3 text-end d-md-block">
+             <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Shift Active" />
+             <div class="text-muted small">@currentShift.StartTime.ToString("t")</div>
         </div>
-        <RadzenButton Icon="timer_off" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Text="End Shift"
-            Click="@EndShiftDialog" />
-    }
-    else
-    {
-        <RadzenButton Icon="timer" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Text="Start Shift"
-            Click="@StartShiftDialog" />
     }
 </div>
 
@@ -55,6 +48,14 @@
             if (!string.IsNullOrEmpty(userId))
             {
                 currentShift = FinanceRepo.GetCurrentShift(userId);
+
+                // Auto-Start for ALL roles (Admin, Teller, Doctor)
+                if (currentShift == null)
+                {
+                    FinanceRepo.StartShift(userId, 0); // Default 0 starting cash for auto-start
+                    currentShift = FinanceRepo.GetCurrentShift(userId);
+                    NotificationService.Notify(NotificationSeverity.Success, "Shift Auto-Started", "Your shift has begun automatically.");
+                }
             }
         }
         isLoading = false;

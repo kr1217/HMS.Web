@@ -97,6 +97,10 @@ The system enforces a strict separation of concerns where doctors and patients *
 *   **Live Updates**: Real-time status badges and notifications for all interactions.
 
 ## 🔄 Recent Updates
+*   **Post-Op Handover Module**: Dedicated queue and logic for transferring patients from OT to specialized wards.
+*   **Strict Ward Enforcement**: Smart routing engine ensures patients go to specialty wards (e.g. Cardiology) based on surgery type.
+*   **Real-time Surgical HUD**: 1-second countdown timers for active surgeries on Admin/OT dashboards.
+*   **Persistent Notifications**: Role-based alert system for multi-department coordination.
 *   **Revenue Tracking**: Implemented dynamic revenue calculation for doctors (Daily & Total).
 *   **Profile Editor**: Added comprehensive "Edit Profile" capability for doctors.
 *   **Fixes**: Resolved data mapping issues for Consultation Fees and file upload stability.

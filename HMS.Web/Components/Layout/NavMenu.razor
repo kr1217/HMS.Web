@@ -82,6 +82,26 @@
             </Authorized>
         </AuthorizeView>
 
+        <AuthorizeView Roles="Teller">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="teller/dashboard">
+                        <RadzenIcon Icon="account_balance_wallet" Style="margin-right: 10px;" /> Teller Desk
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="OTStaff">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="ot-staff/dashboard">
+                        <RadzenIcon Icon="medical_services" Style="margin-right: 10px;" /> OT Dashboard
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">

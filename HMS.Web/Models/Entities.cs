@@ -237,6 +237,11 @@ namespace HMS.Web.Models
         public int ExpectedStayDays { get; set; }
         public string? RecommendedMedicines { get; set; }
         public string? RecommendedEquipment { get; set; }
+        public int? TheaterId { get; set; }
+        public int DurationMinutes { get; set; } = 60; // Default 1 hour
+        public DateTime? ActualStartTime { get; set; }
+        public DateTime EndDate => (ActualStartTime ?? ScheduledDate).AddMinutes(DurationMinutes);
+        public string? TheaterName { get; set; } // Joined
 
         // Admin Approved Estimation Fields
         public decimal? AgreedOperationCost { get; set; }
@@ -245,6 +250,7 @@ namespace HMS.Web.Models
 
         public string? PatientName { get; set; } // Optional Joined
         public string? DoctorName { get; set; } // Optional Joined
+        public bool IsTransferred { get; set; }
     }
 
     public class SupportTicket
@@ -295,6 +301,7 @@ namespace HMS.Web.Models
         public int NotificationId { get; set; }
         public int? PatientId { get; set; }
         public int? DoctorId { get; set; }
+        public string? TargetRole { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
         public DateTime CreatedDate { get; set; } = DateTime.Now;
@@ -412,6 +419,10 @@ namespace HMS.Web.Models
         public decimal? ActualCash { get; set; }
         public string Status { get; set; } = "Open";
         public string? Notes { get; set; }
+
+        // Optional Joined Properties
+        public string? TellerName { get; set; }
+        public int? EmployeeId { get; set; }
     }
 
     public class DashboardStats
@@ -433,5 +444,14 @@ namespace HMS.Web.Models
         public string TellerId { get; set; } = string.Empty;
         public int ShiftId { get; set; }
         public string? Remarks { get; set; }
+    }
+
+    public class OperationTheater
+    {
+        public int TheaterId { get; set; }
+        [Required]
+        public string TheaterName { get; set; } = string.Empty;
+        public string Status { get; set; } = "Available"; // Available, Maintenance, InUse
+        public bool IsActive { get; set; } = true;
     }
 }

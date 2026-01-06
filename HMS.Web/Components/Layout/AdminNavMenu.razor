@@ -1,5 +1,9 @@
 @implements IDisposable
 @inject NavigationManager NavigationManager
+@inject HMS.Web.DAL.FinanceRepository FinanceRepo
+@inject AuthenticationStateProvider AuthProvider
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -44,6 +48,16 @@
                     </NavLink>
                 </div>
                 <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/ot-schedule">
+                        <RadzenIcon Icon="calendar_today" Style="margin-right: 10px;" /> OT Schedule
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/pending-transfers">
+                        <RadzenIcon Icon="transfer_within_a_station" Style="margin-right: 10px;" /> Post-Op Handover
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
                     <NavLink class="nav-link" href="admin/settlements">
                         <RadzenIcon Icon="payments" Style="margin-right: 10px;" /> Settlements
                     </NavLink>
@@ -74,10 +88,10 @@
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">
-                    <form action="Account/Logout" method="post">
+                    <form action="/Account/Logout" method="post" @ref="logoutForm">
                         <AntiforgeryToken />
                         <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                        <button type="submit" class="nav-link">
+                        <button type="button" class="nav-link" @onclick="HandleLogout">
                             <RadzenIcon Icon="logout" Style="margin-right: 10px;" /> Logout
                         </button>
                     </form>
@@ -89,6 +103,7 @@
 
 @code {
     private string? currentUrl;
+    private ElementReference logoutForm;
 
     protected override void OnInitialized()
     {
@@ -105,5 +120,36 @@
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task HandleLogout()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                try
+                {
+                    var shift = FinanceRepo.GetCurrentShift(userId);
+                    if (shift != null)
+                    {
+                        var expectedRevenue = FinanceRepo.GetShiftRevenue(shift.ShiftId);
+                        FinanceRepo.CloseShift(shift.ShiftId, expectedRevenue, "Auto-closed on Logout");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error closing shift: {ex.Message}");
+                }
+            }
+        }
+
+        // Submit the form
+        // Using a simpler JS approach to avoid prototype lookup issues
+        await JSRuntime.InvokeVoidAsync("eval", $"document.querySelector('form[action=\"/Account/Logout\"]').submit();");
     }
 }

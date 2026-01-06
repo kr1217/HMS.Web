@@ -1,0 +1,62 @@
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@inject FacilityRepository FacilityRepo
+@inject DoctorRepository DoctorRepo
+@inject OperationRepository OperationRepo
+@inject DialogService DialogService
+
+<RadzenCard Class="rz-p-4">
+    <div class="mb-4">
+        <h5 class="text-primary"><i class="bi bi-play-fill me-2"></i>Commence Surgery</h5>
+        <div class="text-muted small">Confirm theater and surgical team for <strong>@Operation.PatientName</strong>.
+        </div>
+    </div>
+
+    <RadzenTemplateForm TItem="PatientOperation" Data="@Operation" Submit="OnSubmit">
+        <div class="row g-3">
+            <div class="col-12">
+                <RadzenText Text="Operation Theater" Component="TheaterId" />
+                <RadzenDropDown @bind-Value="Operation.TheaterId" Data="@AvailableTheaters" TextProperty="TheaterName"
+                    ValueProperty="TheaterId" Placeholder="Select available theater..." Style="width: 100%"
+                    Name="TheaterId" />
+                <RadzenRequiredValidator Component="TheaterId" Text="Theater is required" Style="position: absolute" />
+            </div>
+
+            <div class="col-12">
+                <RadzenText Text="Lead Surgeon" Component="DoctorId" />
+                <RadzenDropDown @bind-Value="Operation.DoctorId" Data="@Doctors" TextProperty="FullName"
+                    ValueProperty="DoctorId" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    FilterOperator="StringFilterOperator.Contains" AllowFiltering="true" Placeholder="Assign surgeon..."
+                    Style="width: 100%" Name="DoctorId" />
+                <RadzenRequiredValidator Component="DoctorId" Text="Surgeon is required" Style="position: absolute" />
+            </div>
+
+            <div class="col-12 mt-4 d-flex justify-content-end gap-2">
+                <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light"
+                    Click="@(() => DialogService.Close(false))" />
+                <RadzenButton Text="Start Surgery" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
+                    ButtonType="ButtonType.Submit" />
+            </div>
+        </div>
+    </RadzenTemplateForm>
+</RadzenCard>
+
+@code {
+    [Parameter] public PatientOperation Operation { get; set; } = new();
+
+    List<OperationTheater> AvailableTheaters = new();
+    List<Doctor> Doctors = new();
+
+    protected override void OnInitialized()
+    {
+        // Get all theaters, but maybe highlight the ones that are available
+        AvailableTheaters = FacilityRepo.GetTheaters().Where(t => t.Status == "Available" || t.TheaterId ==
+        Operation.TheaterId).ToList();
+        Doctors = DoctorRepo.GetDoctors();
+    }
+
+    void OnSubmit(PatientOperation op)
+    {
+        DialogService.Close(true);
+    }
+}

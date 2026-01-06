@@ -1,0 +1,144 @@
+@page "/invoice/{BillId:int}"
+@layout HMS.Web.Components.Layout.EmptyLayout
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@inject FinanceRepository FinanceRepo
+@inject BillingRepository BillingRepo
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Invoice #@BillId</PageTitle>
+
+@if (bill == null)
+{
+    <p>Loading Invoice...</p>
+}
+else
+{
+    <div class="invoice-box">
+        <div class="header">
+            <div class="row align-items-center">
+                <div class="col-8">
+                    <h2>🏥 HMS Hospital</h2>
+                    <p class="mb-0">123 Health Ave, Medical City</p>
+                    <p class="mb-0">Phone: (555) 123-4567</p>
+                </div>
+                <div class="col-4 text-end">
+                    <h1 class="text-secondary">INVOICE</h1>
+                    <h5>#@BillId</h5>
+                    <small>Date: @bill.BillDate.ToString("MMM dd, yyyy")</small>
+                </div>
+            </div>
+        </div>
+
+        <hr />
+
+        <div class="row mb-4">
+            <div class="col-6">
+                <h5 class="text-muted">Bill To:</h5>
+                <h5>@bill.PatientName</h5>
+                <!-- Add address if available via Patient object logic -->
+            </div>
+            <div class="col-6 text-end">
+                <h5 class="text-muted">Status:</h5>
+                <h4 class="@(bill.Status == "Paid" ? "text-success" : "text-danger")">@bill.Status.ToUpper()</h4>
+                @if (bill.AdmissionId != null)
+                {
+                    <small>Admission Ref: #@bill.AdmissionId</small>
+                }
+            </div>
+        </div>
+
+        <table class="table table-striped">
+            <thead class="bg-light">
+                <tr>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th class="text-end">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in bill.Items)
+                {
+                    <tr>
+                        <td>@item.Description</td>
+                        <td><span class="badge bg-secondary">@item.Category</span></td>
+                        <td class="text-end">@item.Amount.ToString("C")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="2" class="text-end">Total</th>
+                    <th class="text-end">@bill.TotalAmount.ToString("C")</th>
+                </tr>
+                <tr>
+                    <td colspan="2" class="text-end">Paid Amount</td>
+                    <td class="text-end text-success">(@bill.PaidAmount.ToString("C"))</td>
+                </tr>
+                <tr class="fs-5">
+                    <th colspan="2" class="text-end">Balance Due</th>
+                    <th class="text-end text-danger">@bill.DueAmount.ToString("C")</th>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="mt-5 text-center text-muted small">
+            <p>Thank you for choosing HMS Hospital. For queries, contact billing@hms.com.</p>
+        </div>
+
+        <div class="no-print mt-4 text-center">
+            <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
+            <a href="/" class="btn btn-secondary ms-2">Back to Home</a>
+        </div>
+    </div>
+}
+
+<style>
+    .invoice-box {
+        max-width: 800px;
+        margin: auto;
+        padding: 30px;
+        border: 1px solid #eee;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+        background: white;
+        font-family: 'Helvetica Neue', 'Helvetica', Helvetica, Arial, sans-serif;
+    }
+
+    @@media print {
+        .invoice-box {
+            border: none;
+            box-shadow: none;
+            padding: 0;
+            margin: 0;
+            max-width: 100%;
+        }
+
+        .no-print {
+            display: none;
+        }
+
+        body {
+            background-color: white;
+            -webkit-print-color-adjust: exact;
+        }
+    }
+
+    body {
+        background-color: #f5f5f5;
+        padding: 20px;
+    }
+</style>
+
+@code {
+    [Parameter] public int BillId { get; set; }
+    Bill? bill;
+
+    protected override void OnInitialized()
+    {
+        bill = FinanceRepo.GetBillById(BillId);
+        if (bill != null)
+        {
+            bill.Items = BillingRepo.GetBillItems(BillId);
+        }
+    }
+}

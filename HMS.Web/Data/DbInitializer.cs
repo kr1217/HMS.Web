@@ -122,6 +122,13 @@ namespace HMS.Web.Data
                 db.ExecuteNonQuery(addAdmissionId);
             }
 
+            var dailyRateCol = db.ExecuteScalar("SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[Admissions]') AND name = 'DailyRate'");
+            if (dailyRateCol == null)
+            {
+                var addDailyRate = "ALTER TABLE [dbo].[Admissions] ADD [DailyRate] [decimal](18, 2) NOT NULL DEFAULT 500;";
+                db.ExecuteNonQuery(addDailyRate);
+            }
+
             var createBillItems = @"
                 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[BillItems]') AND type in (N'U'))
                 BEGIN
@@ -207,6 +214,59 @@ namespace HMS.Web.Data
                     )
                 END";
             db.ExecuteNonQuery(createDoctorPayments);
+
+            var createTheaters = @"
+                IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[OperationTheaters]') AND type in (N'U'))
+                BEGIN
+                    CREATE TABLE [dbo].[OperationTheaters](
+                        [TheaterId] [int] IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                        [TheaterName] [nvarchar](100) NOT NULL,
+                        [Status] [nvarchar](50) NOT NULL DEFAULT 'Available',
+                        [IsActive] [bit] NOT NULL DEFAULT 1
+                    );
+
+                    INSERT INTO OperationTheaters (TheaterName, Status) VALUES 
+                    ('OT-1 (General)', 'Available'),
+                    ('OT-2 (Specialized)', 'Available'),
+                    ('OT-3 (Emergency)', 'Available'),
+                    ('OT-4 (Minor)', 'Available');
+                END";
+            db.ExecuteNonQuery(createTheaters);
+
+            var theaterIdCol = db.ExecuteScalar("SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[PatientOperations]') AND name = 'TheaterId'");
+            if (theaterIdCol == null)
+            {
+                var addTheaterId = @"ALTER TABLE [dbo].[PatientOperations] ADD [TheaterId] [int] NULL;
+                                     ALTER TABLE [dbo].[PatientOperations] ADD CONSTRAINT FK_PatientOperations_Theaters FOREIGN KEY (TheaterId) REFERENCES OperationTheaters(TheaterId);";
+                db.ExecuteNonQuery(addTheaterId);
+            }
+
+            var durationCol = db.ExecuteScalar("SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[PatientOperations]') AND name = 'DurationMinutes'");
+            if (durationCol == null)
+            {
+                var addDuration = @"ALTER TABLE [dbo].[PatientOperations] ADD [DurationMinutes] [int] NOT NULL DEFAULT 60;";
+                db.ExecuteNonQuery(addDuration);
+            }
+
+            var transferCol = db.ExecuteScalar("SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[PatientOperations]') AND name = 'IsTransferred'");
+            if (transferCol == null)
+            {
+                db.ExecuteNonQuery("ALTER TABLE PatientOperations ADD IsTransferred BIT NOT NULL DEFAULT 0");
+            }
+
+            var actualStartCol = db.ExecuteScalar("SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[PatientOperations]') AND name = 'ActualStartTime'");
+            if (actualStartCol == null)
+            {
+                var addActualStart = @"ALTER TABLE [dbo].[PatientOperations] ADD [ActualStartTime] [datetime] NULL;";
+                db.ExecuteNonQuery(addActualStart);
+            }
+
+            var targetRoleCol = db.ExecuteScalar("SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[Notifications]') AND name = 'TargetRole'");
+            if (targetRoleCol == null)
+            {
+                var addTargetRole = @"ALTER TABLE [dbo].[Notifications] ADD [TargetRole] [nvarchar](50) NULL;";
+                db.ExecuteNonQuery(addTargetRole);
+            }
 
             // Seed Admin User
             try

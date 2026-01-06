@@ -1,0 +1,217 @@
+@page "/ot-staff/dashboard"
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "OTStaff,Admin")]
+@inject OperationRepository OperationRepo
+@inject FacilityRepository FacilityRepo
+@inject NotificationService NotificationService
+@inject NavigationManager Navigation
+@inject DialogService DialogService
+@inject NotificationRepository NotificationRepo
+@implements IDisposable
+
+<PageTitle>OT Staff Dashboard | Hospital Management</PageTitle>
+
+<div class="container-fluid p-4">
+    <div class="row mb-4 animate__animated animate__fadeInDown">
+        <div class="col-12 d-flex justify-content-between align-items-center bg-white p-3 rounded shadow-sm">
+            <div>
+                <h3 class="text-primary mb-0"><i class="bi bi-activity me-2"></i>OT Operations Center</h3>
+                <p class="text-muted small mb-0">Manage live surgeries and theater statuses.</p>
+            </div>
+            <div class="d-flex align-items-center">
+                <HMS.Web.Components.Shared.NotificationBell TargetRole="OTStaff" />
+                <div class="text-end">
+                    <div class="badge bg-primary rz-p-2">Role: OT Staff</div>
+                    <div class="text-muted small">@DateTime.Now.ToString("dd MMM yyyy HH:mm")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Live Operations -->
+        <div class="col-lg-8">
+            <RadzenCard Class="rz-mb-4 shadow-sm border-0">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0 text-secondary"><i class="bi bi-play-circle me-2"></i>Live & Scheduled Surgeries</h5>
+                    <RadzenButton Icon="refresh" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" Click="LoadData" />
+                </div>
+
+                <RadzenDataGrid TItem="PatientOperation" Data="@Operations" AllowPaging="true" PageSize="10">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="PatientOperation" Property="PatientName" Title="Patient" />
+                        <RadzenDataGridColumn TItem="PatientOperation" Property="TheaterName" Title="Theater" Width="150px" />
+                        <RadzenDataGridColumn TItem="PatientOperation" Title="Status" Width="130px">
+                            <Template Context="op">
+                                <RadzenBadge BadgeStyle="@GetStatusBadge(op.Status)" Text="@op.Status" IsPill="true" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="PatientOperation" Title="Timing" Width="200px">
+                            <Template Context="op">
+                                @if (op.Status == "Running" && op.ActualStartTime.HasValue)
+                                {
+                                        <div class="text-warning fw-bold">
+                                            Started: @op.ActualStartTime.Value.ToString("hh:mm tt")
+                                        </div>
+                                        <div class="small">End: @op.EndDate.ToString("hh:mm tt")</div>
+                                        <div class="fw-bold text-danger animate__animated animate__pulse animate__infinite">
+                                            @GetRemainingTime(op) remaining
+                                        </div>
+                                }
+                                else
+                                {
+                                        <div class="text-muted">Sched: @op.ScheduledDate.ToString("hh:mm tt")</div>
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="PatientOperation" Title="Action" Width="180px">
+                            <Template Context="op">
+                                @if (op.Status == "Scheduled")
+                                {
+                                        <RadzenButton Text="Start" Icon="play_arrow" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" 
+                                                      Click="@(() => StartOperation(op))" />
+                                }
+                                else if (op.Status == "Running")
+                                {
+                                        <RadzenButton Text="Complete" Icon="done_all" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" 
+                                                      Click="@(() => CompleteOperation(op))" />
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </RadzenCard>
+        </div>
+
+        <!-- Theater Status Sidebar -->
+        <div class="col-lg-4">
+            <RadzenCard Class="shadow-sm border-0 mb-4 bg-light">
+                <h5 class="mb-3"><i class="bi bi-hdd-network me-2"></i>Theater Status</h5>
+                @foreach (var ot in Theaters)
+                {
+                    var activeOp = Operations.FirstOrDefault(o => o.TheaterId == ot.TheaterId && o.Status == "Running");
+                        <div class="p-3 mb-2 rounded bg-white shadow-xs d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold">@ot.TheaterName</div>
+                                <div class="small @(activeOp != null ? "text-danger" : "text-success")">
+                                @(activeOp != null ? $"Patient: {activeOp.PatientName}" : "Available")
+                                </div>
+                            </div>
+                            <div class="dot @(activeOp != null ? "bg-danger" : "bg-success") rz-border-radius-10" style="width:12px; height:12px;"></div>
+                        </div>
+                }
+            </RadzenCard>
+
+            <RadzenCard Class="shadow-sm border-0 rz-variant-flat rz-background-color-info-lighter">
+                <h6 class="mb-2"><i class="bi bi-info-circle me-1"></i>Quick Guide</h6>
+                <ul class="small text-muted ps-3">
+                    <li>Start operation only when the patient enters the theater.</li>
+                    <li>Complete operation as soon as they are ready for recovery.</li>
+                    <li>Status updates reflect immediately on Admin Dashboard.</li>
+                </ul>
+            </RadzenCard>
+        </div>
+    </div>
+</div>
+
+<style>
+    .rz-background-color-info-lighter { background-color: #e3f2fd; }
+    .shadow-xs { box-shadow: 0 .125rem .25rem rgba(0,0,0,.075); }
+    @@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .rz-spin { animation: spin 2s linear infinite; }
+</style>
+
+@code {
+    List<PatientOperation> Operations = new();
+    List<OperationTheater> Theaters = new();
+    System.Threading.Timer? dataRefreshTimer;
+    System.Threading.Timer? uiTickTimer;
+
+    protected override void OnInitialized()
+    {
+        LoadData();
+        
+        // Refresh DATA every 30 seconds (expensive)
+        dataRefreshTimer = new System.Threading.Timer(_ => InvokeAsync(async () => { 
+            LoadData(); 
+            await InvokeAsync(StateHasChanged); 
+        }), null, 30000, 30000);
+
+        // Tick UI every 1 second (cheap - for countdowns)
+        uiTickTimer = new System.Threading.Timer(_ => InvokeAsync(async () => { 
+            await InvokeAsync(StateHasChanged); 
+        }), null, 1000, 1000);
+    }
+
+    void LoadData()
+    {
+        Operations = OperationRepo.GetAllScheduledOperations();
+        Theaters = FacilityRepo.GetTheaters();
+    }
+
+    string GetRemainingTime(PatientOperation op)
+    {
+        var remaining = op.EndDate - DateTime.Now;
+        if (remaining.TotalSeconds <= 0) return "00:00:00";
+        return $"{(int)remaining.TotalHours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+    }
+
+    async Task StartOperation(PatientOperation op)
+    {
+        var result = await DialogService.OpenAsync<StartSurgeryDialog>("Start Surgery",
+            new Dictionary<string, object> { { "Operation", op } },
+            new DialogOptions { Width = "500px" });
+
+        if (result == true)
+        {
+            OperationRepo.UpdateOperationStatusAndCosts(op.OperationId, "Running", op.AgreedOperationCost, op.AgreedMedicineCost, op.AgreedEquipmentCost, op.TheaterId, actualStartTime: DateTime.Now, doctorId: op.DoctorId);
+
+            if (op.TheaterId.HasValue)
+            {
+                FacilityRepo.UpdateTheaterStatus(op.TheaterId.Value, "Occupied");
+            }
+
+            NotificationService.Notify(NotificationSeverity.Info, "Surgery Commenced", $"{op.PatientName}'s surgery is now in progress.");
+            LoadData();
+        }
+    }
+
+    async Task CompleteOperation(PatientOperation op)
+    {
+        OperationRepo.UpdateOperationStatusAndCosts(op.OperationId, "Completed", op.AgreedOperationCost, op.AgreedMedicineCost, op.AgreedEquipmentCost, op.TheaterId);
+
+        if (op.TheaterId.HasValue)
+        {
+            FacilityRepo.UpdateTheaterStatus(op.TheaterId.Value, "Available");
+        }
+
+        NotificationService.Notify(NotificationSeverity.Success, "Surgery Complete", $"{op.PatientName} has completed their procedure.");
+        
+        // Create formal notification for Admin
+        NotificationRepo.CreateNotification(new Notification {
+            Title = "Surgery Completed - Handover Required",
+            Message = $"Operation for {op.PatientName} has concluded in {op.TheaterName}. Patient is ready for ward assignment.",
+            TargetRole = "Admin",
+            CreatedDate = DateTime.Now,
+            IsRead = false
+        });
+
+        LoadData();
+    }
+
+    BadgeStyle GetStatusBadge(string status) => status switch
+    {
+        "Scheduled" => BadgeStyle.Info,
+        "Running" => BadgeStyle.Warning,
+        "Completed" => BadgeStyle.Success,
+        _ => BadgeStyle.Light
+    };
+
+    public void Dispose()
+    {
+        dataRefreshTimer?.Dispose();
+        uiTickTimer?.Dispose();
+    }
+}

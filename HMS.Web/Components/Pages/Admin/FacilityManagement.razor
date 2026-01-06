@@ -200,6 +200,49 @@
             </RadzenDataGrid>
         </RadzenTabsItem>
 
+        <!-- Operation Theaters Tab -->
+        <RadzenTabsItem Text="Operation Theaters">
+            <RadzenButton Icon="add" Text="Add Theater" ButtonStyle="ButtonStyle.Primary" Click="@InsertTheater" Class="mb-3" />
+            <RadzenDataGrid @ref="theaterGrid" Data="@theaters" TItem="OperationTheater" RowUpdate="@OnUpdateTheater" RowCreate="@OnCreateTheater"
+                AllowFiltering="true" PageSize="10">
+                <Columns>
+                    <RadzenDataGridColumn TItem="OperationTheater" Property="TheaterName" Title="Theater Name">
+                        <EditTemplate Context="theater">
+                            <RadzenTextBox @bind-Value="theater.TheaterName" Style="width:100%" Name="TheaterName" />
+                            <RadzenRequiredValidator Component="TheaterName" Text="Required" Popup="true" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OperationTheater" Property="Status" Title="Status">
+                        <EditTemplate Context="theater">
+                             <RadzenDropDown @bind-Value="theater.Status"
+                                Data="@(new[] { "Available", "Occupied", "Maintenance", "Cleaning" })"
+                                Style="width:100%" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                     <RadzenDataGridColumn TItem="OperationTheater" Property="IsActive" Title="Active">
+                        <Template Context="theater">
+                             <RadzenBadge BadgeStyle="@(theater.IsActive ? BadgeStyle.Success : BadgeStyle.Danger)"
+                                Text="@(theater.IsActive ? "Yes" : "No")" />
+                        </Template>
+                        <EditTemplate Context="theater">
+                            <RadzenSwitch @bind-Value="theater.IsActive" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="OperationTheater" Context="theater" Width="156px">
+                        <Template Context="theater">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Click="@(args => EditTheater(theater))" />
+                        </Template>
+                        <EditTemplate Context="theater">
+                            <RadzenButton Icon="save" ButtonStyle="ButtonStyle.Success"
+                                Click="@((args) => SaveTheater(theater))" />
+                            <RadzenButton Icon="cancel" ButtonStyle="ButtonStyle.Light"
+                                Click="@((args) => CancelEditTheater(theater))" />
+                        </EditTemplate>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenTabsItem>
+
         <!-- Beds Tab -->
         <RadzenTabsItem Text="Beds">
             <div class="alert alert-info">Manage Beds within Rooms.</div>
@@ -266,6 +309,9 @@
     List<RoomType> roomTypes = new();
     List<Room> rooms = new();
     List<Bed> beds = new();
+    List<OperationTheater> theaters = new();
+
+    RadzenDataGrid<OperationTheater> theaterGrid = default!;
 
     protected override void OnInitialized()
     {
@@ -277,7 +323,9 @@
         wards = FacilityRepo.GetWards();
         roomTypes = FacilityRepo.GetRoomTypes();
         rooms = FacilityRepo.GetRooms();
+        rooms = FacilityRepo.GetRooms();
         beds = FacilityRepo.GetBeds();
+        theaters = FacilityRepo.GetTheaters();
     }
 
     // --- Ward CRUD ---
@@ -370,5 +418,28 @@
         FacilityRepo.SaveBed(bed);
         RefreshAll();
         NotificationService.Notify(NotificationSeverity.Success, "Bed Updated");
+    }
+
+    // --- Theater CRUD ---
+    async Task InsertTheater()
+    {
+        var theater = new OperationTheater() { TheaterName = "New OT" };
+        await theaterGrid.InsertRow(theater);
+    }
+    async Task EditTheater(OperationTheater theater) { await theaterGrid.EditRow(theater); }
+    async Task SaveTheater(OperationTheater theater) { await theaterGrid.UpdateRow(theater); }
+    void CancelEditTheater(OperationTheater theater) { theaterGrid.CancelEditRow(theater); }
+
+    void OnCreateTheater(OperationTheater theater)
+    {
+        FacilityRepo.SaveTheater(theater);
+        RefreshAll();
+        NotificationService.Notify(NotificationSeverity.Success, "Theater Created");
+    }
+    void OnUpdateTheater(OperationTheater theater)
+    {
+        FacilityRepo.SaveTheater(theater);
+        RefreshAll();
+        NotificationService.Notify(NotificationSeverity.Success, "Theater Updated");
     }
 }

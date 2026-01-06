@@ -1,0 +1,132 @@
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@inject NotificationRepository NotificationRepo
+@inject NavigationManager Navigation
+@implements IDisposable
+@rendermode InteractiveServer
+
+<div class="dropdown me-3">
+    <button class="btn btn-link position-relative p-0 text-dark" type="button" @onclick="ToggleDropdown">
+        <i class="bi bi-bell fs-5"></i>
+        @if (UnreadCount > 0)
+        {
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                style="font-size: 0.6rem;">
+                @UnreadCount
+            </span>
+        }
+    </button>
+
+    @if (ShowDropdown)
+    {
+        <div class="dropdown-menu dropdown-menu-end show shadow p-0"
+            style="width: 300px; max-height: 400px; overflow-y: auto; right: 0; left: auto;">
+            <div class="p-2 border-bottom d-flex justify-content-between align-items-center bg-light">
+                <h6 class="mb-0">Notifications</h6>
+                <div class="small">
+                    <button class="btn btn-sm btn-link text-decoration-none p-0 me-2" @onclick="GoToPending">Post-Op
+                        List</button>
+                    @if (Notifications.Any())
+                    {
+                        <button class="btn btn-sm btn-link text-decoration-none p-0" @onclick="MarkAllRead">Mark all
+                            read</button>
+                    }
+                </div>
+            </div>
+
+            @if (!Notifications.Any())
+            {
+                <div class="p-3 text-center text-muted">No notifications</div>
+            }
+            else
+            {
+                @foreach (var notif in Notifications)
+                {
+                    <div class="p-3 border-bottom @(notif.IsRead ? "" : "bg-light-blue")"
+                        style="@(notif.IsRead ? "" : "border-left: 3px solid #0d6efd;")">
+                        <div class="d-flex justify-content-between">
+                            <strong>@notif.Title</strong>
+                            <small class="text-muted">@GetTimeAgo(notif.CreatedDate)</small>
+                        </div>
+                        <div class="small">@notif.Message</div>
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .bg-light-blue {
+        background-color: #f0f7ff;
+    }
+
+    .btn-link:hover {
+        cursor: pointer;
+        opacity: 0.8;
+    }
+</style>
+
+@code {
+    [Parameter] public string? TargetRole { get; set; }
+
+    private List<Notification> Notifications = new();
+    private int UnreadCount => Notifications.Count(n => !n.IsRead);
+    private bool ShowDropdown = false;
+    private System.Threading.Timer? timer;
+
+    protected override void OnInitialized()
+    {
+        LoadNotifications();
+        timer = new System.Threading.Timer(_ => InvokeAsync(async () =>
+        {
+            LoadNotifications(); await
+    InvokeAsync(StateHasChanged);
+        }), null, 10000, 10000);
+    }
+
+    private void LoadNotifications()
+    {
+        if (string.IsNullOrEmpty(TargetRole))
+        {
+            Notifications = NotificationRepo.GetAdminNotifications();
+        }
+        else
+        {
+            Notifications = NotificationRepo.GetNotificationsByRole(TargetRole);
+        }
+    }
+
+    private void ToggleDropdown() => ShowDropdown = !ShowDropdown;
+
+    private void GoToPending()
+    {
+        ShowDropdown = false;
+        Navigation.NavigateTo("admin/pending-transfers");
+    }
+
+    private void MarkAllRead()
+    {
+        if (string.IsNullOrEmpty(TargetRole))
+        {
+            NotificationRepo.MarkAdminNotificationsAsRead();
+        }
+        else
+        {
+            NotificationRepo.MarkRoleNotificationsAsRead(TargetRole);
+        }
+        LoadNotifications();
+        ShowDropdown = false;
+    }
+
+    private string GetTimeAgo(DateTime dt)
+    {
+        var span = DateTime.Now - dt;
+        if (span.TotalMinutes < 1) return "just now";
+        if (span.TotalHours < 1) return $"{(int)span.TotalMinutes}m ago";
+        if (span.TotalDays < 1) return $"{(int)span.TotalHours}h ago";
+        return dt.ToString("MMM dd");
+    }
+
+    public void Dispose() => timer?.Dispose();
+}

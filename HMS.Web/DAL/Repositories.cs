@@ -771,7 +771,7 @@ namespace HMS.Web.DAL
                              LEFT JOIN OperationPackages op ON po.PackageId = op.PackageId 
                              LEFT JOIN Patients p ON po.PatientId = p.PatientId
                              LEFT JOIN Doctors d ON po.DoctorId = d.DoctorId
-                             WHERE po.Status = 'Recommended'";
+                             WHERE po.Status IN ('Recommended', 'Pending Deposit')";
             var table = _db.ExecuteDataTable(query);
             return MapOperations(table);
         }
@@ -797,6 +797,9 @@ namespace HMS.Web.DAL
                         ExpectedStayDays = row.Table.Columns.Contains("ExpectedStayDays") && row["ExpectedStayDays"] != DBNull.Value ? (int)row["ExpectedStayDays"] : 0,
                         RecommendedMedicines = row.Table.Columns.Contains("RecommendedMedicines") ? row["RecommendedMedicines"]?.ToString() : null,
                         RecommendedEquipment = row.Table.Columns.Contains("RecommendedEquipment") ? row["RecommendedEquipment"]?.ToString() : null,
+                        DurationMinutes = row.Table.Columns.Contains("DurationMinutes") && row["DurationMinutes"] != DBNull.Value ? (int)row["DurationMinutes"] : 60,
+                        ActualStartTime = row.Table.Columns.Contains("ActualStartTime") && row["ActualStartTime"] != DBNull.Value ? (DateTime?)row["ActualStartTime"] : null,
+
 
                         // Costs
                         AgreedOperationCost = row.Table.Columns.Contains("AgreedOperationCost") && row["AgreedOperationCost"] != DBNull.Value ? (decimal)row["AgreedOperationCost"] : null,
@@ -805,26 +808,39 @@ namespace HMS.Web.DAL
 
                         // Joined Names
                         PatientName = row.Table.Columns.Contains("PatientName") ? row["PatientName"]?.ToString() : null,
-                        DoctorName = row.Table.Columns.Contains("DoctorName") ? row["DoctorName"]?.ToString() : null
+                        DoctorName = row.Table.Columns.Contains("DoctorName") ? row["DoctorName"]?.ToString() : null,
+                        TheaterId = row.Table.Columns.Contains("TheaterId") && row["TheaterId"] != DBNull.Value ? (int)row["TheaterId"] : null,
+                        TheaterName = row.Table.Columns.Contains("TheaterName") ? row["TheaterName"]?.ToString() : null,
+                        IsTransferred = row.Table.Columns.Contains("IsTransferred") && row["IsTransferred"] != DBNull.Value ? (bool)row["IsTransferred"] : false,
                     });
                 }
             }
             return list;
         }
 
-        public void UpdateOperationStatusAndCosts(int opId, string status, decimal? opCost, decimal? medCost, decimal? eqCost)
+        public void UpdateOperationStatusAndCosts(int opId, string status, decimal? opCost, decimal? medCost, decimal? eqCost, int? theaterId, DateTime? scheduledDate = null, int? duration = null, DateTime? actualStartTime = null, int? doctorId = null)
         {
             string query = @"UPDATE PatientOperations 
                              SET Status = @Status, 
                                  AgreedOperationCost = @OpCost, 
                                  AgreedMedicineCost = @MedCost, 
-                                 AgreedEquipmentCost = @EqCost 
+                                 AgreedEquipmentCost = @EqCost,
+                                 TheaterId = @TheaterId,
+                                 ScheduledDate = COALESCE(@ScheduledDate, ScheduledDate),
+                                 DurationMinutes = COALESCE(@Duration, DurationMinutes),
+                                 ActualStartTime = COALESCE(@ActualStart, ActualStartTime),
+                                 DoctorId = COALESCE(@DoctorId, DoctorId)
                              WHERE OperationId = @OpId";
             _db.ExecuteNonQuery(query, new[] {
                 new SqlParameter("@Status", status),
                 new SqlParameter("@OpCost", (object?)opCost ?? DBNull.Value),
                 new SqlParameter("@MedCost", (object?)medCost ?? DBNull.Value),
                 new SqlParameter("@EqCost", (object?)eqCost ?? DBNull.Value),
+                new SqlParameter("@TheaterId", (object?)theaterId ?? DBNull.Value),
+                new SqlParameter("@ScheduledDate", (object?)scheduledDate ?? DBNull.Value),
+                new SqlParameter("@Duration", (object?)duration ?? DBNull.Value),
+                new SqlParameter("@ActualStart", (object?)actualStartTime ?? DBNull.Value),
+                new SqlParameter("@DoctorId", (object?)doctorId ?? DBNull.Value),
                 new SqlParameter("@OpId", opId)
             });
         }
@@ -849,7 +865,69 @@ namespace HMS.Web.DAL
             };
             _db.ExecuteNonQuery(query, parameters);
         }
+
+
+        public List<PatientOperation> GetOperationsByTheaterAndDate(int theaterId, DateTime date)
+        {
+            string query = @"SELECT po.*, p.FullName as PatientName, opkg.PackageName 
+                             FROM PatientOperations po 
+                             JOIN Patients p ON po.PatientId = p.PatientId
+                             LEFT JOIN OperationPackages opkg ON po.PackageId = opkg.PackageId
+                             WHERE po.TheaterId = @TheaterId 
+                             AND CAST(po.ScheduledDate AS DATE) = CAST(@Date AS DATE)
+                             AND po.Status IN ('Scheduled', 'Running')";
+            var parameters = new[] {
+                new SqlParameter("@TheaterId", theaterId),
+                new SqlParameter("@Date", date)
+            };
+            return MapOperations(_db.ExecuteDataTable(query, parameters));
+        }
+
+        public List<PatientOperation> GetAllScheduledOperations()
+        {
+            string query = @"SELECT po.*, p.FullName as PatientName, ot.TheaterName, opkg.PackageName, d.FullName as DoctorName
+                             FROM PatientOperations po 
+                             JOIN Patients p ON po.PatientId = p.PatientId
+                             LEFT JOIN OperationTheaters ot ON po.TheaterId = ot.TheaterId
+                             LEFT JOIN OperationPackages opkg ON po.PackageId = opkg.PackageId
+                             LEFT JOIN Doctors d ON po.DoctorId = d.DoctorId
+                             WHERE po.Status IN ('Scheduled', 'Running')";
+            return MapOperations(_db.ExecuteDataTable(query));
+        }
+
+        public List<PatientOperation> GetOperationsByStatus(string status)
+        {
+            string query = @"SELECT po.*, p.FullName as PatientName, ot.TheaterName, opkg.PackageName, d.FullName as DoctorName
+                             FROM PatientOperations po 
+                             JOIN Patients p ON po.PatientId = p.PatientId
+                             LEFT JOIN OperationTheaters ot ON po.TheaterId = ot.TheaterId
+                             LEFT JOIN OperationPackages opkg ON po.PackageId = opkg.PackageId
+                             LEFT JOIN Doctors d ON po.DoctorId = d.DoctorId
+                             WHERE po.Status = @Status";
+            var parameters = new[] { new SqlParameter("@Status", status) };
+            return MapOperations(_db.ExecuteDataTable(query, parameters));
+        }
+
+        public List<PatientOperation> GetOperationsReadyForTransfer()
+        {
+            // Completed operations where the patient has not been transferred to a bed yet
+            string query = @"SELECT po.*, p.FullName as PatientName, ot.TheaterName, opkg.PackageName, d.FullName as DoctorName
+                             FROM PatientOperations po 
+                             JOIN Patients p ON po.PatientId = p.PatientId
+                             LEFT JOIN OperationTheaters ot ON po.TheaterId = ot.TheaterId
+                             LEFT JOIN OperationPackages opkg ON po.PackageId = opkg.PackageId
+                             LEFT JOIN Doctors d ON po.DoctorId = d.DoctorId
+                             WHERE po.Status = 'Completed' AND po.IsTransferred = 0";
+            return MapOperations(_db.ExecuteDataTable(query));
+        }
+
+        public void MarkOperationAsTransferred(int operationId)
+        {
+            string sql = "UPDATE PatientOperations SET IsTransferred = 1 WHERE OperationId = @Id";
+            _db.ExecuteNonQuery(sql, new[] { new SqlParameter("@Id", operationId) });
+        }
     }
+
 
     public class SupportRepository
     {
@@ -1047,19 +1125,61 @@ namespace HMS.Web.DAL
             return list;
         }
 
+        public List<Notification> GetAdminNotifications()
+        {
+            string query = "SELECT * FROM Notifications WHERE (PatientId IS NULL AND DoctorId IS NULL) OR TargetRole = 'Admin' ORDER BY CreatedDate DESC";
+            var table = _db.ExecuteDataTable(query);
+            var list = new List<Notification>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapNotification(row));
+                }
+            }
+            return list;
+        }
+
+        public void MarkAdminNotificationsAsRead()
+        {
+            const string sql = "UPDATE Notifications SET IsRead = 1 WHERE (PatientId IS NULL AND DoctorId IS NULL) OR TargetRole = 'Admin'";
+            _db.ExecuteNonQuery(sql);
+        }
+
+        public List<Notification> GetNotificationsByRole(string role)
+        {
+            string query = "SELECT * FROM Notifications WHERE TargetRole = @Role ORDER BY CreatedDate DESC";
+            var parameters = new[] { new SqlParameter("@Role", role) };
+            var table = _db.ExecuteDataTable(query, parameters);
+            var list = new List<Notification>();
+            if (table != null)
+            {
+                foreach (DataRow row in table.Rows)
+                {
+                    list.Add(MapNotification(row));
+                }
+            }
+            return list;
+        }
+
+        public void MarkRoleNotificationsAsRead(string role)
+        {
+            const string sql = "UPDATE Notifications SET IsRead = 1 WHERE TargetRole = @Role";
+            _db.ExecuteNonQuery(sql, new[] { new SqlParameter("@Role", role) });
+        }
+
         public void CreateNotification(Notification n)
         {
-            string query = "INSERT INTO Notifications (PatientId, DoctorId, Title, Message, CreatedDate, IsRead) VALUES (@PatientId, @DoctorId, @Title, @Message, @CreatedDate, @IsRead)";
-            var parameters = new[]
-            {
+            string query = "INSERT INTO Notifications (PatientId, DoctorId, TargetRole, Title, Message, CreatedDate, IsRead) VALUES (@PatientId, @DoctorId, @TargetRole, @Title, @Message, @CreatedDate, @IsRead)";
+            _db.ExecuteNonQuery(query, new[] {
                 new SqlParameter("@PatientId", (object?)n.PatientId ?? DBNull.Value),
                 new SqlParameter("@DoctorId", (object?)n.DoctorId ?? DBNull.Value),
+                new SqlParameter("@TargetRole", (object?)n.TargetRole ?? DBNull.Value),
                 new SqlParameter("@Title", n.Title),
                 new SqlParameter("@Message", n.Message),
                 new SqlParameter("@CreatedDate", n.CreatedDate),
                 new SqlParameter("@IsRead", n.IsRead)
-            };
-            _db.ExecuteNonQuery(query, parameters);
+            });
         }
 
         private Notification MapNotification(DataRow row)
@@ -1067,9 +1187,10 @@ namespace HMS.Web.DAL
             return new Notification
             {
                 NotificationId = (int)row["NotificationId"],
-                PatientId = row["PatientId"] == DBNull.Value ? null : (int?)row["PatientId"],
-                DoctorId = row["DoctorId"] == DBNull.Value ? null : (int?)row["DoctorId"],
-                Title = row["Title"]?.ToString() ?? "",
+                PatientId = row["PatientId"] != DBNull.Value ? (int)row["PatientId"] : null,
+                DoctorId = row["DoctorId"] != DBNull.Value ? (int)row["DoctorId"] : null,
+                TargetRole = row.Table.Columns.Contains("TargetRole") && row["TargetRole"] != DBNull.Value ? row["TargetRole"].ToString() : null,
+                Title = row["Title"].ToString() ?? string.Empty,
                 Message = row["Message"]?.ToString() ?? "",
                 CreatedDate = (DateTime)row["CreatedDate"],
                 IsRead = (bool)row["IsRead"]

@@ -19,9 +19,11 @@ namespace HMS.Web.DAL
 
         public UserShift? GetCurrentShift(string userId)
         {
-            const string sql = @"SELECT TOP 1 * FROM UserShifts 
-                               WHERE UserId = @UserId AND Status = 'Open' 
-                               ORDER BY StartTime DESC";
+            const string sql = @"SELECT TOP 1 us.*, st.FullName as TellerName, st.StaffId as EmployeeId 
+                               FROM UserShifts us
+                               LEFT JOIN Staff st ON us.UserId = st.UserId
+                               WHERE us.UserId = @UserId AND us.Status = 'Open' 
+                               ORDER BY us.StartTime DESC";
 
             var shifts = _db.ExecuteQuery(sql, MapUserShift, new[] { new SqlParameter("@UserId", userId) });
             return shifts.FirstOrDefault();
@@ -29,7 +31,10 @@ namespace HMS.Web.DAL
 
         public List<UserShift> GetAllShifts()
         {
-            const string sql = @"SELECT * FROM UserShifts ORDER BY StartTime DESC";
+            const string sql = @"SELECT us.*, st.FullName as TellerName, st.StaffId as EmployeeId 
+                               FROM UserShifts us
+                               LEFT JOIN Staff st ON us.UserId = st.UserId
+                               ORDER BY us.StartTime DESC";
             return _db.ExecuteQuery(sql, MapUserShift);
         }
 
@@ -95,9 +100,11 @@ namespace HMS.Web.DAL
 
         public List<UserShift> GetShiftsRecursively(DateTime fromDate, DateTime toDate)
         {
-            const string sql = @"SELECT * FROM UserShifts 
-                               WHERE StartTime BETWEEN @From AND @To 
-                               ORDER BY StartTime DESC";
+            const string sql = @"SELECT us.*, st.FullName as TellerName, st.StaffId as EmployeeId 
+                               FROM UserShifts us
+                               LEFT JOIN Staff st ON us.UserId = st.UserId
+                               WHERE us.StartTime BETWEEN @From AND @To 
+                               ORDER BY us.StartTime DESC";
 
             return _db.ExecuteQuery(sql, MapUserShift, new[] {
                 new SqlParameter("@From", fromDate),
@@ -203,7 +210,7 @@ namespace HMS.Web.DAL
             const string sql = @"SELECT b.*, p.FullName as PatientName 
                                 FROM Bills b
                                 INNER JOIN Patients p ON b.PatientId = p.PatientId
-                                WHERE b.Status IN ('Pending', 'Partial')
+                                WHERE b.Status IN ('Pending', 'Partial', 'Unpaid')
                                 ORDER BY b.BillDate DESC";
             return _db.ExecuteQuery(sql, MapBill);
         }
@@ -271,8 +278,28 @@ namespace HMS.Web.DAL
                                              WHERE BedId = (SELECT BedId FROM Admissions WHERE AdmissionId = @AdmissionId)";
                     _db.ExecuteNonQuery(updateBed, new[] { new SqlParameter("@AdmissionId", admissionId) });
                 }
+
+                // B. Auto-Confirm Operation if this was a deposit
+                const string updateOp = @"UPDATE PatientOperations 
+                                          SET Status = 'Scheduled' 
+                                          WHERE Status = 'Pending Deposit' 
+                                          AND PatientId = (SELECT PatientId FROM Bills WHERE BillId = @BillId)";
+
+                _db.ExecuteNonQuery(updateOp, new[] { new SqlParameter("@BillId", payment.BillId) });
+
+                // C. Create Notification for Admin
+                const string getPatName = "SELECT p.FullName FROM Bills b JOIN Patients p ON b.PatientId = p.PatientId WHERE b.BillId = @BillId";
+                var patName = _db.ExecuteScalar(getPatName, new[] { new SqlParameter("@BillId", payment.BillId) })?.ToString() ?? "Patient";
+
+                const string notifSql = @"INSERT INTO Notifications (Title, Message, CreatedDate, IsRead, TargetRole) 
+                                          VALUES (@Title, @Msg, GETDATE(), 0, 'OTStaff')";
+                _db.ExecuteNonQuery(notifSql, new[] {
+                    new SqlParameter("@Title", "Surgery Deposit Confirmed"),
+                    new SqlParameter("@Msg", $"Deposit for {patName} has been processed by Teller. Surgery status updated to 'Scheduled'.")
+                });
             }
         }
+
 
         // --- MAPPERS ---
 
@@ -304,7 +331,9 @@ namespace HMS.Web.DAL
                 EndingCash = r["EndingCash"] != DBNull.Value ? (decimal?)r["EndingCash"] : null,
                 ActualCash = r["ActualCash"] != DBNull.Value ? (decimal?)r["ActualCash"] : null,
                 Status = r["Status"].ToString()!,
-                Notes = r["Notes"]?.ToString()
+                Notes = r["Notes"]?.ToString(),
+                TellerName = r.Table.Columns.Contains("TellerName") && r["TellerName"] != DBNull.Value ? r["TellerName"].ToString() : "Unknown",
+                EmployeeId = r.Table.Columns.Contains("EmployeeId") && r["EmployeeId"] != DBNull.Value ? (int?)r["EmployeeId"] : null,
             };
         }
 

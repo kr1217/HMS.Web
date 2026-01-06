@@ -36,10 +36,31 @@
                         <span class="badge @GetUrgencyBadge(op.Urgency)">@op.Urgency</span>
                     </Template>
                 </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="PatientOperation" Property="Status" Title="Status" Width="130px">
+                    <Template Context="op">
+                        @if (op.Status == "Pending Deposit")
+                        {
+                            <span class="badge bg-warning text-dark"><i class="bi bi-clock-history me-1"></i>Waiting
+                                Payment</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-info text-dark">@op.Status</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
                 <RadzenDataGridColumn TItem="PatientOperation" Title="Action" Width="180px">
                     <Template Context="op">
-                        <RadzenButton Text="Admit & Approve" Icon="Login" ButtonStyle="ButtonStyle.Primary"
-                            Size="ButtonSize.Small" Click="@(() => OpenAdmitDialog(op))" />
+                        @if (op.Status == "Pending Deposit")
+                        {
+                            <RadzenButton Text="Pre-Op Check" Icon="info" ButtonStyle="ButtonStyle.Light"
+                                Size="ButtonSize.Small" Disabled="true" />
+                        }
+                        else
+                        {
+                            <RadzenButton Text="Admit & Approve" Icon="Login" ButtonStyle="ButtonStyle.Primary"
+                                Size="ButtonSize.Small" Click="@(() => OpenAdmitDialog(op))" />
+                        }
                     </Template>
                 </RadzenDataGridColumn>
             </Columns>

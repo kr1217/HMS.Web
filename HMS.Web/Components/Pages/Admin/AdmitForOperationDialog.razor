@@ -2,6 +2,9 @@
 @using HMS.Web.DAL
 @inject FacilityRepository FacilityRepo
 @inject OperationRepository OperationRepo
+@inject NotificationRepository NotificationRepo
+@inject BillingRepository BillingRepo
+@inject FinanceRepository FinanceRepo
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
@@ -38,45 +41,95 @@
                 <div class="form-text text-muted">These costs will be used as a base for final billing.</div>
             </div>
 
+            <!-- Advance Payment Gate -->
+            <div class="col-md-12 mb-3">
+                <h6 class="text-secondary border-bottom pb-2">Advance Payment Gate (Deposit)</h6>
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <label class="form-label small">Deposit Amount to Bill</label>
+                        <InputNumber @bind-Value="DepositAmount" class="form-control" />
+                    </div>
+                     <div class="col-md-6 pt-4">
+                         <div class="text-muted small">
+                             <i class="bi bi-info-circle"></i> A bill will be generated for the Teller.
+                             OT Slot will be reserved pending payment.
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operation Theater Selection -->
+            <div class="col-md-12 mb-3">
+                 <h6 class="text-secondary border-bottom pb-2">Resource Allocation</h6>
+                 <div class="row mb-2">
+                    <div class="col-6">
+                        <label class="form-label small">Surgery Date & Time</label>
+                        <RadzenDatePicker @bind-Value="ScheduledTime" ShowTime="true" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt" Change="@(args => OnTheaterChange())" Class="w-100" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small">Est. Duration (mins)</label>
+                        <RadzenNumeric TValue="int" @bind-Value="DurationMinutes" Min="15" Step="15" Change="@(args => OnTheaterChange())" Class="w-100" />
+                    </div>
+                 </div>
+                 <div class="mb-3">
+                    <label class="form-label">Select Operation Theater</label>
+                    <RadzenDropDown Data="@Theaters" TextProperty="TheaterName" ValueProperty="TheaterId"
+                        @bind-Value="SelectedTheaterId" Change="@OnTheaterChange" Class="w-100" Placeholder="Select OT..." />
+                    @if (ConflictCount > 0)
+                    {
+                        <div class="text-warning small mt-1">
+                            <i class="bi bi-exclamation-triangle"></i> Warning: Overlap detected! 
+                            The theater is occupied during this time window.
+                        </div>
+                    }
+                    else if (SelectedTheaterId != null)
+                    {
+                         <div class="text-success small mt-1">
+                            <i class="bi bi-check-circle"></i> Slot Available
+                        </div>
+                    }
+                </div>
+            </div>
+
             <!-- Admission Details -->
             <div class="col-md-12">
                 <h6 class="text-secondary border-bottom pb-2">Admission Details</h6>
-
-                <div class="mb-3">
-                    <label class="form-label">Select Ward</label>
-                    <RadzenDropDown Data="@Wards" TextProperty="WardName" ValueProperty="WardId"
-                        @bind-Value="SelectedWardId" Change="@OnWardChange" Class="w-100" />
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Select Room / Bed</label>
-                    @if (AvailableBeds == null || !AvailableBeds.Any())
-                    {
-                        <div class="text-danger small">No beds available in selected ward.</div>
-                    }
-                    else
-                    {
-                        <RadzenDropDown Data="@AvailableBeds" TextProperty="BedNumber" ValueProperty="BedId"
-                            @bind-Value="CurrentAdmission.BedId" Class="w-100" Placeholder="Select available bed..." />
-                    }
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Daily Room Rate</label>
-                    <InputNumber @bind-Value="CurrentAdmission.DailyRate" class="form-control" />
+                 <div class="alert alert-info small">
+                    <i class="bi bi-info-circle"></i> Ward and Bed assignment will be handled after the operation (Post-Op Transfer).
                 </div>
             </div>
         </div>
 
         <div class="d-flex justify-content-end gap-2 mt-4">
+             @if (ConflictCount > 0)
+            {
+                <RadzenButton Text="Add to Waitlist" ButtonStyle="ButtonStyle.Warning" Icon="schedule" Click="@AddToWaitlist" />
+            }
             <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-            <RadzenButton ButtonType="ButtonType.Submit" Text="Admit & Approve" ButtonStyle="ButtonStyle.Success"
-                Icon="check_circle" />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Schedule & Request Deposit" ButtonStyle="ButtonStyle.Success"
+                Icon="check_circle" disabled="@(ConflictCount > 0 && !AllowForceSchedule)" />
+             @if (ConflictCount > 0)
+            {
+                 <div class="d-flex align-items-center ms-2">
+                    <RadzenCheckBox @bind-Value="AllowForceSchedule" Name="Force" />
+                    <label class="small ms-1 text-muted">Overbook</label>
+                </div>
+            }
         </div>
     </EditForm>
 </div>
 
 @code {
     [Parameter] public PatientOperation Operation { get; set; }
+
+    List<OperationTheater> Theaters = new List<OperationTheater>();
+    int? SelectedTheaterId;
+    int ConflictCount = 0;
+    bool AllowForceSchedule = false;
+
+    decimal DepositAmount = 0;
+    string PaymentMethod = "Cash";
+    bool IsDepositPaid = false;
 
     Admission CurrentAdmission = new Admission();
     List<Ward> Wards = new List<Ward>();
@@ -86,31 +139,34 @@
     decimal AgreedOpCost;
     decimal AgreedMedCost;
     decimal AgreedEqCost;
+    
+    DateTime ScheduledTime = DateTime.Now;
+    int DurationMinutes = 60;
 
     protected override void OnInitialized()
     {
         Wards = FacilityRepo.GetWards();
+        Theaters = FacilityRepo.GetTheaters();
         CurrentAdmission.PatientId = Operation.PatientId;
         CurrentAdmission.AdmissionDate = DateTime.Now;
 
-        // Default Cost logic:
-        // Ideally fetch package cost for OpCost default
-        // For now, defaulting to placeholder values if 0
         AgreedOpCost = 5000;
         AgreedMedCost = 500;
         AgreedEqCost = 1000;
-        CurrentAdmission.DailyRate = 500; // Default
+        CurrentAdmission.DailyRate = 500;
+        DepositAmount = AgreedOpCost * 0.5m;
+        
+        // Init ScheduledTime from Operation.ScheduledDate if set, else Now
+        ScheduledTime = Operation.ScheduledDate > DateTime.MinValue ? Operation.ScheduledDate : DateTime.Now.Date.AddHours(9); // Default 9 AM
     }
 
     void OnWardChange()
     {
-        // Load beds for ward
         var allBeds = FacilityRepo.GetBeds();
         string selectedWardName = Wards.FirstOrDefault(w => w.WardId == SelectedWardId)?.WardName ?? "";
 
         if (!string.IsNullOrEmpty(selectedWardName))
         {
-            // Filter by name if available, else fallback to show all available
             AvailableBeds = allBeds.Where(b => b.Status == "Available" &&
             (string.IsNullOrEmpty(b.WardName) || b.WardName == selectedWardName)).ToList();
         }
@@ -120,20 +176,92 @@
         }
     }
 
+    void OnTheaterChange()
+    {
+        ConflictCount = 0;
+        AllowForceSchedule = false;
+        
+        if (SelectedTheaterId != null)
+        {
+            var dayOps = OperationRepo.GetOperationsByTheaterAndDate(SelectedTheaterId.Value, ScheduledTime);
+            
+            // Check for actual time overlap
+            var myStart = ScheduledTime;
+            var myEnd = ScheduledTime.AddMinutes(DurationMinutes);
+
+            foreach(var op in dayOps)
+            {
+                // Skip self if editing (though usually we are creating a new schedule here)
+                if (op.OperationId == Operation.OperationId) continue;
+
+                var opStart = op.ScheduledDate;
+                var opEnd = op.ScheduledDate.AddMinutes(op.DurationMinutes);
+
+                // Overlap formula: (StartA < EndB) and (EndA > StartB)
+                if (myStart < opEnd && myEnd > opStart)
+                {
+                    ConflictCount++;
+                }
+            }
+        }
+    }
+
+    void AddToWaitlist()
+    {
+         OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, "Waitlist", AgreedOpCost, AgreedMedCost, AgreedEqCost, SelectedTheaterId);
+         NotificationService.Notify(NotificationSeverity.Info, "Waitlisted", "Operation added to waitlist.");
+         DialogService.Close(true);
+    }
+
     void ConfirmAdmission()
     {
-        if (CurrentAdmission.BedId == 0)
+        if (SelectedTheaterId == null)
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Bed Required", "Please select a bed.");
+            NotificationService.Notify(NotificationSeverity.Warning, "Theater Required", "Please select an Operation Theater.");
             return;
         }
 
-        // 1. Create Admission
-        FacilityRepo.AdmitPatient(CurrentAdmission);
+        string newStatus = "Scheduled";
 
-        // 2. Update Operation Status & Costs
-        OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, "Scheduled", AgreedOpCost, AgreedMedCost,
-        AgreedEqCost);
+        if (DepositAmount > 0)
+        {
+            // Create UNPAID Bill
+            var bill = new Bill
+            {
+                PatientId = Operation.PatientId,
+                TotalAmount = DepositAmount,
+                PaidAmount = 0,
+                DueAmount = DepositAmount,
+                Status = "Unpaid",
+                BillDate = DateTime.Now,
+                CreatedBy = "Admin",
+                Items = new List<BillItem> { 
+                    new BillItem { Description = $"Advance Deposit for {Operation.PackageName}", Amount = DepositAmount, Category = "Deposit" } 
+                }
+            };
+            
+            BillingRepo.CreateBill(bill);
+            newStatus = "Pending Deposit"; // Set status to pending
+            
+            NotificationService.Notify(NotificationSeverity.Info, "Bill Generated", "Deposit bill sent to Teller.");
+        }
+
+        // We do NOT call FacilityRepo.AdmitPatient(CurrentAdmission) here anymore.
+        // Bed assignment is decoupled.
+
+        OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, newStatus, AgreedOpCost, AgreedMedCost,
+        AgreedEqCost, SelectedTheaterId, ScheduledTime, DurationMinutes);
+
+        // ... (Notifications) ...
+        var doctorNotif = new Notification
+        {
+            DoctorId = Operation.DoctorId,
+            Title = "Surgery Scheduled (Pending)",
+            Message = $"Surgery for {Operation.PatientName} tentatively scheduled. Waiting for deposit.",
+            CreatedDate = DateTime.Now,
+            IsRead = false
+        };
+        NotificationRepo.CreateNotification(doctorNotif);
 
         DialogService.Close(true);
     }
