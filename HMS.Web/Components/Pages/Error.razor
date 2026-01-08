@@ -1,4 +1,9 @@
-﻿@page "/Error"
+﻿@*
+ * FILE: Error.razor
+ * PURPOSE: Frontend web component.
+ * COMMUNICATES WITH: None
+*@
+@page "/Error"
 @using System.Diagnostics
 
 <PageTitle>Error</PageTitle>
@@ -34,3 +39,4 @@
     protected override void OnInitialized() =>
         RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
 }
+

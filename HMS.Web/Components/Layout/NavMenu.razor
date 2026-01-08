@@ -1,4 +1,9 @@
-﻿@implements IDisposable
+﻿@*
+ * FILE: NavMenu.razor
+ * PURPOSE: Layout definition component.
+ * COMMUNICATES WITH: None
+*@
+@implements IDisposable
 @inject NavigationManager NavigationManager
 @using Radzen.Blazor
 
@@ -92,3 +97,4 @@
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
+

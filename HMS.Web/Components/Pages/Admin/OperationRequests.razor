@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: OperationRequests.razor
+ * PURPOSE: Administrative interface for hospital operations.
+ * COMMUNICATES WITH: OperationRepository, FacilityRepository
+*@
 @page "/Admin/OperationRequests"
 @using HMS.Web.Models
 @using HMS.Web.DAL
@@ -9,6 +14,11 @@
 @inject FacilityRepository FacilityRepo
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@*
+COMPONENT: Operation Requests Manager
+PURPOSE: Interface for approving surgical recommendations and managing pre-op admissions.
+OPTIMIZATION: [Workflow Validation] Prevents admission if required deposits are not verified.
+*@
 
 <RadzenStack Class="rz-p-4" Gap="2rem">
     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
@@ -101,20 +111,32 @@
         }
     }
 
+    /// <summary>
+    /// Loads the list of pending operation requests with server-side pagination.
+    /// </summary>
     async Task LoadData(LoadDataArgs args)
     {
-        isLoading = true;
+        try
+        {
+            isLoading = true;
 
-        var skip = args.Skip ?? 0;
-        var take = args.Top ?? 10;
-        var orderBy = args.OrderBy;
-        if (string.IsNullOrEmpty(orderBy)) orderBy = "ScheduledDate DESC";
+            var skip = args.Skip ?? 0;
+            var take = args.Top ?? 10;
+            var orderBy = args.OrderBy;
+            if (string.IsNullOrEmpty(orderBy)) orderBy = "ScheduledDate DESC";
 
-        Requests = OperationRepo.GetPendingOperationsPaged(skip, take, orderBy);
-        count = OperationRepo.GetPendingOperationsCount();
-
-        isLoading = false;
-        StateHasChanged();
+            Requests = OperationRepo.GetPendingOperationsPaged(skip, take, orderBy);
+            count = OperationRepo.GetPendingOperationsCount();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Data Load Error", $"Failed to load requests: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
     BadgeStyle GetUrgencyBadgeStyle(string urgency)
@@ -128,16 +150,27 @@
         };
     }
 
+    /// <summary>
+    /// Launches the dialog to admit a patient for their scheduled surgery.
+    /// </summary>
     async Task OpenAdmitDialog(PatientOperation op)
     {
-        var result = await DialogService.OpenAsync<AdmitForOperationDialog>($"Admit for Surgery - {op.PatientName}",
-        new Dictionary<string, object> { { "Operation", op } },
-        new DialogOptions { Width = "700px", Height = "600px" });
-
-        if (result == true)
+        try
         {
-            NotificationService.Notify(NotificationSeverity.Success, "Success", "Patient admitted and operation approved.");
-            await grid.Reload();
+            var result = await DialogService.OpenAsync<AdmitForOperationDialog>($"Admit for Surgery - {op.PatientName}",
+            new Dictionary<string, object> { { "Operation", op } },
+            new DialogOptions { Width = "700px", Height = "600px" });
+
+            if (result == true)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Success", "Patient admitted and operation approved.");
+                await grid.Reload();
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Dialog Error", $"Failed to open admit dialog: {ex.Message}");
         }
     }
 }
+

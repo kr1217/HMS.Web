@@ -1,9 +1,19 @@
+﻿@*
+ * FILE: CollectAdvanceDialog.razor
+ * PURPOSE: Financial interface for billing operations.
+ * COMMUNICATES WITH: OperationRepository, BillingRepository
+*@
 @using HMS.Web.Models
 @using HMS.Web.DAL
 @inject OperationRepository OperationRepo
 @inject BillingRepository BillingRepo
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@*
+    COMPONENT: Advance Payment Collector
+    PURPOSE: Interface for tellers to collect deposit payments for scheduled surgeries.
+    OPTIMIZATION: [Safe Defaults] Pre-calculates 50% deposit amount to speed up the transaction process.
+*@
 
 <RadzenStack Gap="1.5rem" Class="rz-p-4">
     <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false">
@@ -55,52 +65,67 @@
 
     protected override void OnInitialized()
     {
-        // Suggest 50% as default but let teller edit
-        if (Operation.AgreedOperationCost.HasValue)
+        try
         {
-            AmountCollected = Operation.AgreedOperationCost.Value * 0.5m;
+            // Suggest 50% as default but let teller edit
+            if (Operation.AgreedOperationCost.HasValue)
+            {
+                AmountCollected = Operation.AgreedOperationCost.Value * 0.5m;
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Initialization Error", ex.Message);
         }
     }
 
     async Task ConfirmPayment()
     {
-        if (AmountCollected <= 0)
+        try
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Invalid Amount", "Please enter a valid payment amount.");
-            return;
-        }
-
-        // 1. Create a PAID Bill
-        var bill = new Bill
-        {
-            PatientId = Operation.PatientId,
-            TotalAmount = AmountCollected,
-            PaidAmount = AmountCollected,
-            DueAmount = 0,
-            Status = "Paid",
-            BillDate = DateTime.Now,
-            ShiftId = ShiftId,
-            CreatedBy = "Teller",
-            Items = new List<BillItem> { 
-                new BillItem { Description = $"Advance Payment for {Operation.PackageName}", Amount = AmountCollected, Category = "Advance" } 
+            if (AmountCollected <= 0)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "Invalid Amount", "Please enter a valid payment amount.");
+                return;
             }
-        };
 
-        BillingRepo.CreateBill(bill);
+            // 1. Create a PAID Bill
+            var bill = new Bill
+            {
+                PatientId = Operation.PatientId,
+                TotalAmount = AmountCollected,
+                PaidAmount = AmountCollected,
+                DueAmount = 0,
+                Status = "Paid",
+                BillDate = DateTime.Now,
+                ShiftId = ShiftId,
+                CreatedBy = "Teller",
+                Items = new List<BillItem> { 
+                    new BillItem { Description = $"Advance Payment for {Operation.PackageName}", Amount = AmountCollected, Category = "Advance" } 
+                }
+            };
 
-        // 2. Update Operation Status to Scheduled
-        OperationRepo.UpdateOperationStatusAndCosts(
-            Operation.OperationId, 
-            "Scheduled", 
-            Operation.AgreedOperationCost, 
-            Operation.AgreedMedicineCost, 
-            Operation.AgreedEquipmentCost, 
-            Operation.TheaterId, 
-            Operation.ScheduledDate, 
-            Operation.DurationMinutes
-        );
+            BillingRepo.CreateBill(bill);
 
-        NotificationService.Notify(NotificationSeverity.Success, "Payment Recorded", "Advance payment collected. Operation is now fully scheduled.");
-        DialogService.Close(true);
+            // 2. Update Operation Status to Scheduled
+            OperationRepo.UpdateOperationStatusAndCosts(
+                Operation.OperationId, 
+                "Scheduled", 
+                Operation.AgreedOperationCost, 
+                Operation.AgreedMedicineCost, 
+                Operation.AgreedEquipmentCost, 
+                Operation.TheaterId, 
+                Operation.ScheduledDate, 
+                Operation.DurationMinutes
+            );
+
+            NotificationService.Notify(NotificationSeverity.Success, "Payment Recorded", "Advance payment collected. Operation is now fully scheduled.");
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "Transaction Error", $"Failed to record payment: {ex.Message}");
+        }
     }
 }
+

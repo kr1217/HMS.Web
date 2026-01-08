@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: AdmitForOperationDialog.razor
+ * PURPOSE: Administrative interface for hospital operations.
+ * COMMUNICATES WITH: FacilityRepository, OperationRepository, NotificationRepository, BillingRepository, FinanceRepository
+*@
 @using HMS.Web.Models
 @using HMS.Web.DAL
 @inject FacilityRepository FacilityRepo
@@ -243,3 +248,4 @@
         DialogService.Close(true);
     }
 }
+

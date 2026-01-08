@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Prescriptions.razor
+ * PURPOSE: Patient-facing component for self-service portal.
+ * COMMUNICATES WITH: PatientRepository, PrescriptionRepository
+*@
 @page "/patient/prescriptions"
 @using Microsoft.AspNetCore.Authorization
 @using HMS.Web.DAL
@@ -9,6 +14,12 @@
 @inject PrescriptionRepository PrescriptionRepo
 @inject IJSRuntime JS
 @inject DialogService DialogService
+@inject NotificationService NotificationService
+@*
+COMPONENT: Prescription Digital Archive
+PURPOSE: Secure storage for patients to view and manage their medication history.
+OPTIMIZATION: [JSON Deserialization] Robust parsing of medication lists stored as JSON in the database.
+*@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
@@ -84,26 +95,38 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        if (user.Identity?.IsAuthenticated ?? false)
+        try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userId != null)
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated ?? false)
             {
-                CurrentPatient = PatientRepo.GetPatientByUserId(userId);
-                if (CurrentPatient != null)
+                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userId != null)
                 {
-                    PrescriptionList = PrescriptionRepo.GetPrescriptionsByPatientId(CurrentPatient.PatientId);
+                    CurrentPatient = PatientRepo.GetPatientByUserId(userId);
+                    if (CurrentPatient != null)
+                    {
+                        PrescriptionList = PrescriptionRepo.GetPrescriptionsByPatientId(CurrentPatient.PatientId);
+                    }
                 }
             }
         }
-        IsLoading = false;
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "System Error", ex.Message);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private async Task ViewPrescription(Prescription script)
     {
-        await DialogService.OpenAsync("Prescription Details", ds =>
+        try
+        {
+            await DialogService.OpenAsync("Prescription Details", ds =>
     @<RadzenStack Gap="1.5rem" Class="rz-p-4">
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
             AlignItems="AlignItems.Center" Class="rz-border-bottom rz-pb-4">
@@ -148,6 +171,11 @@
         </RadzenStack>
     </RadzenStack>
 , new DialogOptions { Width = "700px" });
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Data Error", $"Failed to load prescription: {ex.Message}");
+        }
     }
 
     private List<PrescriptionMedication> GetMedications(string json)
@@ -164,3 +192,4 @@
         }
     }
 }
+

@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Operations.razor
+ * PURPOSE: Patient-facing component for self-service portal.
+ * COMMUNICATES WITH: OperationRepository, PatientRepository
+*@
 @page "/patient/operations"
 @using HMS.Web.DAL
 @using HMS.Web.Models
@@ -6,26 +11,38 @@
 @inject OperationRepository OpRepo
 @inject PatientRepository PatientRepo
 @inject AuthenticationStateProvider AuthStateProvider
+@inject NotificationService NotificationService
+@*
+COMPONENT: Surgical Operations Portal
+PURPOSE: Provides patients with information about their scheduled surgeries and available packages.
+OPTIMIZATION: [Price Transparency] Displays clear cost estimates to help patients make informed decisions.
+*@
 
 <RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
     <RadzenStack Gap="0.5rem">
-        <RadzenText Text="Zero-Movement Operation Experience" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
-        <RadzenText Text="Transparent packages. No hidden costs. Everything included." TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+        <RadzenText Text="Zero-Movement Operation Experience" TextStyle="TextStyle.H4"
+            Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="Transparent packages. No hidden costs. Everything included." TextStyle="TextStyle.Body1"
+            Class="rz-color-text-secondary" />
     </RadzenStack>
 
     @if (myOperations != null && myOperations.Any())
     {
-        <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="medical_services">
+        <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+            Icon="medical_services">
             <RadzenStack Gap="1rem">
-                <RadzenText Text="Your Scheduled Operations" TextStyle="TextStyle.Subtitle1" Class="rz-m-0 rz-font-weight-bold" />
+                <RadzenText Text="Your Scheduled Operations" TextStyle="TextStyle.Subtitle1"
+                    Class="rz-m-0 rz-font-weight-bold" />
                 <RadzenStack Gap="0.5rem">
                     @foreach (var op in myOperations)
                     {
                         <RadzenCard Class="rz-p-3 rz-shadow-1">
-                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
+                                AlignItems="AlignItems.Center">
                                 <RadzenStack Gap="0">
                                     <RadzenText Text="@op.PackageName" TextStyle="TextStyle.Subtitle2" Class="rz-m-0" />
-                                    <RadzenText Text="@($"Scheduled: {op.ScheduledDate:MMM dd, yyyy}")" TextStyle="TextStyle.Caption" />
+                                    <RadzenText Text="@($"Scheduled: {op.ScheduledDate:MMM dd, yyyy}")"
+                                        TextStyle="TextStyle.Caption" />
                                     @if (!string.IsNullOrEmpty(op.Notes))
                                     {
                                         <RadzenText Text="@op.Notes" TextStyle="TextStyle.Body2" Class="rz-mt-2" />
@@ -55,15 +72,19 @@
             @foreach (var pkg in packages)
             {
                 <RadzenColumn Size="12" SizeMD="6" SizeLG="4">
-                    <RadzenCard Class="rz-p-4 h-100 rz-shadow-2" Style="display: flex; flex-direction: column; justify-content: space-between;">
+                    <RadzenCard Class="rz-p-4 h-100 rz-shadow-2"
+                        Style="display: flex; flex-direction: column; justify-content: space-between;">
                         <RadzenStack Gap="1rem">
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                JustifyContent="JustifyContent.SpaceBetween">
                                 <RadzenText Text="@pkg.PackageName" TextStyle="TextStyle.H6" Class="rz-m-0 rz-color-primary" />
-                                <RadzenBadge Text="@pkg.Cost.ToString("C")" BadgeStyle="BadgeStyle.Success" Shade="Shade.Lighter" />
+                                <RadzenBadge Text="@pkg.Cost.ToString("C")" BadgeStyle="BadgeStyle.Success"
+                                    Shade="Shade.Lighter" />
                             </RadzenStack>
                             <RadzenText Text="@pkg.Description" TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
                         </RadzenStack>
-                        <RadzenButton Text="View Details" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Icon="info" Class="rz-mt-4 rz-align-self-start" />
+                        <RadzenButton Text="View Details" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Icon="info"
+                            Class="rz-mt-4 rz-align-self-start" />
                     </RadzenCard>
                 </RadzenColumn>
             }
@@ -81,22 +102,30 @@
 
     protected override async Task OnInitializedAsync()
     {
-        packages = OpRepo.GetOperationPackages();
-
-        var authState = await AuthenticationStateTask;
-        var user = authState.User;
-
-        if (user.Identity.IsAuthenticated)
+        try
         {
-            var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (userId != null)
+            packages = OpRepo.GetOperationPackages();
+
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+
+            if (user.Identity.IsAuthenticated)
             {
-                patient = PatientRepo.GetPatientByUserId(userId);
-                if (patient != null)
+                var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (userId != null)
                 {
-                    myOperations = OpRepo.GetPatientOperations(patient.PatientId);
+                    patient = PatientRepo.GetPatientByUserId(userId);
+                    if (patient != null)
+                    {
+                        myOperations = OpRepo.GetPatientOperations(patient.PatientId);
+                    }
                 }
             }
         }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "System Error", ex.Message);
+        }
     }
 }
+

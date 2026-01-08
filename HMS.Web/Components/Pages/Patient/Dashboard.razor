@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Dashboard.razor
+ * PURPOSE: Patient-facing component for self-service portal.
+ * COMMUNICATES WITH: PatientRepository, AppointmentRepository
+*@
 @page "/patient/dashboard"
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
@@ -8,7 +13,13 @@
 @inject PatientRepository PatientRepo
 @inject AppointmentRepository ApptRepo
 @inject NavigationManager Nav
+@inject NotificationService NotificationService
 @attribute [Authorize]
+@*
+    COMPONENT: Patient Dashboard
+    PURPOSE: Primary landing page for patients, aggregating health status, appointments, and profile management.
+    OPTIMIZATION: [Lazy Profile Creation] Allows users to browse basic info but prompts for detailed profile completion only when necessary.
+*@
 
 
 <RadzenStack Class="rz-p-2 rz-p-md-4" Gap="2rem">
@@ -224,30 +235,40 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Simulate a small delay to ensure loading state is visible (optional) or just run
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity?.IsAuthenticated ?? false)
+        try
         {
-            NewPatient ??= new();
-            UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (UserId != null)
-            {
-                // In a real app, use async DB calls. Here we wrap sync in Task for UI responsiveness if needed, but sync is fine.
-                CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
-                if (CurrentPatient == null && string.IsNullOrEmpty(NewPatient.UserId))
-                {
-                    NewPatient.UserId = UserId;
-                }
+            // Simulate a small delay to ensure loading state is visible (optional) or just run
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
 
-                if (CurrentPatient != null)
+            if (user.Identity?.IsAuthenticated ?? false)
+            {
+                NewPatient ??= new();
+                UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (UserId != null)
                 {
-                    DashboardAppointments = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
+                    // In a real app, use async DB calls. Here we wrap sync in Task for UI responsiveness if needed, but sync is fine.
+                    CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
+                    if (CurrentPatient == null && string.IsNullOrEmpty(NewPatient.UserId))
+                    {
+                        NewPatient.UserId = UserId;
+                    }
+
+                    if (CurrentPatient != null)
+                    {
+                        DashboardAppointments = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
+                    }
                 }
             }
         }
-        IsLoading = false;
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "System Error", ex.Message);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private void EditProfile()
@@ -297,20 +318,29 @@
 
     private void CreateProfile()
     {
-        if (UserId != null)
+        try
         {
-            if (IsEditing)
+            if (UserId != null)
             {
-                PatientRepo.UpdatePatient(NewPatient);
-                IsEditing = false;
+                if (IsEditing)
+                {
+                    PatientRepo.UpdatePatient(NewPatient);
+                    IsEditing = false;
+                }
+                else
+                {
+                    NewPatient.UserId = UserId;
+                    PatientRepo.CreatePatient(NewPatient);
+                }
+                CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
+                // Refresh
+                NotificationService.Notify(NotificationSeverity.Success, "Profile Updated", "Your clinical profile has been successfully updated.");
             }
-            else
-            {
-                NewPatient.UserId = UserId;
-                PatientRepo.CreatePatient(NewPatient);
-            }
-            CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
-            // Refresh
+        }
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "Profile Error", $"Failed to update profile: {ex.Message}");
         }
     }
 }
+

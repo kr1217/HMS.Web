@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Bills.razor
+ * PURPOSE: Patient-facing component for self-service portal.
+ * COMMUNICATES WITH: BillingRepository, PatientRepository
+*@
 @page "/patient/bills"
 @using HMS.Web.DAL
 @using HMS.Web.Models
@@ -10,13 +15,20 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IJSRuntime JS
 @inject DialogService DialogService
+@inject NotificationService NotificationService
+@*
+COMPONENT: Payment History Portal
+PURPOSE: Provides patients with a transparent view of their financial interactions with the hospital.
+OPTIMIZATION: [Lazy Loading] Fetches detailed bill items only when requested by the user.
+*@
 
 <RadzenDialog />
 
 <RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
     <RadzenStack Gap="0.5rem">
         <RadzenText Text="My Bills & Payments" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
-        <RadzenText Text="Access your clinical invoices, track payment status, and download records." TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+        <RadzenText Text="Access your clinical invoices, track payment status, and download records."
+            TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
     </RadzenStack>
 
     @if (bills == null)
@@ -28,7 +40,8 @@
     }
     else if (!bills.Any())
     {
-        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="payments">
+        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+            Icon="payments">
             No bills or payment history found for your account.
         </RadzenAlert>
     }
@@ -40,21 +53,31 @@
                 <RadzenColumn Size="12" SizeMD="6" SizeLG="4">
                     <RadzenCard Class="rz-p-4 h-100 rz-shadow-2" Style="border-left: 4px solid var(--rz-primary);">
                         <RadzenStack Gap="1.5rem">
-                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
+                                AlignItems="AlignItems.Center">
                                 <RadzenStack Gap="0">
-                                    <RadzenText Text="@($"Invoice #{bill.BillId}")" TextStyle="TextStyle.Caption" Class="rz-m-0" />
-                                    <RadzenText Text="@bill.TotalAmount.ToString("C")" TextStyle="TextStyle.H5" Class="rz-m-0 rz-font-weight-bold" />
+                                    <RadzenText Text="@($"Invoice #{bill.BillId}")" TextStyle="TextStyle.Caption"
+                                        Class="rz-m-0" />
+                                    <RadzenText Text="@bill.TotalAmount.ToString("C")" TextStyle="TextStyle.H5"
+                                        Class="rz-m-0 rz-font-weight-bold" />
                                 </RadzenStack>
-                                <RadzenBadge Text="@bill.Status" BadgeStyle="@(bill.Status == "Paid" ? BadgeStyle.Success : BadgeStyle.Warning)" Shade="Shade.Lighter" IsPill="true" />
+                                <RadzenBadge Text="@bill.Status"
+                                    BadgeStyle="@(bill.Status == "Paid" ? BadgeStyle.Success : BadgeStyle.Warning)"
+                                    Shade="Shade.Lighter" IsPill="true" />
                             </RadzenStack>
 
                             <RadzenStack Gap="0.25rem">
-                                <RadzenText Text="@($"Issued on: {bill.BillDate:MMM dd, yyyy}")" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                                <RadzenText Text="@($"Issued on: {bill.BillDate:MMM dd, yyyy}")" TextStyle="TextStyle.Caption"
+                                    Class="rz-color-text-secondary" />
                             </RadzenStack>
 
                             <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                <RadzenButton Text="Details" Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" Variant="Variant.Flat" Click="@(() => ViewDetails(bill))" Class="rz-flex-1" />
-                                <RadzenButton Text="Invoice" Icon="download" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" Variant="Variant.Flat" Click="@(() => DownloadInvoice(bill.BillId))" />
+                                <RadzenButton Text="Details" Icon="visibility" ButtonStyle="ButtonStyle.Info"
+                                    Size="ButtonSize.Small" Variant="Variant.Flat" Click="@(() => ViewDetails(bill))"
+                                    Class="rz-flex-1" />
+                                <RadzenButton Text="Invoice" Icon="download" ButtonStyle="ButtonStyle.Secondary"
+                                    Size="ButtonSize.Small" Variant="Variant.Flat"
+                                    Click="@(() => DownloadInvoice(bill.BillId))" />
                             </RadzenStack>
                         </RadzenStack>
                     </RadzenCard>
@@ -73,60 +96,80 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthenticationStateTask;
-        var user = authState.User;
-
-        if (user.Identity.IsAuthenticated)
+        try
         {
-            var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (userId != null)
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+
+            if (user.Identity.IsAuthenticated)
             {
-                patient = PatientRepo.GetPatientByUserId(userId);
-                if (patient != null)
+                var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (userId != null)
                 {
-                    bills = BillRepo.GetBillsByPatientId(patient.PatientId);
+                    patient = PatientRepo.GetPatientByUserId(userId);
+                    if (patient != null)
+                    {
+                        bills = BillRepo.GetBillsByPatientId(patient.PatientId);
+                    }
                 }
             }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "System Error", ex.Message);
         }
     }
 
     private void DownloadInvoice(int id)
     {
-        // Mock download
+    // Mock download
         JS.InvokeVoidAsync("alert", $"Downloading Invoice #{id}...");
     }
 
     private async Task ViewDetails(Bill bill)
     {
-        var items = BillRepo.GetBillItems(bill.BillId);
-        await DialogService.OpenAsync("Bill Details", ds =>
-            @<RadzenStack Gap="1.5rem" Class="rz-p-4">
-                <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
-                    <RadzenText Text="@($"Invoice #{bill.BillId}")" TextStyle="TextStyle.Caption" Class="rz-m-0" />
-                    <RadzenText Text="@bill.TotalAmount.ToString("C")" TextStyle="TextStyle.H3" Class="rz-m-0 rz-font-weight-bold" />
-                    <RadzenBadge Text="@bill.Status" BadgeStyle="@(bill.Status == "Paid" ? BadgeStyle.Success : BadgeStyle.Warning)" Shade="Shade.Lighter" IsPill="true" />
-                </RadzenStack>
+        try
+        {
+            var items = BillRepo.GetBillItems(bill.BillId);
+            await DialogService.OpenAsync("Bill Details", ds =>
+    @<RadzenStack Gap="1.5rem" Class="rz-p-4">
+        <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+            <RadzenText Text="@($"Invoice #{bill.BillId}")" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+            <RadzenText Text="@bill.TotalAmount.ToString("C")" TextStyle="TextStyle.H3"
+                Class="rz-m-0 rz-font-weight-bold" />
+            <RadzenBadge Text="@bill.Status" BadgeStyle="@(bill.Status == "Paid" ? BadgeStyle.Success : BadgeStyle.Warning)"
+                Shade="Shade.Lighter" IsPill="true" />
+        </RadzenStack>
 
-                <RadzenStack Gap="0.25rem">
-                    <RadzenText Text="@($"Billing Date: {bill.BillDate:MMM dd, yyyy}")" TextStyle="TextStyle.Body2" />
-                </RadzenStack>
+        <RadzenStack Gap="0.25rem">
+            <RadzenText Text="@($"Billing Date: {bill.BillDate:MMM dd, yyyy}")" TextStyle="TextStyle.Body2" />
+        </RadzenStack>
 
-                <RadzenAlert AlertStyle="AlertStyle.Light" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Size="AlertSize.Small">
-                    Detailed breakdown is available for hospital audit purposes only.
-                    If you have questions about your bill, please contact the billing department.
-                </RadzenAlert>
+        <RadzenAlert AlertStyle="AlertStyle.Light" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+            Size="AlertSize.Small">
+            Detailed breakdown is available for hospital audit purposes only.
+            If you have questions about your bill, please contact the billing department.
+        </RadzenAlert>
 
-                <RadzenStack Gap="0.5rem">
-                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
-                        <RadzenText Text="Paid Amount:" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="@bill.PaidAmount.ToString("C")" TextStyle="TextStyle.Body2" Class="rz-color-success rz-font-weight-bold" />
-                    </RadzenStack>
-                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
-                        <RadzenText Text="Balance Due:" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
-                        <RadzenText Text="@bill.DueAmount.ToString("C")" TextStyle="TextStyle.Subtitle2" Class="rz-color-danger rz-font-weight-bold" />
-                    </RadzenStack>
-                </RadzenStack>
+        <RadzenStack Gap="0.5rem">
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenText Text="Paid Amount:" TextStyle="TextStyle.Body2" />
+                <RadzenText Text="@bill.PaidAmount.ToString("C")" TextStyle="TextStyle.Body2"
+                    Class="rz-color-success rz-font-weight-bold" />
             </RadzenStack>
-        , new DialogOptions { Width = "450px" });
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenText Text="Balance Due:" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+                <RadzenText Text="@bill.DueAmount.ToString("C")" TextStyle="TextStyle.Subtitle2"
+                    Class="rz-color-danger rz-font-weight-bold" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenStack>
+, new DialogOptions { Width = "450px" });
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Data Error", $"Failed to load bill details: {ex.Message}");
+        }
     }
 }
+

@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: NotificationBell.razor
+ * PURPOSE: Frontend web component.
+ * COMMUNICATES WITH: NotificationRepository, DoctorRepository, PatientRepository
+*@
 @using HMS.Web.Models
 @using HMS.Web.DAL
 @using Microsoft.AspNetCore.Components.Authorization
@@ -167,3 +172,4 @@
 
     public void Dispose() => timer?.Dispose();
 }
+

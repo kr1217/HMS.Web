@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: StartSurgeryDialog.razor
+ * PURPOSE: Operational theater staff interface.
+ * COMMUNICATES WITH: FacilityRepository, DoctorRepository, OperationRepository
+*@
 @using HMS.Web.Models
 @using HMS.Web.DAL
 @inject FacilityRepository FacilityRepo
@@ -63,3 +68,4 @@
         DialogService.Close(true);
     }
 }
+

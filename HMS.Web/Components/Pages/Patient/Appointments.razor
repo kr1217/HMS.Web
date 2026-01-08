@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Appointments.razor
+ * PURPOSE: Patient-facing component for self-service portal.
+ * COMMUNICATES WITH: PatientRepository, AppointmentRepository, NotificationRepository
+*@
 @page "/patient/appointments"
 @using Microsoft.AspNetCore.Authorization
 @using HMS.Web.DAL
@@ -8,7 +13,13 @@
 @inject AppointmentRepository ApptRepo
 @inject NotificationRepository NotificationRepo
 @inject NavigationManager Nav
+@inject NotificationService NotificationService
 @attribute [Authorize]
+@*
+    COMPONENT: Appointment Booking Center
+    PURPOSE: Enables patients to find doctors and schedule consultations using a streamlined workflow.
+    OPTIMIZATION: [Smart Filtering] Pre-filters doctor lists by department for quicker booking.
+*@
 @rendermode InteractiveServer
 
 <RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
@@ -145,45 +156,64 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        if (user.Identity?.IsAuthenticated ?? false)
+        try
         {
-            UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (UserId != null)
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated ?? false)
             {
-                CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
-                if (CurrentPatient != null)
+                UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (UserId != null)
                 {
-                    AppointmentList = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
-                    Doctors = ApptRepo.GetDoctors();
+                    CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
+                    if (CurrentPatient != null)
+                    {
+                        AppointmentList = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
+                        Doctors = ApptRepo.GetDoctors();
+                    }
                 }
             }
         }
-        IsLoading = false;
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "System Error", ex.Message);
+        }
+        finally
+        {
+             IsLoading = false;
+        }
     }
 
     private void BookAppointment()
     {
-        if (NewAppointment.DoctorId == 0) return; // Validation
+        try
+        {
+            if (NewAppointment.DoctorId == 0) return; // Validation
 
-        NewAppointment.PatientId = CurrentPatient!.PatientId;
-        ApptRepo.CreateAppointment(NewAppointment);
+            NewAppointment.PatientId = CurrentPatient!.PatientId;
+            ApptRepo.CreateAppointment(NewAppointment);
 
-        // Notify Doctor
-        NotificationRepo.CreateNotification(new Notification
-            {
-                DoctorId = NewAppointment.DoctorId,
-                TargetRole = "Doctor",
-                Title = "New Appointment Request",
-                Message = $"You have a new appointment request from {CurrentPatient.FullName} for {NewAppointment.AppointmentDate:f}.",
-                CreatedDate = DateTime.Now,
-                IsRead = false
-            });
+            // Notify Doctor
+            NotificationRepo.CreateNotification(new Notification
+                {
+                    DoctorId = NewAppointment.DoctorId,
+                    TargetRole = "Doctor",
+                    Title = "New Appointment Request",
+                    Message = $"You have a new appointment request from {CurrentPatient.FullName} for {NewAppointment.AppointmentDate:f}.",
+                    CreatedDate = DateTime.Now,
+                    IsRead = false
+                });
 
-        // Refresh
-        AppointmentList = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
-        NewAppointment = new Appointment { AppointmentDate = DateTime.Now.AddDays(1), AppointmentMode = "Physical" }; // Reset
+            // Refresh
+            AppointmentList = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
+            NewAppointment = new Appointment { AppointmentDate = DateTime.Now.AddDays(1), AppointmentMode = "Physical" }; // Reset
+            
+            NotificationService.Notify(NotificationSeverity.Success, "Booking Confirmed", "Your appointment request has been sent for approval.");
+        }
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "Booking Error", $"Failed to book appointment: {ex.Message}");
+        }
     }
 
     private BadgeStyle GetStatusBadge(string status)
@@ -199,3 +229,4 @@
         };
     }
 }
+

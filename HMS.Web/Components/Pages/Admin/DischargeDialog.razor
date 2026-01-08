@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: DischargeDialog.razor
+ * PURPOSE: Administrative interface for hospital operations.
+ * COMMUNICATES WITH: FacilityRepository, BillingRepository, FinanceRepository, NotificationRepository, OperationRepository
+*@
 @using Microsoft.AspNetCore.Components.Authorization
 @inject FacilityRepository FacilityRepo
 @inject BillingRepository BillingRepo
@@ -259,3 +264,4 @@
         DialogService.Close(true);
     }
 }
+

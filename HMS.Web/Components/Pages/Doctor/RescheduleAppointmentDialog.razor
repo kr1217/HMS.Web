@@ -1,5 +1,15 @@
+﻿@*
+ * FILE: RescheduleAppointmentDialog.razor
+ * PURPOSE: Doctor-facing component for clinical management.
+ * COMMUNICATES WITH: None
+*@
 @using HMS.Web.Models
 @inject DialogService DialogService
+@*
+COMPONENT: Rescheduling Wizard
+PURPOSE: Allows doctors to propose a new time slot for an appointment.
+OPTIMIZATION: [Validation] Ensures the new date is valid before confirmation.
+*@
 
 <RadzenStack Gap="1.5rem" Class="rz-p-4">
     <RadzenStack Gap="0.5rem">
@@ -34,3 +44,4 @@
         NewDate = Appointment.AppointmentDate;
     }
 }
+

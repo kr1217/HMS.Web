@@ -1,13 +1,22 @@
-
+﻿/*
+ * FILE: FinanceRepository.cs
+ * PURPOSE: Handles financial reporting and tracking.
+ * COMMUNICATES WITH: DatabaseHelper, Admin/Settlements.razor, Teller/TellerDashboard.razor
+ */
 using HMS.Web.Data;
 using HMS.Web.Models;
 using System.Collections.Generic;
 using System;
 using System.Linq;
 using Microsoft.Data.SqlClient;
+using System.Threading.Tasks;
 
 namespace HMS.Web.DAL
 {
+    /// <summary>
+    /// Repository for managing financial operations, user shifts, and revenue tracking.
+    /// OPTIMIZATION: [Audit Trails] Every cash movement is tied to a ShiftID to enable strict end-of-day reconciliation.
+    /// </summary>
     public class FinanceRepository
     {
         private readonly DatabaseHelper _db;
@@ -17,7 +26,10 @@ namespace HMS.Web.DAL
             _db = db;
         }
 
-        public UserShift? GetCurrentShift(string userId)
+        /// <summary>
+        /// Retrieves the currently open shift for a specific user.
+        /// </summary>
+        public async Task<UserShift?> GetCurrentShiftAsync(string userId)
         {
             try
             {
@@ -28,7 +40,7 @@ namespace HMS.Web.DAL
                                    WHERE us.UserId = @UserId AND us.Status = 'Open' 
                                    ORDER BY us.StartTime DESC";
 
-                var shifts = _db.ExecuteQuery(sql, MapUserShift, new[] { new SqlParameter("@UserId", userId) });
+                var shifts = await _db.ExecuteQueryAsync(sql, MapUserShift, new[] { new SqlParameter("@UserId", userId) });
                 return shifts.FirstOrDefault();
             }
             catch (Exception ex)
@@ -37,7 +49,17 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<UserShift> GetAllShifts()
+        public UserShift? GetCurrentShift(string userId)
+        {
+            if (string.IsNullOrEmpty(userId)) return null;
+            const string sql = @"SELECT TOP 1 us.*, st.FullName as TellerName, st.StaffId as EmployeeId FROM UserShifts us LEFT JOIN Staff st ON us.UserId = st.UserId WHERE us.UserId = @UserId AND us.Status = 'Open' ORDER BY us.StartTime DESC";
+            return _db.ExecuteQuery(sql, MapUserShift, new[] { new SqlParameter("@UserId", userId) }).FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Retrieves all historical and active user shifts.
+        /// </summary>
+        public async Task<List<UserShift>> GetAllShiftsAsync()
         {
             try
             {
@@ -45,7 +67,7 @@ namespace HMS.Web.DAL
                                    FROM UserShifts us
                                    LEFT JOIN Staff st ON us.UserId = st.UserId
                                    ORDER BY us.StartTime DESC";
-                return _db.ExecuteQuery(sql, MapUserShift);
+                return await _db.ExecuteQueryAsync(sql, MapUserShift);
             }
             catch (Exception ex)
             {
@@ -53,22 +75,32 @@ namespace HMS.Web.DAL
             }
         }
 
-        public UserShift StartShift(string userId, decimal startingCash)
+        public List<UserShift> GetAllShifts()
+        {
+            const string sql = @"SELECT us.*, st.FullName as TellerName, st.StaffId as EmployeeId FROM UserShifts us LEFT JOIN Staff st ON us.UserId = st.UserId ORDER BY us.StartTime DESC";
+            return _db.ExecuteQuery(sql, MapUserShift);
+        }
+
+        /// <summary>
+        /// Asynchronously starts a new shift for a user, closing any previously open ones.
+        /// </summary>
+        public async Task<UserShift> StartShiftAsync(string userId, decimal startingCash)
         {
             try
             {
                 if (string.IsNullOrEmpty(userId)) throw new ArgumentException("User ID is required to start a shift.");
 
-                // Close any existing open shifts just in case
+                // Atomic Start: We ensure that the user doesn't have multiple open shifts.
+                // This maintains the integrity of the cash drawer audit.
                 const string closeOld = @"UPDATE UserShifts SET Status = 'Closed', EndTime = GETDATE(), Notes = 'Auto-closed by new shift' 
                                           WHERE UserId = @UserId AND Status = 'Open'";
-                _db.ExecuteNonQuery(closeOld, new[] { new SqlParameter("@UserId", userId) });
+                await _db.ExecuteNonQueryAsync(closeOld, new[] { new SqlParameter("@UserId", userId) });
 
                 const string sql = @"INSERT INTO UserShifts (UserId, StartTime, StartingCash, Status) 
                                    OUTPUT INSERTED.* 
                                    VALUES (@UserId, GETDATE(), @StartingCash, 'Open')";
 
-                var shifts = _db.ExecuteQuery(sql, MapUserShift, new[] {
+                var shifts = await _db.ExecuteQueryAsync(sql, MapUserShift, new[] {
                     new SqlParameter("@UserId", userId),
                     new SqlParameter("@StartingCash", startingCash)
                 });
@@ -81,14 +113,25 @@ namespace HMS.Web.DAL
             }
         }
 
-        public decimal GetShiftRevenue(int shiftId)
+        public UserShift StartShift(string userId, decimal startingCash)
+        {
+            if (string.IsNullOrEmpty(userId)) throw new ArgumentException("User ID is required to start a shift.");
+            const string closeOld = @"UPDATE UserShifts SET Status = 'Closed', EndTime = GETDATE(), Notes = 'Auto-closed by new shift' WHERE UserId = @UserId AND Status = 'Open'";
+            _db.ExecuteNonQuery(closeOld, new[] { new SqlParameter("@UserId", userId) });
+            const string sql = @"INSERT INTO UserShifts (UserId, StartTime, StartingCash, Status) OUTPUT INSERTED.* VALUES (@UserId, GETDATE(), @StartingCash, 'Open')";
+            return _db.ExecuteQuery(sql, MapUserShift, new[] { new SqlParameter("@UserId", userId), new SqlParameter("@StartingCash", startingCash) }).Single();
+        }
+
+        /// <summary>
+        /// Gets the total revenue collected during a specific shift.
+        /// </summary>
+        public async Task<decimal> GetShiftRevenueAsync(int shiftId)
         {
             try
             {
                 if (shiftId <= 0) return 0;
-                // Updated to check Payments table to get actual collected revenue for this shift
                 const string sql = "SELECT ISNULL(SUM(Amount), 0) FROM Payments WHERE ShiftId = @ShiftId";
-                var result = _db.ExecuteScalar(sql, new[] { new SqlParameter("@ShiftId", shiftId) });
+                var result = await _db.ExecuteScalarAsync(sql, new[] { new SqlParameter("@ShiftId", shiftId) });
                 return Convert.ToDecimal(result ?? 0);
             }
             catch (Exception ex)
@@ -97,21 +140,32 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void CloseShift(int shiftId, decimal actualCash, string? notes)
+        public decimal GetShiftRevenue(int shiftId)
+        {
+            if (shiftId <= 0) return 0;
+            const string sql = "SELECT ISNULL(SUM(Amount), 0) FROM Payments WHERE ShiftId = @ShiftId";
+            return Convert.ToDecimal(_db.ExecuteScalar(sql, new[] { new SqlParameter("@ShiftId", shiftId) }) ?? 0);
+        }
+
+        /// <summary>
+        /// Asynchronously closes a shift, performing final cash reconciliation.
+        /// </summary>
+        public async Task CloseShiftAsync(int shiftId, decimal actualCash, string? notes)
         {
             try
             {
                 if (shiftId <= 0) throw new ArgumentException("Invalid Shift ID.");
 
-                // Calculate EndingCash (System Expected) from CASH Payments only + Starting Cash
+                // Reconciliation Logic:
+                // We calculate the expected amount based on the starting balance and the recorded payments.
+                // Any discrepancy between this and 'actualCash' is logged for administrative audit.
                 const string calcSql = "SELECT ISNULL(SUM(Amount), 0) FROM Payments WHERE ShiftId = @ShiftId AND PaymentMethod = 'Cash'";
-                decimal collectedCash = Convert.ToDecimal(_db.ExecuteScalar(calcSql, new[] {
+                decimal collectedCash = Convert.ToDecimal(await _db.ExecuteScalarAsync(calcSql, new[] {
                     new SqlParameter("@ShiftId", shiftId)
                 }) ?? 0);
 
-                // Get Starting Cash
                 const string startSql = "SELECT StartingCash FROM UserShifts WHERE ShiftId = @ShiftId";
-                var startResult = _db.ExecuteScalar(startSql, new[] { new SqlParameter("@ShiftId", shiftId) });
+                var startResult = await _db.ExecuteScalarAsync(startSql, new[] { new SqlParameter("@ShiftId", shiftId) });
                 decimal startingCash = (startResult != null && startResult != DBNull.Value) ? Convert.ToDecimal(startResult) : 0;
 
                 decimal expectedCash = startingCash + collectedCash;
@@ -125,7 +179,7 @@ namespace HMS.Web.DAL
                                        EndingCash = @ExpectedCash
                                    WHERE ShiftId = @ShiftId";
 
-                _db.ExecuteNonQuery(sql, new[] {
+                await _db.ExecuteNonQueryAsync(sql, new[] {
                     new SqlParameter("@ShiftId", shiftId),
                     new SqlParameter("@ActualCash", actualCash),
                     new SqlParameter("@Notes", (object?)notes ?? DBNull.Value),
@@ -138,7 +192,23 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<UserShift> GetShiftsRecursively(DateTime fromDate, DateTime toDate)
+        public void CloseShift(int shiftId, decimal actualCash, string? notes)
+        {
+            if (shiftId <= 0) throw new ArgumentException("Invalid Shift ID.");
+            const string calcSql = "SELECT ISNULL(SUM(Amount), 0) FROM Payments WHERE ShiftId = @ShiftId AND PaymentMethod = 'Cash'";
+            decimal collectedCash = Convert.ToDecimal(_db.ExecuteScalar(calcSql, new[] { new SqlParameter("@ShiftId", shiftId) }) ?? 0);
+            const string startSql = "SELECT StartingCash FROM UserShifts WHERE ShiftId = @ShiftId";
+            var startResult = _db.ExecuteScalar(startSql, new[] { new SqlParameter("@ShiftId", shiftId) });
+            decimal startingCash = (startResult != null && startResult != DBNull.Value) ? Convert.ToDecimal(startResult) : 0;
+            decimal expectedCash = startingCash + collectedCash;
+            const string sql = @"UPDATE UserShifts SET Status = 'Closed', EndTime = GETDATE(), ActualCash = @ActualCash, Notes = @Notes, EndingCash = @ExpectedCash WHERE ShiftId = @ShiftId";
+            _db.ExecuteNonQuery(sql, new[] { new SqlParameter("@ShiftId", shiftId), new SqlParameter("@ActualCash", actualCash), new SqlParameter("@Notes", (object?)notes ?? DBNull.Value), new SqlParameter("@ExpectedCash", expectedCash) });
+        }
+
+        /// <summary>
+        /// Retrieves user shifts within a specific date range.
+        /// </summary>
+        public async Task<List<UserShift>> GetShiftsRecursivelyAsync(DateTime fromDate, DateTime toDate)
         {
             try
             {
@@ -148,7 +218,7 @@ namespace HMS.Web.DAL
                                    WHERE us.StartTime BETWEEN @From AND @To 
                                    ORDER BY us.StartTime DESC";
 
-                return _db.ExecuteQuery(sql, MapUserShift, new[] {
+                return await _db.ExecuteQueryAsync(sql, MapUserShift, new[] {
                     new SqlParameter("@From", fromDate),
                     new SqlParameter("@To", toDate)
                 });
@@ -159,7 +229,16 @@ namespace HMS.Web.DAL
             }
         }
 
-        public DashboardStats GetDashboardStats()
+        public List<UserShift> GetShiftsRecursively(DateTime fromDate, DateTime toDate)
+        {
+            const string sql = @"SELECT us.*, st.FullName as TellerName, st.StaffId as EmployeeId FROM UserShifts us LEFT JOIN Staff st ON us.UserId = st.UserId WHERE us.StartTime BETWEEN @From AND @To ORDER BY us.StartTime DESC";
+            return _db.ExecuteQuery(sql, MapUserShift, new[] { new SqlParameter("@From", fromDate), new SqlParameter("@To", toDate) });
+        }
+
+        /// <summary>
+        /// Retrieves high-level financial and operational statistics for the dashboard.
+        /// </summary>
+        public async Task<DashboardStats> GetDashboardStatsAsync()
         {
             try
             {
@@ -167,45 +246,82 @@ namespace HMS.Web.DAL
 
                 // 1. Revenue (Actual Collected Cash/Card today)
                 var revSql = "SELECT SUM(Amount) FROM Payments WHERE CAST(PaymentDate AS DATE) = CAST(GETDATE() AS DATE)";
-                var revenue = _db.ExecuteScalar(revSql);
+                var revenue = await _db.ExecuteScalarAsync(revSql);
                 stats.TodayRevenue = (revenue != null && revenue != DBNull.Value) ? Convert.ToDecimal(revenue) : 0;
 
                 // 2. Bed Occupancy
                 var bedSql = "SELECT COUNT(*) as Total, SUM(CASE WHEN Status = 'Occupied' THEN 1 ELSE 0 END) as Occupied FROM Beds WHERE IsActive = 1";
-                var bedDataTable = _db.ExecuteDataTable(bedSql);
-                if (bedDataTable != null && bedDataTable.Rows.Count > 0)
+                var bedStats = await _db.ExecuteQueryAsync(bedSql, reader => new
                 {
-                    stats.TotalBeds = Convert.ToInt32(bedDataTable.Rows[0]["Total"]);
-                    var occupied = bedDataTable.Rows[0]["Occupied"];
-                    stats.OccupiedBeds = (occupied != null && occupied != DBNull.Value) ? Convert.ToInt32(occupied) : 0;
+                    Total = reader.GetInt32(0),
+                    Occupied = reader.IsDBNull(1) ? 0 : reader.GetInt32(1)
+                });
+
+                if (bedStats.Any())
+                {
+                    stats.TotalBeds = bedStats[0].Total;
+                    stats.OccupiedBeds = bedStats[0].Occupied;
                 }
 
                 // 3. Staff On Shift
                 var staffSql = "SELECT COUNT(*) FROM UserShifts WHERE Status = 'Open'";
-                var staffCount = _db.ExecuteScalar(staffSql);
+                var staffCount = await _db.ExecuteScalarAsync(staffSql);
                 stats.StaffOnShift = (staffCount != null && staffCount != DBNull.Value) ? Convert.ToInt32(staffCount) : 0;
 
                 // 4. Surgeries Today
                 var surgerySql = "SELECT COUNT(*) FROM PatientOperations WHERE CAST(ScheduledDate AS DATE) = CAST(GETDATE() AS DATE)";
-                var surgeryCount = _db.ExecuteScalar(surgerySql);
+                var surgeryCount = await _db.ExecuteScalarAsync(surgerySql);
                 stats.SurgeriesToday = (surgeryCount != null && surgeryCount != DBNull.Value) ? Convert.ToInt32(surgeryCount) : 0;
 
                 return stats;
             }
             catch
             {
-                // Return empty stats instead of crashing the dashboard
                 return new DashboardStats();
             }
         }
 
-        public decimal CalculateDoctorSettlement(int doctorId, DateTime periodStart, DateTime periodEnd)
+        public DashboardStats GetDashboardStats()
+        {
+            try
+            {
+                var stats = new DashboardStats();
+                var revSql = "SELECT SUM(Amount) FROM Payments WHERE CAST(PaymentDate AS DATE) = CAST(GETDATE() AS DATE)";
+                var revenue = _db.ExecuteScalar(revSql);
+                stats.TodayRevenue = (revenue != null && revenue != DBNull.Value) ? Convert.ToDecimal(revenue) : 0;
+                var bedSql = "SELECT COUNT(*) as Total, SUM(CASE WHEN Status = 'Occupied' THEN 1 ELSE 0 END) as Occupied FROM Beds WHERE IsActive = 1";
+                var bedStats = _db.ExecuteQuery(bedSql, reader => new
+                {
+                    Total = reader.GetInt32(0),
+                    Occupied = reader.IsDBNull(1) ? 0 : reader.GetInt32(1)
+                });
+
+                if (bedStats.Any())
+                {
+                    stats.TotalBeds = bedStats[0].Total;
+                    stats.OccupiedBeds = bedStats[0].Occupied;
+                }
+                var staffSql = "SELECT COUNT(*) FROM UserShifts WHERE Status = 'Open'";
+                var staffCount = _db.ExecuteScalar(staffSql);
+                stats.StaffOnShift = (staffCount != null && staffCount != DBNull.Value) ? Convert.ToInt32(staffCount) : 0;
+                var surgerySql = "SELECT COUNT(*) FROM PatientOperations WHERE CAST(ScheduledDate AS DATE) = CAST(GETDATE() AS DATE)";
+                var surgeryCount = _db.ExecuteScalar(surgerySql);
+                stats.SurgeriesToday = (surgeryCount != null && surgeryCount != DBNull.Value) ? Convert.ToInt32(surgeryCount) : 0;
+                return stats;
+            }
+            catch { return new DashboardStats(); }
+        }
+
+        /// <summary>
+        /// Calculates the settlement amount for a doctor based on completed appointments and commission rate.
+        /// </summary>
+        public async Task<decimal> CalculateDoctorSettlementAsync(int doctorId, DateTime periodStart, DateTime periodEnd)
         {
             try
             {
                 if (doctorId <= 0) return 0;
                 const string doctorSql = "SELECT CommissionRate FROM Doctors WHERE DoctorId = @DoctorId";
-                var commissionRate = _db.ExecuteScalar(doctorSql, new[] {
+                var commissionRate = await _db.ExecuteScalarAsync(doctorSql, new[] {
                     new SqlParameter("@DoctorId", doctorId)
                 });
 
@@ -214,6 +330,8 @@ namespace HMS.Web.DAL
 
                 decimal rate = Convert.ToDecimal(commissionRate) / 100;
 
+                // Business Rule: Doctor's take is calculated as a percentage of the consultation fees.
+                // Total fees are aggregated for the period and multiplied by the doctor's commission rate.
                 const string appointmentSql = @"
                     SELECT ISNULL(SUM(d.ConsultationFee), 0) 
                     FROM Appointments a
@@ -222,7 +340,7 @@ namespace HMS.Web.DAL
                     AND a.Status = 'Completed'
                     AND a.AppointmentDate BETWEEN @PeriodStart AND @PeriodEnd";
 
-                var totalFees = Convert.ToDecimal(_db.ExecuteScalar(appointmentSql, new[] {
+                var totalFees = Convert.ToDecimal(await _db.ExecuteScalarAsync(appointmentSql, new[] {
                     new SqlParameter("@DoctorId", doctorId),
                     new SqlParameter("@PeriodStart", periodStart),
                     new SqlParameter("@PeriodEnd", periodEnd)
@@ -236,7 +354,22 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void ProcessDoctorPayment(DoctorPayment payment)
+        public decimal CalculateDoctorSettlement(int doctorId, DateTime periodStart, DateTime periodEnd)
+        {
+            if (doctorId <= 0) return 0;
+            const string doctorSql = "SELECT CommissionRate FROM Doctors WHERE DoctorId = @DoctorId";
+            var commissionRate = _db.ExecuteScalar(doctorSql, new[] { new SqlParameter("@DoctorId", doctorId) });
+            if (commissionRate == null || commissionRate == DBNull.Value) return 0;
+            decimal rate = Convert.ToDecimal(commissionRate) / 100;
+            const string appointmentSql = @"SELECT ISNULL(SUM(d.ConsultationFee), 0) FROM Appointments a INNER JOIN Doctors d ON a.DoctorId = d.DoctorId WHERE a.DoctorId = @DoctorId AND a.Status = 'Completed' AND a.AppointmentDate BETWEEN @PeriodStart AND @PeriodEnd";
+            var totalFees = Convert.ToDecimal(_db.ExecuteScalar(appointmentSql, new[] { new SqlParameter("@DoctorId", doctorId), new SqlParameter("@PeriodStart", periodStart), new SqlParameter("@PeriodEnd", periodEnd) }) ?? 0);
+            return totalFees * rate;
+        }
+
+        /// <summary>
+        /// Asynchronously records a payment made to a doctor.
+        /// </summary>
+        public async Task ProcessDoctorPaymentAsync(DoctorPayment payment)
         {
             try
             {
@@ -246,7 +379,7 @@ namespace HMS.Web.DAL
                 const string sql = @"INSERT INTO DoctorPayments (DoctorId, Amount, PaymentDate, PeriodStart, PeriodEnd, Status, Notes)
                                     VALUES (@DoctorId, @Amount, @PaymentDate, @PeriodStart, @PeriodEnd, @Status, @Notes)";
 
-                _db.ExecuteNonQuery(sql, new[] {
+                await _db.ExecuteNonQueryAsync(sql, new[] {
                     new SqlParameter("@DoctorId", payment.DoctorId),
                     new SqlParameter("@Amount", payment.Amount),
                     new SqlParameter("@PaymentDate", payment.PaymentDate),
@@ -262,7 +395,17 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<DoctorPayment> GetDoctorPayments(int doctorId)
+        public void ProcessDoctorPayment(DoctorPayment payment)
+        {
+            if (payment == null || payment.DoctorId <= 0 || payment.Amount <= 0) throw new ArgumentException("Invalid payment data.");
+            const string sql = @"INSERT INTO DoctorPayments (DoctorId, Amount, PaymentDate, PeriodStart, PeriodEnd, Status, Notes) VALUES (@DoctorId, @Amount, @PaymentDate, @PeriodStart, @PeriodEnd, @Status, @Notes)";
+            _db.ExecuteNonQuery(sql, new[] { new SqlParameter("@DoctorId", payment.DoctorId), new SqlParameter("@Amount", payment.Amount), new SqlParameter("@PaymentDate", payment.PaymentDate), new SqlParameter("@PeriodStart", payment.PeriodStart), new SqlParameter("@PeriodEnd", payment.PeriodEnd), new SqlParameter("@Status", payment.Status ?? "Paid"), new SqlParameter("@Notes", (object?)payment.Notes ?? DBNull.Value) });
+        }
+
+        /// <summary>
+        /// Retrieves payment history for a specific doctor.
+        /// </summary>
+        public async Task<List<DoctorPayment>> GetDoctorPaymentsAsync(int doctorId)
         {
             try
             {
@@ -273,7 +416,7 @@ namespace HMS.Web.DAL
                                     WHERE p.DoctorId = @DoctorId
                                     ORDER BY p.PaymentDate DESC";
 
-                return _db.ExecuteQuery(sql, MapDoctorPayment, new[] {
+                return await _db.ExecuteQueryAsync(sql, MapDoctorPayment, new[] {
                     new SqlParameter("@DoctorId", doctorId)
                 });
             }
@@ -283,19 +426,26 @@ namespace HMS.Web.DAL
             }
         }
 
-        // --- NEW TELLER METHODS ---
+        public List<DoctorPayment> GetDoctorPayments(int doctorId)
+        {
+            if (doctorId <= 0) return new List<DoctorPayment>();
+            const string sql = @"SELECT p.*, d.FullName as DoctorName FROM DoctorPayments p INNER JOIN Doctors d ON p.DoctorId = d.DoctorId WHERE p.DoctorId = @DoctorId ORDER BY p.PaymentDate DESC";
+            return _db.ExecuteQuery(sql, MapDoctorPayment, new[] { new SqlParameter("@DoctorId", doctorId) });
+        }
 
-        public List<Bill> GetPendingBills()
+        /// <summary>
+        /// Retrieves currently pending bills (limited to top 100).
+        /// </summary>
+        public async Task<List<Bill>> GetPendingBillsAsync()
         {
             try
             {
-                // Top 100 for safety
                 const string sql = @"SELECT TOP 100 b.*, p.FullName as PatientName 
                                     FROM Bills b
                                     INNER JOIN Patients p ON b.PatientId = p.PatientId
                                     WHERE b.Status IN ('Pending', 'Partial', 'Unpaid')
                                     ORDER BY b.BillDate DESC";
-                return _db.ExecuteQuery(sql, MapBill);
+                return await _db.ExecuteQueryAsync(sql, MapBill);
             }
             catch (Exception ex)
             {
@@ -303,7 +453,16 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Bill> GetPendingBillsPaged(int skip, int take, string orderBy)
+        public List<Bill> GetPendingBills()
+        {
+            const string sql = @"SELECT TOP 100 b.*, p.FullName as PatientName FROM Bills b INNER JOIN Patients p ON b.PatientId = p.PatientId WHERE b.Status IN ('Pending', 'Partial', 'Unpaid') ORDER BY b.BillDate DESC";
+            return _db.ExecuteQuery(sql, MapBill);
+        }
+
+        /// <summary>
+        /// Retrieves a paged list of pending bills.
+        /// </summary>
+        public async Task<List<Bill>> GetPendingBillsPagedAsync(int skip, int take, string orderBy)
         {
             try
             {
@@ -314,7 +473,7 @@ namespace HMS.Web.DAL
                                 WHERE b.Status IN ('Pending', 'Partial', 'Unpaid')
                                 ORDER BY {orderClause}
                                 OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
-                return _db.ExecuteQuery(sql, MapBill, new[] {
+                return await _db.ExecuteQueryAsync(sql, MapBill, new[] {
                     new SqlParameter("@Skip", skip),
                     new SqlParameter("@Take", take)
                 });
@@ -322,12 +481,31 @@ namespace HMS.Web.DAL
             catch { return new List<Bill>(); }
         }
 
+        public List<Bill> GetPendingBillsPaged(int skip, int take, string orderBy)
+        {
+            string orderClause = string.IsNullOrEmpty(orderBy) ? "BillDate DESC" : orderBy;
+            string sql = $@"SELECT b.*, p.FullName as PatientName FROM Bills b INNER JOIN Patients p ON b.PatientId = p.PatientId WHERE b.Status IN ('Pending', 'Partial', 'Unpaid') ORDER BY {orderClause} OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
+            return _db.ExecuteQuery(sql, MapBill, new[] { new SqlParameter("@Skip", skip), new SqlParameter("@Take", take) });
+        }
+
+        /// <summary>
+        /// Gets the total count of pending bills.
+        /// </summary>
+        public async Task<int> GetPendingBillsCountAsync()
+        {
+            var result = await _db.ExecuteScalarAsync("SELECT COUNT(*) FROM Bills WHERE Status IN ('Pending', 'Partial', 'Unpaid')");
+            return Convert.ToInt32(result ?? 0);
+        }
+
         public int GetPendingBillsCount()
         {
             return Convert.ToInt32(_db.ExecuteScalar("SELECT COUNT(*) FROM Bills WHERE Status IN ('Pending', 'Partial', 'Unpaid')") ?? 0);
         }
 
-        public Bill? GetBillById(int billId)
+        /// <summary>
+        /// Retrieves a single bill record by its ID.
+        /// </summary>
+        public async Task<Bill?> GetBillByIdAsync(int billId)
         {
             try
             {
@@ -336,7 +514,7 @@ namespace HMS.Web.DAL
                                     FROM Bills b
                                     INNER JOIN Patients p ON b.PatientId = p.PatientId
                                     WHERE b.BillId = @BillId";
-                var bills = _db.ExecuteQuery(sql, MapBill, new[] { new SqlParameter("@BillId", billId) });
+                var bills = await _db.ExecuteQueryAsync(sql, MapBill, new[] { new SqlParameter("@BillId", billId) });
                 return bills.FirstOrDefault();
             }
             catch (Exception ex)
@@ -345,6 +523,21 @@ namespace HMS.Web.DAL
             }
         }
 
+        public Bill? GetBillById(int billId)
+        {
+            if (billId <= 0) return null;
+            const string sql = @"SELECT b.*, p.FullName as PatientName FROM Bills b INNER JOIN Patients p ON b.PatientId = p.PatientId WHERE b.BillId = @BillId";
+            return _db.ExecuteQuery(sql, MapBill, new[] { new SqlParameter("@BillId", billId) }).FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Adds a payment against a bill and processes related business rules (discharge, operations).
+        /// </summary>
+        /// <summary>
+        /// Adds a payment against a bill and processes related business rules (discharge, operations).
+        /// OPTIMIZATION: [Process Automation] Triggers downstream business logic (Discharge/Scheduling) automatically upon payment completion.
+        /// OPTIMIZATION: [Concurrency Control] Uses transactions to ensure payment recording and bill status updates happen atomically.
+        /// </summary>
         public void AddPayment(Payment payment)
         {
             if (payment == null) throw new ArgumentException("Payment data is required.");
@@ -390,10 +583,14 @@ namespace HMS.Web.DAL
                             new SqlParameter("@BillId", payment.BillId)
                         }, transaction);
 
-                        // 3. Auto-Discharge & Smart Notification
+                        // Lifecycle Automation:
+                        // If a bill is cleared, we trigger the relevant downstream process.
+                        // For In-Patients: Automate the discharge process and free the bed.
+                        // For Surgeries: Confirm the deposit and update the surgery status to 'Scheduled'.
                         if (status == "Paid")
                         {
                             const string checkAdmission = "SELECT AdmissionId FROM Bills WHERE BillId = @BillId";
+                            // ... logic follows ...
                             var admObj = _db.ExecuteScalar(checkAdmission, new[] { new SqlParameter("@BillId", payment.BillId) }, transaction);
 
                             const string getPatName = "SELECT p.FullName FROM Bills b JOIN Patients p ON b.PatientId = p.PatientId WHERE b.BillId = @BillId";
@@ -449,58 +646,58 @@ namespace HMS.Web.DAL
             }
         }
 
+        // --- Mappings ---
 
-        // --- MAPPERS ---
-
-        private DoctorPayment MapDoctorPayment(System.Data.DataRow r)
+        private DoctorPayment MapDoctorPayment(SqlDataReader r)
         {
             return new DoctorPayment
             {
-                PaymentId = (int)r["PaymentId"],
-                DoctorId = (int)r["DoctorId"],
-                Amount = (decimal)r["Amount"],
-                PaymentDate = (DateTime)r["PaymentDate"],
-                PeriodStart = (DateTime)r["PeriodStart"],
-                PeriodEnd = (DateTime)r["PeriodEnd"],
+                PaymentId = r.GetInt32(r.GetOrdinal("PaymentId")),
+                DoctorId = r.GetInt32(r.GetOrdinal("DoctorId")),
+                Amount = r.GetDecimal(r.GetOrdinal("Amount")),
+                PaymentDate = r.GetDateTime(r.GetOrdinal("PaymentDate")),
+                PeriodStart = r.GetDateTime(r.GetOrdinal("PeriodStart")),
+                PeriodEnd = r.GetDateTime(r.GetOrdinal("PeriodEnd")),
                 Status = r["Status"]?.ToString() ?? "Paid",
-                Notes = r["Notes"] != DBNull.Value ? r["Notes"].ToString() : null,
-                DoctorName = r.Table.Columns.Contains("DoctorName") ? r["DoctorName"]?.ToString() : null
+                Notes = r.IsDBNull(r.GetOrdinal("Notes")) ? null : r["Notes"]?.ToString(),
+                DoctorName = r.HasColumn("DoctorName") ? r["DoctorName"]?.ToString() : null
             };
         }
 
-        private UserShift MapUserShift(System.Data.DataRow r)
+        private UserShift MapUserShift(SqlDataReader r)
         {
             return new UserShift
             {
-                ShiftId = (int)r["ShiftId"],
+                ShiftId = r.GetInt32(r.GetOrdinal("ShiftId")),
                 UserId = r["UserId"]?.ToString() ?? "",
-                StartTime = (DateTime)r["StartTime"],
-                EndTime = r["EndTime"] != DBNull.Value ? (DateTime?)r["EndTime"] : null,
-                StartingCash = (decimal)r["StartingCash"],
-                EndingCash = r["EndingCash"] != DBNull.Value ? (decimal?)r["EndingCash"] : null,
-                ActualCash = r["ActualCash"] != DBNull.Value ? (decimal?)r["ActualCash"] : null,
+                StartTime = r.GetDateTime(r.GetOrdinal("StartTime")),
+                EndTime = r.IsDBNull(r.GetOrdinal("EndTime")) ? null : (DateTime?)r.GetDateTime(r.GetOrdinal("EndTime")),
+                StartingCash = r.GetDecimal(r.GetOrdinal("StartingCash")),
+                EndingCash = r.IsDBNull(r.GetOrdinal("EndingCash")) ? null : (decimal?)r.GetDecimal(r.GetOrdinal("EndingCash")),
+                ActualCash = r.IsDBNull(r.GetOrdinal("ActualCash")) ? null : (decimal?)r.GetDecimal(r.GetOrdinal("ActualCash")),
                 Status = r["Status"]?.ToString() ?? "Closed",
                 Notes = r["Notes"]?.ToString() ?? "",
-                TellerName = r.Table.Columns.Contains("TellerName") && r["TellerName"] != DBNull.Value ? r["TellerName"].ToString() : "Unknown",
-                EmployeeId = r.Table.Columns.Contains("EmployeeId") && r["EmployeeId"] != DBNull.Value ? (int?)r["EmployeeId"] : null,
+                TellerName = r.HasColumn("TellerName") && !r.IsDBNull(r.GetOrdinal("TellerName")) ? r["TellerName"].ToString() : "Unknown",
+                EmployeeId = r.HasColumn("EmployeeId") && !r.IsDBNull(r.GetOrdinal("EmployeeId")) ? (int?)r.GetInt32(r.GetOrdinal("EmployeeId")) : null,
             };
         }
 
-        private Bill MapBill(System.Data.DataRow r)
+        private Bill MapBill(SqlDataReader r)
         {
             return new Bill
             {
-                BillId = (int)r["BillId"],
-                PatientId = (int)r["PatientId"],
-                TotalAmount = (decimal)r["TotalAmount"],
-                PaidAmount = r["PaidAmount"] != DBNull.Value ? (decimal)r["PaidAmount"] : 0,
-                DueAmount = r["DueAmount"] != DBNull.Value ? (decimal)r["DueAmount"] : 0,
+                BillId = r.GetInt32(r.GetOrdinal("BillId")),
+                PatientId = r.GetInt32(r.GetOrdinal("PatientId")),
+                TotalAmount = r.GetDecimal(r.GetOrdinal("TotalAmount")),
+                PaidAmount = r.IsDBNull(r.GetOrdinal("PaidAmount")) ? 0 : r.GetDecimal(r.GetOrdinal("PaidAmount")),
+                DueAmount = r.IsDBNull(r.GetOrdinal("DueAmount")) ? 0 : r.GetDecimal(r.GetOrdinal("DueAmount")),
                 Status = r["Status"]?.ToString() ?? "Unpaid",
-                BillDate = (DateTime)r["BillDate"],
-                ShiftId = r["ShiftId"] != DBNull.Value ? (int)r["ShiftId"] : (int?)null,
-                CreatedBy = r["CreatedBy"] != DBNull.Value ? r["CreatedBy"].ToString() : null,
-                PatientName = r.Table.Columns.Contains("PatientName") ? r["PatientName"]?.ToString() : null
+                BillDate = r.GetDateTime(r.GetOrdinal("BillDate")),
+                ShiftId = r.IsDBNull(r.GetOrdinal("ShiftId")) ? (int?)null : r.GetInt32(r.GetOrdinal("ShiftId")),
+                CreatedBy = r.IsDBNull(r.GetOrdinal("CreatedBy")) ? null : r["CreatedBy"].ToString(),
+                PatientName = r.HasColumn("PatientName") ? r["PatientName"]?.ToString() : null
             };
         }
     }
 }
+

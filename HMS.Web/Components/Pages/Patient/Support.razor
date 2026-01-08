@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Support.razor
+ * PURPOSE: Patient-facing component for self-service portal.
+ * COMMUNICATES WITH: SupportRepository, PatientRepository
+*@
 @page "/patient/support"
 @using HMS.Web.DAL
 @using HMS.Web.Models
@@ -6,6 +11,12 @@
 @inject SupportRepository SupportRepo
 @inject PatientRepository PatientRepo
 @inject AuthenticationStateProvider AuthStateProvider
+@inject NotificationService NotificationService
+@*
+COMPONENT: Support & Inquiry Center
+PURPOSE: Allows patients to submit support tickets and track their resolution status.
+OPTIMIZATION: [Contextual Submission] Automatically links new tickets to the logged-in patient's record.
+*@
 
 <RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
     <RadzenStack Gap="0.5rem">
@@ -119,31 +130,47 @@
 
     private async Task LoadData()
     {
-        var authState = await AuthenticationStateTask;
-        var user = authState.User;
-
-        if (user.Identity.IsAuthenticated)
+        try
         {
-            var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (userId != null)
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+
+            if (user.Identity.IsAuthenticated)
             {
-                patient = PatientRepo.GetPatientByUserId(userId);
-                if (patient != null)
+                var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (userId != null)
                 {
-                    tickets = SupportRepo.GetTicketsByPatientId(patient.PatientId);
+                    patient = PatientRepo.GetPatientByUserId(userId);
+                    if (patient != null)
+                    {
+                        tickets = SupportRepo.GetTicketsByPatientId(patient.PatientId);
+                    }
                 }
             }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Data Error", ex.Message);
         }
     }
 
     private async Task HandleSubmit()
     {
-        if (patient != null)
+        try
         {
-            newTicket.PatientId = patient.PatientId;
-            SupportRepo.CreateTicket(newTicket);
-            newTicket = new SupportTicket(); // Reset
-            await LoadData(); // Refresh list
+            if (patient != null)
+            {
+                newTicket.PatientId = patient.PatientId;
+                SupportRepo.CreateTicket(newTicket);
+                newTicket = new SupportTicket(); // Reset
+                await LoadData(); // Refresh list
+                NotificationService.Notify(NotificationSeverity.Success, "Ticket Submitted", "Your support request has been received.");
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Submission Error", $"Failed to submit ticket: {ex.Message}");
         }
     }
 }
+

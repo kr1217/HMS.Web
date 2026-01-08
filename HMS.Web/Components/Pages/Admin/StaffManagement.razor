@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: StaffManagement.razor
+ * PURPOSE: Administrative interface for hospital operations.
+ * COMMUNICATES WITH: StaffRepository
+*@
 @page "/admin/staff"
 @layout HMS.Web.Components.Layout.AdminLayout
 @rendermode InteractiveServer
@@ -14,8 +19,17 @@
 @inject DialogService DialogService
 
 <PageTitle>Staff Management | Admin</PageTitle>
+@*
+COMPONENT: Staff Registry
+PURPOSE: Role-Based Access Control (RBAC) management interface for hospital employees.
+OPTIMIZATION: [Identity Integration] Directly interfaces with ASP.NET Core Identity for secure Role administration.
+*@
 
 <RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    @*
+    Staff Management Header
+    Orchestrates the addition of new personnel and provides a descriptive context for the registry.
+    *@
     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
         JustifyContent="JustifyContent.SpaceBetween">
         <RadzenStack Gap="0.5rem">
@@ -28,6 +42,11 @@
             Click="@ShowAddStaffDialog" Class="rz-shadow-2" />
     </RadzenStack>
 
+    @*
+    Personnel Registry Grid
+    Displays clinical and administrative staff with centralized controls for access configuration.
+    Features server-side data virtualization for enterprise scalability.
+    *@
     <RadzenCard Class="rz-p-0 rz-shadow-4" Style="overflow: hidden; border-radius: 12px;">
         <RadzenDataGrid @ref="grid" TItem="Staff" Count="@count" Data="@staffList" LoadData="@LoadData"
             IsLoading="@isLoading" AllowFiltering="true" AllowPaging="true" PageSize="10" AllowSorting="true"
@@ -130,6 +149,10 @@
         await EnsureRoles();
     }
 
+    /// <summary>
+    /// Aesthetic mapping for personnel roles.
+    /// Provides consistent visual cues for different access tiers (e.g., Red for Admin, Blue for Doctors).
+    /// </summary>
     private BadgeStyle GetRoleBadgeStyle(string role)
     {
         return role switch
@@ -168,6 +191,10 @@
         }
     }
 
+    /// <summary>
+    /// Bootstrapping Logic: Ensures that the standard HMS roles exist in the Identity system.
+    /// This is typically called during initialization to prevent authorization failures.
+    /// </summary>
     private async Task EnsureRoles()
     {
         string[] roles = { "Admin", "Nurse", "Receptionist", "Pharmacist", "Doctor", "Patient" };
@@ -180,3 +207,4 @@
         }
     }
 }
+

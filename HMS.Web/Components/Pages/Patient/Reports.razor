@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Reports.razor
+ * PURPOSE: Patient-facing component for self-service portal.
+ * COMMUNICATES WITH: PatientRepository, ReportRepository
+*@
 @page "/patient/reports"
 @using Microsoft.AspNetCore.Authorization
 @using HMS.Web.DAL
@@ -6,13 +11,20 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject PatientRepository PatientRepo
 @inject ReportRepository ReportRepo
+@inject NotificationService NotificationService
 @attribute [Authorize]
+@*
+COMPONENT: Medical Reports Repository
+PURPOSE: Provides secure access to patient's laboratory, radiology, and clinical reports.
+OPTIMIZATION: [Secure Access] Validates user identity before granting access to sensitive medical data.
+*@
 @rendermode InteractiveServer
 
 <RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
     <RadzenStack Gap="0.5rem">
         <RadzenText Text="Medical Reports" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
-        <RadzenText Text="Secure access to your laboratory results, diagnostic scans, and clinical summaries." TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+        <RadzenText Text="Secure access to your laboratory results, diagnostic scans, and clinical summaries."
+            TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
     </RadzenStack>
 
     @if (IsLoading)
@@ -24,22 +36,26 @@
     }
     else if (CurrentPatient == null)
     {
-        <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="info">
-            Please <RadzenLink Text="complete your profile" Path="patient/dashboard" /> first to view your medical reports.
+        <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+            Icon="info">
+            Please
+            <RadzenLink Text="complete your profile" Path="patient/dashboard" /> first to view your medical reports.
         </RadzenAlert>
     }
     else
     {
         @if (ReportList.Count == 0)
         {
-            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="folder_open">
+            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+                Icon="folder_open">
                 No diagnostic reports have been uploaded to your profile yet.
             </RadzenAlert>
         }
         else
         {
             <RadzenCard Class="rz-p-0 rz-shadow-4" Style="overflow: hidden; border-radius: 12px;">
-                <RadzenDataGrid Data="@ReportList" TItem="Report" AllowPaging="true" PageSize="10" AllowSorting="true" Class="rz-border-none">
+                <RadzenDataGrid Data="@ReportList" TItem="Report" AllowPaging="true" PageSize="10" AllowSorting="true"
+                    Class="rz-border-none">
                     <Columns>
                         <RadzenDataGridColumn TItem="Report" Property="ReportDate" Title="Date" Width="150px">
                             <Template Context="report">
@@ -49,18 +65,21 @@
                         <RadzenDataGridColumn TItem="Report" Property="ReportName" Title="Report Specification" />
                         <RadzenDataGridColumn TItem="Report" Property="ReportType" Title="Category" Width="150px">
                             <Template Context="report">
-                                <RadzenBadge Text="@report.ReportType" IsPill="true" BadgeStyle="BadgeStyle.Info" Shade="Shade.Lighter" />
+                                <RadzenBadge Text="@report.ReportType" IsPill="true" BadgeStyle="BadgeStyle.Info"
+                                    Shade="Shade.Lighter" />
                             </Template>
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="Report" Property="Status" Title="Status" Width="120px">
                             <Template Context="report">
-                                <RadzenBadge Text="@report.Status" IsPill="true" BadgeStyle="BadgeStyle.Success" Shade="Shade.Lighter" />
+                                <RadzenBadge Text="@report.Status" IsPill="true" BadgeStyle="BadgeStyle.Success"
+                                    Shade="Shade.Lighter" />
                             </Template>
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="Report" Title="Action" Width="150px" TextAlign="TextAlign.Right">
                             <Template Context="report">
-                                <RadzenButton Icon="download" Text="Get File" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Variant="Variant.Flat" 
-                                              Click="@(() => DownloadReport(report))" Path="@report.FilePath" Target="_blank" Component="a" />
+                                <RadzenButton Icon="download" Text="Get File" ButtonStyle="ButtonStyle.Primary"
+                                    Size="ButtonSize.Small" Variant="Variant.Flat" Click="@(() => DownloadReport(report))"
+                                    Path="@report.FilePath" Target="_blank" Component="a" />
                             </Template>
                         </RadzenDataGridColumn>
                     </Columns>
@@ -77,21 +96,31 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        if (user.Identity?.IsAuthenticated ?? false)
+        try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userId != null)
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated ?? false)
             {
-                CurrentPatient = PatientRepo.GetPatientByUserId(userId);
-                if (CurrentPatient != null)
+                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userId != null)
                 {
-                    ReportList = ReportRepo.GetReportsByPatientId(CurrentPatient.PatientId);
+                    CurrentPatient = PatientRepo.GetPatientByUserId(userId);
+                    if (CurrentPatient != null)
+                    {
+                        ReportList = ReportRepo.GetReportsByPatientId(CurrentPatient.PatientId);
+                    }
                 }
             }
         }
-        IsLoading = false;
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "System Error", ex.Message);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private void DownloadReport(Report report)
@@ -100,3 +129,4 @@
         // For now, simple alert or console
     }
 }
+

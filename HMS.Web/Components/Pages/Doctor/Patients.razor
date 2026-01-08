@@ -1,10 +1,20 @@
+﻿@*
+ * FILE: Patients.razor
+ * PURPOSE: Doctor-facing component for clinical management.
+ * COMMUNICATES WITH: PatientRepository
+*@
 @page "/doctor/patients"
 @rendermode InteractiveServer
 @attribute [Authorize(Roles = "Doctor")]
 @inject PatientRepository PatientRepo
 @inject NavigationManager Navigation
 @using HMS.Web.Models
-@using HMS.Web.DAL
+@inject NotificationService NotificationService
+@*
+    COMPONENT: Patient Registry
+    PURPOSE: Searchable index of all patients for quick access to clinical profiles.
+    OPTIMIZATION: [Server-Side Pagination] Uses efficient database paging to handle large patient directories without lag.
+*@
 
 <PageTitle>Patient Records | Clinical Portal</PageTitle>
 
@@ -90,18 +100,27 @@
 
     async Task LoadData(LoadDataArgs args)
     {
-        isLoading = true;
+        try
+        {
+            isLoading = true;
 
-        var skip = args.Skip ?? 0;
-        var top = args.Top ?? 15;
-        var orderBy = args.OrderBy;
-        if (string.IsNullOrEmpty(orderBy)) orderBy = "FullName";
+            var skip = args.Skip ?? 0;
+            var top = args.Top ?? 15;
+            var orderBy = args.OrderBy;
+            if (string.IsNullOrEmpty(orderBy)) orderBy = "FullName";
 
-        patients = PatientRepo.GetPatientsPaged(skip, top, orderBy, searchTerm);
-        count = PatientRepo.GetPatientsCount(searchTerm);
-
-        isLoading = false;
-        StateHasChanged();
+            patients = PatientRepo.GetPatientsPaged(skip, top, orderBy, searchTerm);
+            count = PatientRepo.GetPatientsCount(searchTerm);
+        }
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "Data Load Error", $"Failed to load patient registry: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
     void OnSearchInput(ChangeEventArgs args)
@@ -132,3 +151,4 @@
         }
     }
 }
+

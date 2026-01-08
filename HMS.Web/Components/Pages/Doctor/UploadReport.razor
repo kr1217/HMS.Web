@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: UploadReport.razor
+ * PURPOSE: Doctor-facing component for clinical management.
+ * COMMUNICATES WITH: DoctorRepository, PatientRepository, ReportRepository, NotificationRepository, AppointmentRepository
+*@
 @page "/Doctor/UploadReport/{PatientId:int}"
 @using Microsoft.AspNetCore.Authorization
 @using HMS.Web.Models
@@ -17,6 +22,12 @@
 @inject NotificationRepository NotificationRepo
 @inject AppointmentRepository AppointmentRepo
 @inject IWebHostEnvironment Environment
+@inject NotificationService NotificationService
+@*
+COMPONENT: Clinical Document Uploader
+PURPOSE: Secure portal for uploading and archiving diagnostic reports and images.
+OPTIMIZATION: [Secure Storage] Files are renamed with unique GUIDs to prevent overwrites and sanitized before storage.
+*@
 <RadzenStack Class="rz-p-4" Gap="2rem">
     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
         JustifyContent="JustifyContent.SpaceBetween">
@@ -153,20 +164,27 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var userClaims = authState.User;
-
-        if (userClaims.Identity?.IsAuthenticated == true)
+        try
         {
-            var userId = UserManager.GetUserId(userClaims);
-            if (!string.IsNullOrEmpty(userId))
-            {
-                CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
-            }
-        }
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userClaims = authState.User;
 
-        Patient = PatientRepo.GetPatientById(PatientId);
-        NewReport.ReportDate = DateTime.Now;
+            if (userClaims.Identity?.IsAuthenticated == true)
+            {
+                var userId = UserManager.GetUserId(userClaims);
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                }
+            }
+
+            Patient = PatientRepo.GetPatientById(PatientId);
+            NewReport.ReportDate = DateTime.Now;
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Initialization Error", ex.Message);
+        }
     }
 
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
@@ -209,39 +227,46 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"File upload failed: {ex.Message}");
+            NotificationService.Notify(NotificationSeverity.Error, "Upload Error", $"File processing failed: {ex.Message}");
             IsUploading = false;
         }
     }
     private void SaveReport()
     {
-        if (CurrentDoctor == null || string.IsNullOrEmpty(UploadedFilePath)) return;
-
-        NewReport.PatientId = PatientId;
-        NewReport.DoctorId = CurrentDoctor.DoctorId;
-        NewReport.AppointmentId = AppointmentId;
-        NewReport.FilePath = UploadedFilePath;
-        NewReport.Status = "Finalized";
-        NewReport.ReportDate = DateTime.Now;
-
-        ReportRepo.CreateReport(NewReport);
-
-        // Mark appointment as Completed if linked
-        if (AppointmentId.HasValue)
+        try
         {
-            AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
-        }
+            if (CurrentDoctor == null || string.IsNullOrEmpty(UploadedFilePath)) return;
 
-        NotificationRepo.CreateNotification(new Notification
+            NewReport.PatientId = PatientId;
+            NewReport.DoctorId = CurrentDoctor.DoctorId;
+            NewReport.AppointmentId = AppointmentId;
+            NewReport.FilePath = UploadedFilePath;
+            NewReport.Status = "Finalized";
+            NewReport.ReportDate = DateTime.Now;
+
+            ReportRepo.CreateReport(NewReport);
+
+            // Mark appointment as Completed if linked
+            if (AppointmentId.HasValue)
             {
-                PatientId = PatientId,
-                Title = "New Medical Report",
-                Message = $"Dr. {CurrentDoctor.FullName} has uploaded a new report: {NewReport.ReportName}.",
-                CreatedDate = DateTime.Now,
-                IsRead = false
-            });
+                AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
+            }
 
-        Nav.NavigateTo("/Doctor/Dashboard?tab=patients");
+            NotificationRepo.CreateNotification(new Notification
+                {
+                    PatientId = PatientId,
+                    Title = "New Medical Report",
+                    Message = $"Dr. {CurrentDoctor.FullName} has uploaded a new report: {NewReport.ReportName}.",
+                    CreatedDate = DateTime.Now,
+                    IsRead = false
+                });
+
+            Nav.NavigateTo("/Doctor/Dashboard?tab=patients");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Save Error", $"Failed to archive report: {ex.Message}");
+        }
     }
 
     private void GoBack()
@@ -249,3 +274,4 @@
         Nav.NavigateTo("/Doctor/Dashboard");
     }
 }
+

@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Recommendations.razor
+ * PURPOSE: Doctor-facing component for clinical management.
+ * COMMUNICATES WITH: OperationRepository, DoctorRepository
+*@
 @page "/doctor/recommendations"
 @using HMS.Web.Models
 @using HMS.Web.DAL
@@ -10,6 +15,12 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Navigation
+@inject NotificationService NotificationService
+@*
+COMPONENT: Surgical Portfolio
+PURPOSE: Registry of all surgical recommendations made by the doctor, tracking their status.
+OPTIMIZATION: [Lightweight Grid] Uses simple data binding for quick status checks without heavy overhead.
+*@
 
 <PageTitle>Surgical Portfolio | Doctor</PageTitle>
 
@@ -82,17 +93,24 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        var userId = UserManager.GetUserId(user);
-
-        if (!string.IsNullOrEmpty(userId))
+        try
         {
-            currentDoctor = DoctorRepo.GetDoctorByUserId(userId);
-            if (currentDoctor != null)
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var userId = UserManager.GetUserId(user);
+
+            if (!string.IsNullOrEmpty(userId))
             {
-                recommendations = OperationRepo.GetOperationsByDoctorId(currentDoctor.DoctorId);
+                currentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                if (currentDoctor != null)
+                {
+                    recommendations = OperationRepo.GetOperationsByDoctorId(currentDoctor.DoctorId);
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Data Load Error", ex.Message);
         }
     }
 
@@ -113,3 +131,4 @@
         _ => BadgeStyle.Light
     };
 }
+

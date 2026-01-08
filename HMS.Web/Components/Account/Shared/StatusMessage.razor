@@ -1,4 +1,9 @@
-﻿@if (!string.IsNullOrEmpty(DisplayMessage))
+﻿@*
+ * FILE: StatusMessage.razor
+ * PURPOSE: Frontend web component.
+ * COMMUNICATES WITH: None
+*@
+@if (!string.IsNullOrEmpty(DisplayMessage))
 {
     var severity = DisplayMessage.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ? NotificationSeverity.Error :
     NotificationSeverity.Success;
@@ -32,3 +37,4 @@
         }
     }
 }
+

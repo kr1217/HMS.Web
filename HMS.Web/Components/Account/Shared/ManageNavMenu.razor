@@ -1,4 +1,9 @@
-﻿@using Microsoft.AspNetCore.Identity
+﻿@*
+ * FILE: ManageNavMenu.razor
+ * PURPOSE: Frontend web component.
+ * COMMUNICATES WITH: None
+*@
+@using Microsoft.AspNetCore.Identity
 @using HMS.Web.Data
 
 @inject SignInManager<ApplicationUser> SignInManager
@@ -25,3 +30,4 @@
         hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
     }
 }
+

@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: ManageOperationDialog.razor
+ * PURPOSE: Administrative interface for hospital operations.
+ * COMMUNICATES WITH: OperationRepository, FacilityRepository
+*@
 @using HMS.Web.Models
 @using HMS.Web.DAL
 @inject OperationRepository OperationRepo
@@ -5,19 +10,30 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
+@*
+COMPONENT: Operation Management Interface
+PURPOSE: Allows administrators and surgical staff to adjust schedules, check for conflicts,
+and update the operational status of procedures.
+OPTIMIZATION: [Conflict Detection] Temporal collision checks run on every date change to prevent theater double-booking.
+*@
 <RadzenStack Gap="1.5rem" Class="rz-p-6">
+    @* Patient and Procedure Context Summary *@
     <RadzenCard Variant="Variant.Flat" Class="rz-background-color-base-100 rz-p-4">
         <RadzenRow AlignItems="AlignItems.Center">
             <RadzenColumn Size="12" SizeMD="8">
                 <RadzenStack Gap="0.25rem">
-                    <RadzenText Text="PATIENT" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary rz-m-0 rz-font-weight-bold" />
-                    <RadzenText Text="@Operation.PatientName" TextStyle="TextStyle.Subtitle1" Class="rz-m-0 rz-font-weight-bold" />
-                    <RadzenText Text="@Operation.PackageName" TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+                    <RadzenText Text="PATIENT" TextStyle="TextStyle.Caption"
+                        Class="rz-color-text-secondary rz-m-0 rz-font-weight-bold" />
+                    <RadzenText Text="@Operation.PatientName" TextStyle="TextStyle.Subtitle1"
+                        Class="rz-m-0 rz-font-weight-bold" />
+                    <RadzenText Text="@Operation.PackageName" TextStyle="TextStyle.Body2"
+                        Class="rz-color-text-secondary" />
                 </RadzenStack>
             </RadzenColumn>
             <RadzenColumn Size="12" SizeMD="4" Class="rz-text-align-center rz-text-align-md-right">
                 <RadzenStack Gap="0.5rem" AlignItems="AlignItems.End">
-                    <RadzenBadge BadgeStyle="@GetStatusBadge(Operation.Status)" Text="@Operation.Status.ToUpper()" IsPill="true" />
+                    <RadzenBadge BadgeStyle="@GetStatusBadge(Operation.Status)" Text="@Operation.Status.ToUpper()"
+                        IsPill="true" />
                     @if (IsOverdue)
                     {
                         <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="OVERDUE" IsPill="true" />
@@ -27,41 +43,51 @@
         </RadzenRow>
     </RadzenCard>
 
+    @* Scheduling Controls - Allows precise timing adjustment *@
     <RadzenCard Class="rz-shadow-2">
         <RadzenStack Gap="1.5rem">
             <RadzenRow Gap="1rem">
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenStack Gap="0.5rem">
-                        <RadzenLabel Text="Adjust Scheduled Start" Component="StartTime" TextStyle="TextStyle.Subtitle2" />
-                        <RadzenDatePicker @bind-Value="NewStartTime" ShowTime="true" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt"
-                            Change="@CheckConflicts" Class="rz-w-100" Name="StartTime" />
+                        <RadzenLabel Text="Adjust Scheduled Start" Component="StartTime"
+                            TextStyle="TextStyle.Subtitle2" />
+                        <RadzenDatePicker @bind-Value="NewStartTime" ShowTime="true" HourFormat="12"
+                            DateFormat="MM/dd/yyyy h:mm tt" Change="@CheckConflicts" Class="rz-w-100"
+                            Name="StartTime" />
                     </RadzenStack>
                 </RadzenColumn>
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenStack Gap="0.5rem">
-                        <RadzenLabel Text="Allocated Duration (mins)" Component="Duration" TextStyle="TextStyle.Subtitle2" />
+                        <RadzenLabel Text="Allocated Duration (mins)" Component="Duration"
+                            TextStyle="TextStyle.Subtitle2" />
                         <RadzenNumeric TValue="int" @bind-Value="NewDuration" Min="15" Step="15"
                             Change="@(args => CheckConflicts())" Class="rz-w-100" Name="Duration" />
                     </RadzenStack>
                 </RadzenColumn>
             </RadzenRow>
 
-            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="schedule" Size="AlertSize.Small">
+            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+                Icon="schedule" Size="AlertSize.Small">
                 Expected Completion: <strong>@NewStartTime.AddMinutes(NewDuration).ToString("hh:mm tt")</strong>
             </RadzenAlert>
 
             @if (ConflictCount > 0)
             {
-                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="warning">
+                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+                    Icon="warning">
                     <RadzenStack Gap="0.25rem">
-                        <RadzenText Text="Operational Conflict Detected" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
-                        <RadzenText Text="@($"This schedule overlaps with {ConflictCount} other orchestrated procedure(s) in this theater.")" TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="Operational Conflict Detected" TextStyle="TextStyle.Subtitle2"
+                            Class="rz-font-weight-bold" />
+                        <RadzenText
+                            Text="@($"This schedule overlaps with {ConflictCount} other orchestrated procedure(s) in this theater.")"
+                            TextStyle="TextStyle.Caption" />
                     </RadzenStack>
                 </RadzenAlert>
             }
         </RadzenStack>
     </RadzenCard>
 
+    @* Operational Status Controls - Transitions the procedure through its lifecycle *@
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
         @if (Operation.Status == "Scheduled")
         {
@@ -76,7 +102,7 @@
 
         <RadzenButton Text="Update Schedule" ButtonStyle="ButtonStyle.Primary" Icon="save" Click="@SaveSchedule"
             Disabled="@(ConflictCount > 0 && !ForceUpdate)" />
-        
+
         @if (ConflictCount > 0)
         {
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
@@ -84,7 +110,7 @@
                 <RadzenLabel Text="Force Update" Component="Force" TextStyle="TextStyle.Caption" />
             </RadzenStack>
         }
-        
+
         <RadzenButton Text="Close" Click="@(() => DialogService.Close(false))" ButtonStyle="ButtonStyle.Light" />
     </RadzenStack>
 </RadzenStack>
@@ -117,59 +143,97 @@
         };
     }
 
+    /// <summary>
+    /// Performs a collision check for the current Operation Theater.
+    /// It queries existing scheduled/running operations and identifies any temporal overlaps.
+    /// </summary>
+    /// <summary>
+    /// Performs a collision check for the current Operation Theater.
+    /// It queries existing scheduled/running operations and identifies any temporal overlaps.
+    /// </summary>
     void CheckConflicts()
     {
-        ConflictCount = 0;
-        ForceUpdate = false;
-
-        if (Operation.TheaterId != null)
+        try
         {
-            // Simple generic check logic
-            var dayOps = OperationRepo.GetOperationsByTheaterAndDate(Operation.TheaterId.Value, NewStartTime);
+            ConflictCount = 0;
+            ForceUpdate = false;
 
-            var myStart = NewStartTime;
-            var myEnd = NewStartTime.AddMinutes(NewDuration);
-
-            foreach (var op in dayOps)
+            if (Operation.TheaterId != null)
             {
-                // Skip self
-                if (op.OperationId == Operation.OperationId) continue;
+                // Simple generic check logic
+                var dayOps = OperationRepo.GetOperationsByTheaterAndDate(Operation.TheaterId.Value, NewStartTime);
 
-                var opStart = op.ScheduledDate;
-                var opEnd = op.ScheduledDate.AddMinutes(op.DurationMinutes);
+                var myStart = NewStartTime;
+                var myEnd = NewStartTime.AddMinutes(NewDuration);
 
-                if (myStart < opEnd && myEnd > opStart)
+                foreach (var op in dayOps)
                 {
-                    ConflictCount++;
+                    // Skip self
+                    if (op.OperationId == Operation.OperationId) continue;
+
+                    var opStart = op.ScheduledDate;
+                    var opEnd = op.ScheduledDate.AddMinutes(op.DurationMinutes);
+
+                    if (myStart < opEnd && myEnd > opStart)
+                    {
+                        ConflictCount++;
+                    }
                 }
             }
         }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Conflict Check Error", ex.Message);
+        }
     }
 
+    /// <summary>
+    /// Updates the state of the operation (e.g., from 'Scheduled' to 'Running').
+    /// This triggers downstream business logic for cost tracking.
+    /// </summary>
+    /// <summary>
+    /// Updates the state of the operation (e.g., from 'Scheduled' to 'Running').
+    /// This triggers downstream business logic for cost tracking.
+    /// </summary>
     void UpdateStatus(string newStatus)
     {
-        OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, newStatus,
-        Operation.AgreedOperationCost, Operation.AgreedMedicineCost, Operation.AgreedEquipmentCost, Operation.TheaterId);
+        try
+        {
+            OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, newStatus,
+            Operation.AgreedOperationCost, Operation.AgreedMedicineCost, Operation.AgreedEquipmentCost, Operation.TheaterId);
 
-        NotificationService.Notify(NotificationSeverity.Success, "Status Updated", $"Operation marked as {newStatus}.");
-        DialogService.Close(true);
+            NotificationService.Notify(NotificationSeverity.Success, "Status Updated", $"Operation marked as {newStatus}.");
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Update Error", ex.Message);
+        }
     }
 
     void SaveSchedule()
     {
-        OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, Operation.Status,
-        Operation.AgreedOperationCost, Operation.AgreedMedicineCost, Operation.AgreedEquipmentCost, Operation.TheaterId,
-        NewStartTime, NewDuration);
-
-        if (ConflictCount > 0)
+        try
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Schedule Conflict", "Schedule updated despite conflicts.");
-        }
-        else
-        {
-            NotificationService.Notify(NotificationSeverity.Success, "Updated", "Operation schedule updated.");
-        }
+            OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, Operation.Status,
+            Operation.AgreedOperationCost, Operation.AgreedMedicineCost, Operation.AgreedEquipmentCost, Operation.TheaterId,
+            NewStartTime, NewDuration);
 
-        DialogService.Close(true);
+            if (ConflictCount > 0)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "Schedule Conflict", "Schedule updated despite conflicts.");
+            }
+            else
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Updated", "Operation schedule updated.");
+            }
+
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Save Error", ex.Message);
+        }
     }
 }
+

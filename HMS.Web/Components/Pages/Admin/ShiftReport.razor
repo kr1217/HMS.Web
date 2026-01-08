@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: ShiftReport.razor
+ * PURPOSE: Administrative interface for hospital operations.
+ * COMMUNICATES WITH: FinanceRepository
+*@
 @page "/admin/shift-report"
 @layout HMS.Web.Components.Layout.AdminLayout
 @rendermode InteractiveServer
@@ -5,6 +10,11 @@
 @inject FinanceRepository FinanceRepo
 @inject NavigationManager Navigation
 @inject NotificationService NotificationService
+@* 
+    COMPONENT: Shift Reports
+    PURPOSE: Financial reconciliation tool for auditing teller shifts and cash variances.
+    OPTIMIZATION: [Client-Side Filtering] Per-role tabs allow quick pivoting without re-fetching all data.
+*@
 
 <PageTitle>Shift Reports | Admin</PageTitle>
 
@@ -197,43 +207,63 @@
         LoadShifts();
     }
 
+    /// <summary>
+    /// Aggregates shift data, calculates variances, and identifies anomalies.
+    /// </summary>
     void LoadShifts()
     {
-        allShifts = FinanceRepo.GetAllShifts();
-        closedShifts = allShifts.Where(s => s.Status == "Closed").ToList();
+        try
+        {
+            allShifts = FinanceRepo.GetAllShifts();
+            closedShifts = allShifts.Where(s => s.Status == "Closed").ToList();
 
-        // Calculate totals
-        totalRevenue = closedShifts
-        .Where(s => s.EndingCash.HasValue)
-        .Sum(s => (s.EndingCash.Value - s.StartingCash));
+            // Calculate totals
+            totalRevenue = closedShifts
+            .Where(s => s.EndingCash.HasValue)
+            .Sum(s => (s.EndingCash.Value - s.StartingCash));
 
-        totalVariance = closedShifts
-        .Where(s => s.EndingCash.HasValue && s.ActualCash.HasValue)
-        .Sum(s => s.ActualCash.Value - s.EndingCash.Value);
+            totalVariance = closedShifts
+            .Where(s => s.EndingCash.HasValue && s.ActualCash.HasValue)
+            .Sum(s => s.ActualCash.Value - s.EndingCash.Value);
 
-        // Shifts with variance
-        shiftsWithVariance = closedShifts
-        .Where(s => s.EndingCash.HasValue && s.ActualCash.HasValue && s.ActualCash.Value != s.EndingCash.Value)
-        .OrderByDescending(s => Math.Abs(s.ActualCash.Value - s.EndingCash.Value))
-        .ToList();
+            // Shifts with variance
+            shiftsWithVariance = closedShifts
+            .Where(s => s.EndingCash.HasValue && s.ActualCash.HasValue && s.ActualCash.Value != s.EndingCash.Value)
+            .OrderByDescending(s => Math.Abs(s.ActualCash.Value - s.EndingCash.Value))
+            .ToList();
+        }
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "Data Load Error", $"Failed to load shift reports: {ex.Message}");
+        }
     }
 
+    /// <summary>
+    /// Displays a quick summary of a specific shift's financial performance.
+    /// </summary>
     void ViewShiftDetails(int shiftId)
     {
-        // For now, show a notification with shift details
-        var shift = allShifts.FirstOrDefault(s => s.ShiftId == shiftId);
-        if (shift != null)
+        try
         {
-            var revenue = shift.EndingCash.HasValue ? (shift.EndingCash.Value - shift.StartingCash).ToString("C") : "N/A";
-            var variance = (shift.EndingCash.HasValue && shift.ActualCash.HasValue)
-            ? (shift.ActualCash.Value - shift.EndingCash.Value).ToString("C")
-            : "N/A";
+            // For now, show a notification with shift details
+            var shift = allShifts.FirstOrDefault(s => s.ShiftId == shiftId);
+            if (shift != null)
+            {
+                var revenue = shift.EndingCash.HasValue ? (shift.EndingCash.Value - shift.StartingCash).ToString("C") : "N/A";
+                var variance = (shift.EndingCash.HasValue && shift.ActualCash.HasValue)
+                ? (shift.ActualCash.Value - shift.EndingCash.Value).ToString("C")
+                : "N/A";
 
-            NotificationService.Notify(
-            NotificationSeverity.Info,
-            $"Shift #{shiftId} Details",
-            $"Revenue: {revenue} | Variance: {variance} | Status: {shift.Status}"
-            );
+                NotificationService.Notify(
+                NotificationSeverity.Info,
+                $"Shift #{shiftId} Details",
+                $"Revenue: {revenue} | Variance: {variance} | Status: {shift.Status}"
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "Action Error", $"Failed to view details: {ex.Message}");
         }
     }
 
@@ -252,3 +282,4 @@
         return "Teller";
     }
 }
+

@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: PrescriptionPrint.razor
+ * PURPOSE: Patient-facing component for self-service portal.
+ * COMMUNICATES WITH: PrescriptionRepository, PatientRepository
+*@
 @page "/patient/prescription/print/{PrescriptionId:int}"
 @using HMS.Web.Models
 @using HMS.Web.DAL
@@ -6,6 +11,12 @@
 @inject PrescriptionRepository PrescriptionRepo
 @inject PatientRepository PatientRepo
 @inject IJSRuntime JS
+@inject NotificationService NotificationService
+@*
+COMPONENT: Printable Prescription
+PURPOSE: Generates a printer-friendly layout for physical prescription copies.
+OPTIMIZATION: [Print-Specific Styles] CSS media queries ensure a clean, ink-saving format when printed.
+*@
 
 <PageTitle>Print Prescription #@PrescriptionId</PageTitle>
 
@@ -17,28 +28,33 @@
 }
 else
 {
-    <RadzenCard Class="rz-p-12 rz-shadow-0 prescription-container" Style="max-width: 900px; margin: auto; background: white;">
+    <RadzenCard Class="rz-p-12 rz-shadow-0 prescription-container"
+        Style="max-width: 900px; margin: auto; background: white;">
         <RadzenStack Gap="3rem">
             <!-- Header section -->
             <RadzenStack AlignItems="AlignItems.Center" Class="rz-border-bottom rz-pb-6">
                 <RadzenIcon Icon="health_and_safety" Style="font-size: 4rem; color: var(--rz-primary);" />
                 <RadzenText Text="Antigravity Hospital" TextStyle="TextStyle.H3" Class="rz-m-0 rz-font-weight-black" />
-                <RadzenText Text="Digital Prescription Record" TextStyle="TextStyle.Subtitle1" Class="rz-color-text-secondary" />
+                <RadzenText Text="Digital Prescription Record" TextStyle="TextStyle.Subtitle1"
+                    Class="rz-color-text-secondary" />
             </RadzenStack>
 
             <!-- Metadata section -->
             <RadzenRow>
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenStack Gap="0.5rem">
-                        <RadzenText Text="PATIENT DATA" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary rz-font-weight-bold" />
+                        <RadzenText Text="PATIENT DATA" TextStyle="TextStyle.Caption"
+                            Class="rz-color-text-secondary rz-font-weight-bold" />
                         <RadzenText Text="@PatientName" TextStyle="TextStyle.H6" Class="rz-m-0 rz-font-weight-bold" />
                         <RadzenText Text="@($"Record ID: #{Prescription.PatientId}")" TextStyle="TextStyle.Caption" />
                     </RadzenStack>
                 </RadzenColumn>
                 <RadzenColumn Size="12" SizeMD="6" Class="rz-text-align-center rz-text-align-md-right">
                     <RadzenStack Gap="0.5rem">
-                        <RadzenText Text="PRESCRIPTION METADATA" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary rz-font-weight-bold" />
-                        <RadzenText Text="@($"Date: {Prescription.PrescribedDate:MMMM dd, yyyy}")" TextStyle="TextStyle.Body2" />
+                        <RadzenText Text="PRESCRIPTION METADATA" TextStyle="TextStyle.Caption"
+                            Class="rz-color-text-secondary rz-font-weight-bold" />
+                        <RadzenText Text="@($"Date: {Prescription.PrescribedDate:MMMM dd, yyyy}")"
+                            TextStyle="TextStyle.Body2" />
                         <RadzenText Text="@($"Attending: Dr. {Prescription.DoctorName}")" TextStyle="TextStyle.Body2" />
                         <RadzenText Text="@($"Serial: #{Prescription.PrescriptionId}")" TextStyle="TextStyle.Caption" />
                     </RadzenStack>
@@ -47,14 +63,20 @@ else
 
             <!-- Medications section -->
             <RadzenStack Gap="1rem">
-                <RadzenText Text="MEDICATIONS" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold rz-border-bottom rz-pb-1" />
-                <RadzenDataGrid Data="@Medications" TItem="PrescriptionMedication" GridLines="DataGridGridLines.Both" Class="rz-border-none">
+                <RadzenText Text="MEDICATIONS" TextStyle="TextStyle.Subtitle2"
+                    Class="rz-font-weight-bold rz-border-bottom rz-pb-1" />
+                <RadzenDataGrid Data="@Medications" TItem="PrescriptionMedication" GridLines="DataGridGridLines.Both"
+                    Class="rz-border-none">
                     <Columns>
                         <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Name" Title="Pharmaceutical Name" />
-                        <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Dosage" Title="Dosage" Width="120px" />
-                        <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Frequency" Title="Frequency" Width="150px" />
-                        <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Duration" Title="Period" Width="120px" />
-                        <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Instructions" Title="Protocol / Instructions" />
+                        <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Dosage" Title="Dosage"
+                            Width="120px" />
+                        <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Frequency" Title="Frequency"
+                            Width="150px" />
+                        <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Duration" Title="Period"
+                            Width="120px" />
+                        <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Instructions"
+                            Title="Protocol / Instructions" />
                     </Columns>
                 </RadzenDataGrid>
             </RadzenStack>
@@ -63,7 +85,8 @@ else
             @if (!string.IsNullOrEmpty(Prescription.Details))
             {
                 <RadzenStack Gap="1rem">
-                    <RadzenText Text="CLINICAL DIAGNOSIS & NOTES" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold rz-border-bottom rz-pb-1" />
+                    <RadzenText Text="CLINICAL DIAGNOSIS & NOTES" TextStyle="TextStyle.Subtitle2"
+                        Class="rz-font-weight-bold rz-border-bottom rz-pb-1" />
                     <RadzenText Text="@Prescription.Details" TextStyle="TextStyle.Body1" Style="line-height: 1.6;" />
                 </RadzenStack>
             }
@@ -71,7 +94,8 @@ else
             <!-- Signature section -->
             <RadzenRow AlignItems="AlignItems.End" Class="rz-mt-12">
                 <RadzenColumn Size="6">
-                    <RadzenText Text="@($"Timestamped: {DateTime.Now:f}")" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                    <RadzenText Text="@($"Timestamped: {DateTime.Now:f}")" TextStyle="TextStyle.Caption"
+                        Class="rz-color-text-secondary" />
                 </RadzenColumn>
                 <RadzenColumn Size="6" Class="rz-text-align-right">
                     <RadzenStack AlignItems="AlignItems.End" Gap="0">
@@ -82,9 +106,12 @@ else
             </RadzenRow>
 
             <!-- Actions section -->
-            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem" Class="rz-mt-12 no-print">
-                <RadzenButton Text="Print Prescription" Icon="print" ButtonStyle="ButtonStyle.Primary" Click="@(() => JS.InvokeVoidAsync("window.print"))" />
-                <RadzenButton Text="Close Window" Icon="close" ButtonStyle="ButtonStyle.Light" Click="@(() => JS.InvokeVoidAsync("window.close"))" />
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem"
+                Class="rz-mt-12 no-print">
+                <RadzenButton Text="Print Prescription" Icon="print" ButtonStyle="ButtonStyle.Primary"
+                    Click="@(() => JS.InvokeVoidAsync("window.print"))" />
+                <RadzenButton Text="Close Window" Icon="close" ButtonStyle="ButtonStyle.Light"
+                    Click="@(() => JS.InvokeVoidAsync("window.close"))" />
             </RadzenStack>
         </RadzenStack>
     </RadzenCard>
@@ -131,25 +158,33 @@ else
 
     protected override void OnInitialized()
     {
-        Prescription = PrescriptionRepo.GetPrescriptionById(PrescriptionId);
-        if (Prescription != null)
+        try
         {
-            var patient = PatientRepo.GetPatientById(Prescription.PatientId);
-            if (patient != null)
+            Prescription = PrescriptionRepo.GetPrescriptionById(PrescriptionId);
+            if (Prescription != null)
             {
-                PatientName = patient.FullName;
-            }
-
-            if (!string.IsNullOrEmpty(Prescription.Medications))
-            {
-                try
+                var patient = PatientRepo.GetPatientById(Prescription.PatientId);
+                if (patient != null)
                 {
-                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    Medications = JsonSerializer.Deserialize<List<PrescriptionMedication>>(Prescription.Medications, options) ?? new
-                    List<PrescriptionMedication>();
+                    PatientName = patient.FullName;
                 }
-                catch { }
+
+                if (!string.IsNullOrEmpty(Prescription.Medications))
+                {
+                    try
+                    {
+                        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        Medications = JsonSerializer.Deserialize<List<PrescriptionMedication>>(Prescription.Medications, options) ?? new
+                        List<PrescriptionMedication>();
+                    }
+                    catch { }
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Data Error", ex.Message);
         }
     }
 }
+

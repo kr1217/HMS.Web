@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: PaymentDialog.razor
+ * PURPOSE: Financial interface for billing operations.
+ * COMMUNICATES WITH: FinanceRepository, BillingRepository
+*@
 @using HMS.Web.Models
 @using HMS.Web.DAL
 @inject FinanceRepository FinanceRepo
@@ -6,6 +11,11 @@
 @inject NotificationService NotificationService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IJSRuntime JSRuntime
+@*
+COMPONENT: Bill Payment Interface
+PURPOSE: Handles the financial settlement of patient bills.
+OPTIMIZATION: [Audit Trail] Displays a detailed itemized breakdown before payment to ensure billing accuracy.
+*@
 
 <RadzenStack Gap="1.5rem">
     <!-- Detailed Bill View -->
@@ -147,28 +157,35 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var bill = FinanceRepo.GetBillById(BillId);
-        if (bill != null)
+        try
         {
-            BillAmount = bill.TotalAmount;
-            DueAmount = bill.DueAmount;
-
-            // Load Items
-            BillItems = BillingRepo.GetBillItems(BillId);
-
-            if (bill.Status == "Pending" && bill.PaidAmount == 0)
+            var bill = FinanceRepo.GetBillById(BillId);
+            if (bill != null)
             {
-                DueAmount = BillAmount;
+                BillAmount = bill.TotalAmount;
+                DueAmount = bill.DueAmount;
+
+                // Load Items
+                BillItems = BillingRepo.GetBillItems(BillId);
+
+                if (bill.Status == "Pending" && bill.PaidAmount == 0)
+                {
+                    DueAmount = BillAmount;
+                }
+
+                paymentModel.BillId = BillId;
+                paymentModel.ShiftId = ShiftId;
+                paymentModel.Amount = DueAmount; // Default to full amount
+                paymentModel.PaymentMethod = "Cash";
+
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var user = authState.User;
+                paymentModel.TellerId = user.FindFirst(u => u.Type.Contains("nameidentifier"))?.Value ?? "";
             }
-
-            paymentModel.BillId = BillId;
-            paymentModel.ShiftId = ShiftId;
-            paymentModel.Amount = DueAmount; // Default to full amount
-            paymentModel.PaymentMethod = "Cash";
-
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-            paymentModel.TellerId = user.FindFirst(u => u.Type.Contains("nameidentifier"))?.Value ?? "";
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Initialization Error", ex.Message);
         }
     }
 
@@ -191,3 +208,4 @@
         }
     }
 }
+

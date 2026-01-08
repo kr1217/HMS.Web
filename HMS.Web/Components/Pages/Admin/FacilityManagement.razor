@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: FacilityManagement.razor
+ * PURPOSE: Administrative interface for hospital operations.
+ * COMMUNICATES WITH: FacilityRepository
+*@
 @page "/admin/facilities"
 @layout HMS.Web.Components.Layout.AdminLayout
 @rendermode InteractiveServer
@@ -10,6 +15,12 @@
 @using Radzen
 @using Radzen.Blazor
 
+@*
+    COMPONENT: Facility Management Dashboard
+    PURPOSE: Visual interface for managing hospital infrastructure (Wards, Rooms, Beds, Theaters).
+    OPTIMIZATION: [Lazy Loading] Heavy dropdown caches are only loaded when specific tabs are active to reduce initial load time.
+*@
+
 <PageTitle>Facility Management | Admin</PageTitle>
 
 <RadzenStack Gap="1.5rem" Class="rz-p-4 rz-p-md-6">
@@ -19,9 +30,14 @@
             TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
     </RadzenStack>
 
+    @*
+    Infrastructure Management Hub
+    This interface provides a centralized control plane for all hospital facility resources.
+    It uses a tabbed layout to separate live state monitoring from configuration management.
+    *@
     <RadzenTabs RenderMode="TabRenderMode.Server" Change="@OnTabChange" Class="rz-shadow-2 rz-border-radius-2">
         <Tabs>
-            <!-- Live Status Tab -->
+            <!-- Live Status Tab: Visual representation of current bed occupancy across all wards -->
             <RadzenTabsItem Text="Live Occupancy Status" Icon="sensors">
                 <RadzenStack Gap="2rem" Class="rz-p-4">
                     @if (isLoading)
@@ -84,7 +100,7 @@
                 </RadzenStack>
             </RadzenTabsItem>
 
-            <!-- Wards Tab -->
+            <!-- Wards Tab: CRUD interface for high-level clinical areas -->
             <RadzenTabsItem Text="Clinical Wards" Icon="lan">
                 <RadzenStack Gap="1rem" Class="rz-p-4">
                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
@@ -148,7 +164,7 @@
                 </RadzenStack>
             </RadzenTabsItem>
 
-            <!-- Room Types Tab -->
+            <!-- Room Types Tab: Financial configuration for different levels of accommodation -->
             <RadzenTabsItem Text="Accommodation Tiers" Icon="payments">
                 <RadzenStack Gap="1rem" Class="rz-p-4">
                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
@@ -423,47 +439,87 @@
 
     protected override void OnInitialized()
     {
-        // Load initial status data (limited to top 100 for occupancy view)
-        beds = FacilityRepo.GetBeds();
+        try
+        {
+            // Load initial status data (limited to top 100 for occupancy view)
+            beds = FacilityRepo.GetBeds();
+        }
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "Initialization Error", $"Failed to load facility data: {ex.Message}");
+        }
     }
 
+    /// <summary>
+    /// Handles tab switching.
+    /// To ensure high performance, we only load heavy reference data (caches for dropdowns)
+    /// when the user navigates to a tab that specifically requires them.
+    /// </summary>
     void OnTabChange(int index)
     {
-        currentTabIndex = index;
-        // Grids will trigger LoadData automatically if they are visible
-        StateHasChanged();
+        try
+        {
+            currentTabIndex = index;
+            // Grids will trigger LoadData automatically if they are visible
+            StateHasChanged();
 
-        // Pre-load caches for dropdowns if needed
-        if (index == 3) { allWardsCached = FacilityRepo.GetWards(); allRoomTypesCached = FacilityRepo.GetRoomTypes(); }
-        if (index == 5) { allRoomsCached = FacilityRepo.GetRooms(); }
+            // Pre-load caches for dropdowns if needed
+            if (index == 3) { allWardsCached = FacilityRepo.GetWards(); allRoomTypesCached = FacilityRepo.GetRoomTypes(); }
+            if (index == 5) { allRoomsCached = FacilityRepo.GetRooms(); }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Data Load Error", $"Failed to load hierarchical data: {ex.Message}");
+        }
     }
 
+    /// <summary>
+    /// Data loading handlers for the various grids.
+    /// These implement server-side pagination, sorting, and filtering by passing
+    /// UI state arguments directly to the repository layer.
+    /// </summary>
     async Task LoadWardsData(LoadDataArgs args)
     {
-        wards = FacilityRepo.GetWardsPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
-        wardCount = FacilityRepo.GetWardsCount();
-        StateHasChanged();
+        try
+        {
+            wards = FacilityRepo.GetWardsPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
+            wardCount = FacilityRepo.GetWardsCount();
+            StateHasChanged();
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message); }
     }
 
     async Task LoadRoomTypesData(LoadDataArgs args)
     {
-        roomTypes = FacilityRepo.GetRoomTypesPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
-        roomTypeCount = FacilityRepo.GetRoomTypesCount();
-        StateHasChanged();
+         try
+        {
+            roomTypes = FacilityRepo.GetRoomTypesPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
+            roomTypeCount = FacilityRepo.GetRoomTypesCount();
+            StateHasChanged();
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message); }
     }
 
     async Task LoadRoomsData(LoadDataArgs args)
     {
-        rooms = FacilityRepo.GetRoomsPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
-        roomCount = FacilityRepo.GetRoomsCount();
-        StateHasChanged();
+         try
+        {
+            rooms = FacilityRepo.GetRoomsPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
+            roomCount = FacilityRepo.GetRoomsCount();
+            StateHasChanged();
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message); }
     }
 
     async Task LoadBedsData(LoadDataArgs args)
     {
-        beds = FacilityRepo.GetBedsPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
-        bedCount = FacilityRepo.GetBedsCount();
-        StateHasChanged();
+        try
+        {
+            beds = FacilityRepo.GetBedsPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
+            bedCount = FacilityRepo.GetBedsCount();
+            StateHasChanged();
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message); }
     }
 
     string GetBedStatusClass(string status)
@@ -490,6 +546,12 @@
         };
     }
 
+    // --- CRUD Orchestration ---
+    // The following methods handle the integration between the UI grid's edit state
+    // and the backend FacilityRepository for persistence.
+    // Each entity (Ward, RoomType, Room, etc.) follows a standard pattern:
+    // Insert -> Edit -> Update (Save) -> OnCreate/OnUpdate
+
     // --- Ward CRUD ---
     async Task InsertWard() { await wardGrid.InsertRow(new Ward() { WardName = "New Ward", IsActive = true }); }
     async Task EditWard(Ward ward) { await wardGrid.EditRow(ward); }
@@ -497,13 +559,17 @@
     void CancelEditWard(Ward ward) { wardGrid.CancelEditRow(ward); }
     void OnCreateWard(Ward ward)
     {
-        FacilityRepo.SaveWard(ward); wardGrid.Reload();
-        NotificationService.Notify(NotificationSeverity.Success, "Ward Provisioned");
+        try {
+            FacilityRepo.SaveWard(ward); wardGrid.Reload();
+            NotificationService.Notify(NotificationSeverity.Success, "Ward Provisioned");
+        } catch(Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Save Failed", ex.Message); }
     }
     void OnUpdateWard(Ward ward)
     {
-        FacilityRepo.SaveWard(ward); wardGrid.Reload();
-        NotificationService.Notify(NotificationSeverity.Success, "Ward Updated");
+        try {
+            FacilityRepo.SaveWard(ward); wardGrid.Reload();
+            NotificationService.Notify(NotificationSeverity.Success, "Ward Updated");
+        } catch(Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Update Failed", ex.Message); }
     }
 
     // --- RoomType CRUD ---
@@ -573,12 +639,18 @@
     void CancelEditTheater(OperationTheater theater) { theaterGrid.CancelEditRow(theater); }
     void OnCreateTheater(OperationTheater theater)
     {
-        FacilityRepo.SaveTheater(theater); theaterGrid.Reload();
-        NotificationService.Notify(NotificationSeverity.Success, "Theater Provisioned");
+        try {
+            FacilityRepo.SaveTheater(theater); theaterGrid.Reload();
+            NotificationService.Notify(NotificationSeverity.Success, "Theater Provisioned");
+        } catch(Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Save Failed", ex.Message); }
+
     }
     void OnUpdateTheater(OperationTheater theater)
     {
-        FacilityRepo.SaveTheater(theater); theaterGrid.Reload();
-        NotificationService.Notify(NotificationSeverity.Success, "Theater Updated");
+        try {
+            FacilityRepo.SaveTheater(theater); theaterGrid.Reload();
+            NotificationService.Notify(NotificationSeverity.Success, "Theater Updated");
+        } catch(Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Update Failed", ex.Message); }
     }
 }
+

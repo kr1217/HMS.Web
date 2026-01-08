@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Dashboard.razor
+ * PURPOSE: Administrative interface for hospital operations.
+ * COMMUNICATES WITH: FinanceRepository, OperationRepository, FacilityRepository
+*@
 @page "/admin/dashboard"
 @using HMS.Web.Components.Layout
 @rendermode InteractiveServer
@@ -13,6 +18,11 @@
 @implements IDisposable
 
 <PageTitle>Admin Dashboard | Hospital Control</PageTitle>
+@* 
+    COMPONENT: Admin Dashboard
+    PURPOSE: Central command center for hospital administrators.
+    OPTIMIZATION: [Real-time Polling] Uses a lightweight timer to refresh operational stats without page reloads.
+*@
 
 <RadzenRow Class="rz-mb-6">
     <RadzenColumn Size="12">
@@ -255,14 +265,25 @@
         }), null, 1000, 1000);
     }
 
+    /// <summary>
+    /// Fetches the latest operational statistics and active workflow states from the database.
+    /// </summary>
     void LoadDashboardData()
     {
-        stats = FinanceRepo.GetDashboardStats();
-        PendingRecommendations = OperationRepo.GetOperationsByStatus("Recommended");
-        ReadyToStart = OperationRepo.GetOperationsByStatus("Scheduled");
-        InProgress = OperationRepo.GetOperationsByStatus("Running");
-        ReadyForTransfer = OperationRepo.GetOperationsReadyForTransfer();
-        Theaters = FacilityRepo.GetTheaters();
+        try
+        {
+            stats = FinanceRepo.GetDashboardStats();
+            PendingRecommendations = OperationRepo.GetOperationsByStatus("Recommended");
+            ReadyToStart = OperationRepo.GetOperationsByStatus("Scheduled");
+            InProgress = OperationRepo.GetOperationsByStatus("Running");
+            ReadyForTransfer = OperationRepo.GetOperationsReadyForTransfer();
+            Theaters = FacilityRepo.GetTheaters();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Data Load Error", $"Failed to refresh dashboard: {ex.Message}");
+            Console.WriteLine($"Error loading dashboard data: {ex}");
+        }
     }
 
     string GetRemainingTime(PatientOperation op)
@@ -274,19 +295,29 @@
 
     bool IsOverdue(PatientOperation op) => DateTime.Now > op.EndDate;
 
+    /// <summary>
+    /// Opens the admission dialog for a post-operative patient transfer.
+    /// </summary>
     async Task OpenTransferDialog(PatientOperation op)
     {
-        var result = await DialogService.OpenAsync<AdmissionDialog>($"Post-Op Transfer: {op.PatientName}",
-        new Dictionary<string, object> {
-{ "PatientId", op.PatientId },
-{ "OperationId", op.OperationId }
-            },
-        new DialogOptions { Width = "600px" });
-
-        if (result == true)
+        try
         {
-            NotificationService.Notify(NotificationSeverity.Success, "Transferred", "Patient admitted for recovery.");
-            LoadDashboardData();
+            var result = await DialogService.OpenAsync<AdmissionDialog>($"Post-Op Transfer: {op.PatientName}",
+            new Dictionary<string, object> {
+                { "PatientId", op.PatientId },
+                { "OperationId", op.OperationId }
+            },
+            new DialogOptions { Width = "600px" });
+
+            if (result == true)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Transferred", "Patient admitted for recovery.");
+                LoadDashboardData();
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Dialog Error", $"Failed to open transfer dialog: {ex.Message}");
         }
     }
 
@@ -296,3 +327,4 @@
         uiTickTimer?.Dispose();
     }
 }
+

@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: RecommendOperation.razor
+ * PURPOSE: Doctor-facing component for clinical management.
+ * COMMUNICATES WITH: DoctorRepository, OperationRepository, PatientRepository, NotificationRepository, AppointmentRepository
+*@
 @page "/Doctor/RecommendOperation/{PatientId:int}"
 @using Microsoft.AspNetCore.Authorization
 @using HMS.Web.Models
@@ -14,6 +19,12 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Nav
 @inject NotificationRepository NotificationRepo
+@inject NotificationService NotificationService
+@*
+    COMPONENT: Surgical Recommendation Interface
+    PURPOSE: Allows doctors to propose surgical interventions for patients.
+    OPTIMIZATION: [Smart Defaults] Pre-fills standard package costs and details to save physician time, while allowing custom overrides.
+*@
 
 <RadzenStack Class="rz-p-4" Gap="2rem">
     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
@@ -166,22 +177,29 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var userClaims = authState.User;
-
-        if (userClaims.Identity?.IsAuthenticated == true)
+        try
         {
-            var userId = UserManager.GetUserId(userClaims);
-            if (!string.IsNullOrEmpty(userId))
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userClaims = authState.User;
+
+            if (userClaims.Identity?.IsAuthenticated == true)
             {
-                CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                var userId = UserManager.GetUserId(userClaims);
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                }
             }
+
+            Patient = PatientRepo.GetPatientById(PatientId);
+            Packages = OperationRepo.GetOperationPackages();
+
+            NewOperation.ScheduledDate = DateTime.Today.AddDays(1);
         }
-
-        Patient = PatientRepo.GetPatientById(PatientId);
-        Packages = OperationRepo.GetOperationPackages();
-
-        NewOperation.ScheduledDate = DateTime.Today.AddDays(1);
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Initialization Error", ex.Message);
+        }
     }
 
     @inject AppointmentRepository AppointmentRepo
@@ -205,58 +223,65 @@
 
     private void SaveOperation()
     {
-        if (CurrentDoctor == null || Patient == null) return;
-
-        // Validation for Custom vs Package
-        if (!IsCustomOperation && (NewOperation.PackageId == 0 || NewOperation.PackageId == null))
+        try
         {
-            // Error: Select a package
-            return;
-        }
-        if (IsCustomOperation && string.IsNullOrWhiteSpace(NewOperation.PackageName))
-        {
-            // Error: Enter operation name
-            return;
-        }
+            if (CurrentDoctor == null || Patient == null) return;
 
-        // Set PackageName if Package selected (for redundancy or UI display)
-        if (!IsCustomOperation && NewOperation.PackageId > 0)
-        {
-            var pkg = Packages.FirstOrDefault(p => p.PackageId == NewOperation.PackageId);
-            NewOperation.PackageName = pkg?.PackageName ?? "";
-        }
-
-        NewOperation.PatientId = PatientId;
-        NewOperation.DoctorId = CurrentDoctor.DoctorId;
-        NewOperation.Status = "Recommended";
-
-        OperationRepo.CreatePatientOperation(NewOperation);
-
-        // Mark appointment as Completed if linked
-        if (AppointmentId.HasValue)
-        {
-            AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
-        }
-
-        NotificationRepo.CreateNotification(new Notification
+            // Validation for Custom vs Package
+            if (!IsCustomOperation && (NewOperation.PackageId == 0 || NewOperation.PackageId == null))
             {
-                PatientId = PatientId,
-                Title = "Operation Recommended",
-                Message = $"Dr. {CurrentDoctor.FullName} has recommended a procedure: {NewOperation.PackageName}. Please review.",
-                CreatedDate = DateTime.Now,
-                IsRead = false
-            });
-
-        NotificationRepo.CreateNotification(new Notification
+                NotificationService.Notify(NotificationSeverity.Warning, "Validation", "Please select a surgical package.");
+                return;
+            }
+            if (IsCustomOperation && string.IsNullOrWhiteSpace(NewOperation.PackageName))
             {
-                TargetRole = "Admin",
-                Title = "New Surgical Recommendation",
-                Message = $"Dr. {CurrentDoctor.FullName} has recommended {NewOperation.PackageName} for {Patient.FullName}. Action required.",
-                CreatedDate = DateTime.Now,
-                IsRead = false
-            });
+                NotificationService.Notify(NotificationSeverity.Warning, "Validation", "Please enter the procedure name.");
+                return;
+            }
 
-        Nav.NavigateTo("/Doctor/Dashboard?tab=patients");
+            // Set PackageName if Package selected (for redundancy or UI display)
+            if (!IsCustomOperation && NewOperation.PackageId > 0)
+            {
+                var pkg = Packages.FirstOrDefault(p => p.PackageId == NewOperation.PackageId);
+                NewOperation.PackageName = pkg?.PackageName ?? "";
+            }
+
+            NewOperation.PatientId = PatientId;
+            NewOperation.DoctorId = CurrentDoctor.DoctorId;
+            NewOperation.Status = "Recommended";
+
+            OperationRepo.CreatePatientOperation(NewOperation);
+
+            // Mark appointment as Completed if linked
+            if (AppointmentId.HasValue)
+            {
+                AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
+            }
+
+            NotificationRepo.CreateNotification(new Notification
+                {
+                    PatientId = PatientId,
+                    Title = "Operation Recommended",
+                    Message = $"Dr. {CurrentDoctor.FullName} has recommended a procedure: {NewOperation.PackageName}. Please review.",
+                    CreatedDate = DateTime.Now,
+                    IsRead = false
+                });
+
+            NotificationRepo.CreateNotification(new Notification
+                {
+                    TargetRole = "Admin",
+                    Title = "New Surgical Recommendation",
+                    Message = $"Dr. {CurrentDoctor.FullName} has recommended {NewOperation.PackageName} for {Patient.FullName}. Action required.",
+                    CreatedDate = DateTime.Now,
+                    IsRead = false
+                });
+
+            Nav.NavigateTo("/Doctor/Dashboard?tab=patients");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Submission Error", $"Failed to recommend operation: {ex.Message}");
+        }
     }
 
     private void GoBack()
@@ -264,3 +289,4 @@
         Nav.NavigateTo("/Doctor/Dashboard");
     }
 }
+

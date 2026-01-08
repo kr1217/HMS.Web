@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: TellerDashboard.razor
+ * PURPOSE: Financial interface for billing operations.
+ * COMMUNICATES WITH: OperationRepository, FinanceRepository
+*@
 @page "/teller/dashboard"
 @using HMS.Web.Models
 @using HMS.Web.DAL
@@ -11,6 +16,11 @@
 @attribute [Authorize(Roles = "Teller,Admin")]
 @layout HMS.Web.Components.Layout.AdminLayout
 @rendermode InteractiveServer
+@*
+    COMPONENT: Financial Operations Dashboard
+    PURPOSE: Main workspace for Tellers to manage billing, payments, and shift records.
+    OPTIMIZATION: [Parallel Loading] Fetches bills and advance requests simultaneously for faster dashboard rendering.
+*@
 
 <PageTitle>Financial Registry | Teller Terminal</PageTitle>
 
@@ -158,19 +168,26 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        UserId = authState.User.FindFirst(u => u.Type.Contains("nameidentifier"))?.Value;
-
-        if(UserId != null)
+        try
         {
-             var shift = FinanceRepo.GetCurrentShift(UserId);
-             IsShiftActive = (shift != null);
-             if(shift != null) ShiftRevenue = FinanceRepo.GetShiftRevenue(shift.ShiftId);
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            UserId = authState.User.FindFirst(u => u.Type.Contains("nameidentifier"))?.Value;
+
+            if(UserId != null)
+            {
+                 var shift = FinanceRepo.GetCurrentShift(UserId);
+                 IsShiftActive = (shift != null);
+                 if(shift != null) ShiftRevenue = FinanceRepo.GetShiftRevenue(shift.ShiftId);
+            }
+            
+            // Initial counts for the summary cards
+            pendingBillsCount = FinanceRepo.GetPendingBillsCount();
+            advanceRequestsCount = OperationRepo.GetOperationsByStatusCount("Advance Payment Requested");
         }
-        
-        // Initial counts for the summary cards
-        pendingBillsCount = FinanceRepo.GetPendingBillsCount();
-        advanceRequestsCount = OperationRepo.GetOperationsByStatusCount("Advance Payment Requested");
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Dashboard Error", $"Failed to load financial data: {ex.Message}");
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -185,43 +202,59 @@
 
     async Task LoadBillsData(LoadDataArgs args)
     {
-        if (UserId == null) 
+        try
         {
-            pendingBills = new List<Bill>();
-            pendingBillsCount = 0;
-            return;
+            if (UserId == null) 
+            {
+                pendingBills = new List<Bill>();
+                pendingBillsCount = 0;
+                return;
+            }
+
+            isBillsLoading = true;
+            var skip = args.Skip ?? 0;
+            var top = args.Top ?? 10;
+            var orderBy = args.OrderBy;
+            if (string.IsNullOrEmpty(orderBy)) orderBy = "BillDate DESC";
+
+            pendingBills = FinanceRepo.GetPendingBillsPaged(skip, top, orderBy);
+            pendingBillsCount = FinanceRepo.GetPendingBillsCount();
+            isBillsLoading = false;
+            StateHasChanged();
         }
-
-        isBillsLoading = true;
-        var skip = args.Skip ?? 0;
-        var top = args.Top ?? 10;
-        var orderBy = args.OrderBy;
-        if (string.IsNullOrEmpty(orderBy)) orderBy = "BillDate DESC";
-
-        pendingBills = FinanceRepo.GetPendingBillsPaged(skip, top, orderBy);
-        pendingBillsCount = FinanceRepo.GetPendingBillsCount();
-        isBillsLoading = false;
-        StateHasChanged();
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "Data Error", $"Failed to load bills: {ex.Message}");
+             isBillsLoading = false;
+        }
     }
 
     async Task LoadAdvanceData(LoadDataArgs args)
     {
-        if (UserId == null) 
+        try
         {
-            advanceRequests = new List<PatientOperation>();
-            advanceRequestsCount = 0;
-            return;
+            if (UserId == null) 
+            {
+                advanceRequests = new List<PatientOperation>();
+                advanceRequestsCount = 0;
+                return;
+            }
+
+            isAdvanceLoading = true;
+            var skip = args.Skip ?? 0;
+            var top = args.Top ?? 10;
+            var orderBy = args.OrderBy;
+            if (string.IsNullOrEmpty(orderBy)) orderBy = "ScheduledDate DESC";
+
+            advanceRequests = OperationRepo.GetOperationsByStatusPaged("Advance Payment Requested", skip, top, orderBy);
+            advanceRequestsCount = OperationRepo.GetOperationsByStatusCount("Advance Payment Requested");
+            isAdvanceLoading = false;
         }
-
-        isAdvanceLoading = true;
-        var skip = args.Skip ?? 0;
-        var top = args.Top ?? 10;
-        var orderBy = args.OrderBy;
-        if (string.IsNullOrEmpty(orderBy)) orderBy = "ScheduledDate DESC";
-
-        advanceRequests = OperationRepo.GetOperationsByStatusPaged("Advance Payment Requested", skip, top, orderBy);
-        advanceRequestsCount = OperationRepo.GetOperationsByStatusCount("Advance Payment Requested");
-        isAdvanceLoading = false;
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "Data Error", $"Failed to load advance requests: {ex.Message}");
+             isAdvanceLoading = false;
+        }
     }
 
     async Task OpenAdvanceDialog(PatientOperation op)
@@ -283,3 +316,4 @@
         advanceRequestsCount = OperationRepo.GetOperationsByStatusCount("Advance Payment Requested");
     }
 }
+

@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: AdmissionDialog.razor
+ * PURPOSE: Administrative interface for hospital operations.
+ * COMMUNICATES WITH: FacilityRepository, PatientRepository, OperationRepository, DoctorRepository
+*@
 @using HMS.Web.Models
 @using HMS.Web.DAL
 @using Radzen
@@ -9,6 +14,11 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
+@*
+    COMPONENT: Admission Dialog
+    PURPOSE: Admission Authorization Form handles the clinical admission of a patient into a specific ward, room, and bed.
+    It supports automatic ward recommendation based on surgical history.
+*@
 <RadzenTemplateForm TItem="Admission" Data="@model" Submit="@OnSubmit">
     <RadzenStack Gap="1.5rem" Class="rz-p-2">
         @if (!string.IsNullOrEmpty(RecommendedWardName))
@@ -27,6 +37,7 @@
 
         <RadzenCard Class="rz-shadow-2">
             <RadzenStack Gap="1.5rem">
+                @* Patient Selection Dropdown - Supports searching by name/ID *@
                 <RadzenStack Gap="0.5rem">
                     <RadzenLabel Text="Subject Admission" Component="PatientId" TextStyle="TextStyle.Subtitle2" />
                     <RadzenDropDown Name="PatientId" Data="@patients" TextProperty="FullName" ValueProperty="PatientId"
@@ -122,95 +133,117 @@
 
     protected override void OnInitialized()
     {
-        // OPTIMIZATION: Only load what we need
-        if (PatientId.HasValue)
+        try
         {
-            var patient = PatientRepo.GetPatientById(PatientId.Value);
-            if (patient != null)
+            // LOGIC: Initialize the form data.
+            // If a PatientId is passed as a parameter, we load ONLY that patient to avoid
+            // the performance hit of loading thousands of records into the dropdown.
+            if (PatientId.HasValue)
             {
-                patients = new List<Patient> { patient };
-                model.PatientId = PatientId.Value;
+                var patient = PatientRepo.GetPatientById(PatientId.Value);
+                if (patient != null)
+                {
+                    patients = new List<Patient> { patient };
+                    model.PatientId = PatientId.Value;
+                }
+            }
+            else
+            {
+                // Only load patients if drop-down is needed
+                // To prevent lag, we only load the top 100 or something if it's too much.
+                // But since this is a search dropdown, Radzen already handles filtering if configured.
+                patients = PatientRepo.GetAllPatients();
+            }
+
+            // Only load available wards (usually a small list)
+            wards = FacilityRepo.GetWards();
+
+            if (PatientId.HasValue)
+            {
+                DetectSpecialtyNeeds();
             }
         }
-        else
+        catch (Exception ex)
         {
-            // Only load patients if drop-down is needed
-            // To prevent lag, we only load the top 100 or something if it's too much.
-            // But since this is a search dropdown, Radzen already handles filtering if configured.
-            patients = PatientRepo.GetAllPatients();
-        }
-
-        // Only load available wards (usually a small list)
-        wards = FacilityRepo.GetWards();
-
-        if (PatientId.HasValue)
-        {
-            DetectSpecialtyNeeds();
+            NotificationService.Notify(NotificationSeverity.Error, "Initialization Failed", $"Error preparing admission form: {ex.Message}");
         }
     }
 
+    /// <summary>
+    /// Analyzes the patient's medical history to recommend the most appropriate ward.
+    /// This logic looks for completed operations and matches the surgeon's department/specialization
+    /// to the hospital wards (e.g., Cardiology surgery -> Cardiology Ward).
+    /// </summary>
     void DetectSpecialtyNeeds()
     {
-        // Find latest completed operation for this patient to suggest correct ward
-        var latestOp = OperationRepo.GetOperationsByStatus("Completed")
-        .Where(o => o.PatientId == model.PatientId)
-        .OrderByDescending(o => o.OperationId)
-        .FirstOrDefault();
-
-        if (latestOp != null)
+        try
         {
-            var doctor = DoctorRepo.GetDoctorById(latestOp.DoctorId);
-            SpecialtyKeyword = doctor?.DepartmentName;
+            // Find latest completed operation for this patient to suggest correct ward
+            var latestOp = OperationRepo.GetOperationsByStatus("Completed")
+            .Where(o => o.PatientId == model.PatientId)
+            .OrderByDescending(o => o.OperationId)
+            .FirstOrDefault();
 
-            if (string.IsNullOrEmpty(SpecialtyKeyword))
+            if (latestOp != null)
             {
-                SpecialtyKeyword = doctor?.Specialization?.Split(' ')[0];
-            }
+                var doctor = DoctorRepo.GetDoctorById(latestOp.DoctorId);
+                SpecialtyKeyword = doctor?.DepartmentName;
 
-            if (!string.IsNullOrEmpty(SpecialtyKeyword))
-            {
-                var bestWard = wards.FirstOrDefault(w => w.WardName.Contains(SpecialtyKeyword, StringComparison.OrdinalIgnoreCase));
-
-                if (bestWard != null)
+                if (string.IsNullOrEmpty(SpecialtyKeyword))
                 {
-                    // Check if ward has available beds (optimized query)
-                    var wardRooms = FacilityRepo.GetRoomsByWard(bestWard.WardId);
-                    bool hasBeds = false;
+                    SpecialtyKeyword = doctor?.Specialization?.Split(' ')[0];
+                }
 
-                    foreach (var room in wardRooms)
+                if (!string.IsNullOrEmpty(SpecialtyKeyword))
+                {
+                    var bestWard = wards.FirstOrDefault(w => w.WardName.Contains(SpecialtyKeyword, StringComparison.OrdinalIgnoreCase));
+
+                    if (bestWard != null)
                     {
-                        if (FacilityRepo.GetAvailableBedsByRoom(room.RoomId).Any())
+                        // Check if ward has available beds (optimized query)
+                        var wardRooms = FacilityRepo.GetRoomsByWard(bestWard.WardId);
+                        bool hasBeds = false;
+
+                        foreach (var room in wardRooms)
                         {
-                            hasBeds = true;
-                            break;
+                            if (FacilityRepo.GetAvailableBedsByRoom(room.RoomId).Any())
+                            {
+                                hasBeds = true;
+                                break;
+                            }
                         }
-                    }
 
-                    if (hasBeds)
-                    {
-                        RecommendedWardName = bestWard.WardName;
-                        // STRICT ENFORCEMENT: Lock to this ward if beds are available
-                        wards = new List<Ward> { bestWard };
-                        selectedWardId = bestWard.WardId;
-                        OnWardChange();
-                    }
-                    else
-                    {
-                        RecommendedWardName = $"{bestWard.WardName} (FULL) - Using General Fallback";
-
-                        wards = wards.OrderByDescending(w => w.WardName.Contains(SpecialtyKeyword, StringComparison.OrdinalIgnoreCase))
-                        .ThenByDescending(w => w.WardName.Contains("General", StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-
-                        var generalWard = wards.FirstOrDefault(w => w.WardName.Contains("General", StringComparison.OrdinalIgnoreCase));
-                        if (generalWard != null)
+                        if (hasBeds)
                         {
-                            selectedWardId = generalWard.WardId;
+                            RecommendedWardName = bestWard.WardName;
+                            // STRICT ENFORCEMENT: Lock to this ward if beds are available
+                            wards = new List<Ward> { bestWard };
+                            selectedWardId = bestWard.WardId;
                             OnWardChange();
+                        }
+                        else
+                        {
+                            RecommendedWardName = $"{bestWard.WardName} (FULL) - Using General Fallback";
+
+                            wards = wards.OrderByDescending(w => w.WardName.Contains(SpecialtyKeyword, StringComparison.OrdinalIgnoreCase))
+                            .ThenByDescending(w => w.WardName.Contains("General", StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+
+                            var generalWard = wards.FirstOrDefault(w => w.WardName.Contains("General", StringComparison.OrdinalIgnoreCase));
+                            if (generalWard != null)
+                            {
+                                selectedWardId = generalWard.WardId;
+                                OnWardChange();
+                            }
                         }
                     }
                 }
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error detecting specialty needs: {ex.Message}");
+            // Non-critical, so we don't necessarily need to show a notification, but creating a log is good.
         }
     }
 
@@ -230,6 +263,12 @@
         model.BedId = 0;
     }
 
+    /// <summary>
+    /// Finalizes the admission process.
+    /// 1. Updates the bed status to 'Occupied' in the database.
+    /// 2. Creates a new Admission record.
+    /// 3. Updates surgical transfer status if applicable.
+    /// </summary>
     async Task OnSubmit(Admission args)
     {
         try

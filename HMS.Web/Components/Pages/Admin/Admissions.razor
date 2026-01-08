@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Admissions.razor
+ * PURPOSE: Administrative interface for hospital operations.
+ * COMMUNICATES WITH: FacilityRepository, PatientRepository
+*@
 @page "/admin/admissions"
 @layout HMS.Web.Components.Layout.AdminLayout
 @rendermode InteractiveServer
@@ -11,9 +16,18 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
-<PageTitle>Patient Admissions | Admin</PageTitle>
+@*
+COMPONENT: Admissions Dashboard
+PURPOSE: Central command center for managing hospital census and bed allocation.
+OPTIMIZATION: [Server-Side Pagination] Uses LoadData with Skip/Take to efficiently handle thousands of admission records
+without browser lag.
+*@
 
 <RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    @*
+    Patient Admissions Dashboard
+    Provides a real-time overview of the hospital census and active inpatient records.
+    *@
     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
         JustifyContent="JustifyContent.SpaceBetween">
         <RadzenStack Gap="0.5rem">
@@ -68,6 +82,11 @@
         </RadzenColumn>
     </RadzenRow>
 
+    @*
+    Active Admissions Grid
+    Displays a list of currently admitted patients with their location, status, and discharge options.
+    Implements server-side pagination for handling high patient volumes.
+    *@
     <RadzenCard Class="rz-p-0 rz-shadow-4" Style="overflow: hidden; border-radius: 12px;">
         <RadzenDataGrid @ref="grid" Data="@activeAdmissions" TItem="Admission" Count="@count" LoadData="@LoadData"
             IsLoading="@isLoading" AllowFiltering="true" AllowPaging="true" PageSize="10" AllowSorting="true"
@@ -134,7 +153,7 @@
     RadzenDataGrid<Admission> grid = default!;
     IEnumerable<Admission> activeAdmissions = new List<Admission>();
     int count;
-    bool isLoading = false;
+    bool isLoading = false; // Tracks granular loading state for UI feedback
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && grid != null)
@@ -144,6 +163,11 @@
         }
     }
 
+    /// <summary>
+    /// Data loading handler for the Admissions grid.
+    /// Orchestrates server-side pagination by passing skip/take arguments to the repository.
+    /// Default sort set to most recent admissions first.
+    /// </summary>
     async Task LoadData(LoadDataArgs args)
     {
         isLoading = true;
@@ -160,6 +184,10 @@
         StateHasChanged();
     }
 
+    /// <summary>
+    /// Launches the AdmissionDialog component.
+    /// If successful, reloads the grid to reflect the new hospital record.
+    /// </summary>
     async Task ShowAdmissionDialog()
     {
         try
@@ -200,3 +228,4 @@
         }
     }
 }
+

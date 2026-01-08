@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Dashboard.razor
+ * PURPOSE: Doctor-facing component for clinical management.
+ * COMMUNICATES WITH: DoctorRepository, AppointmentRepository, DoctorShiftRepository, ReportRepository
+*@
 @page "/doctor/dashboard"
 @rendermode InteractiveServer
 @attribute [Authorize(Roles = "Doctor")]
@@ -12,6 +17,12 @@
 @using HMS.Web.Models
 @using HMS.Web.DAL
 @using Microsoft.AspNetCore.Components.Authorization
+
+@*
+COMPONENT: Doctor Dashboard
+PURPOSE: Central clinical command center for physicians.
+OPTIMIZATION: [Scoped Data] Loads only the authenticated doctor's data to ensure privacy and relevance.
+*@
 
 <PageTitle>Doctor Dashboard | Hospital Management</PageTitle>
 
@@ -206,17 +217,24 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        var userId = user.FindFirst(c => c.Type.Contains("nameidentifier"))?.Value;
-
-        if (!string.IsNullOrEmpty(userId))
+        try
         {
-            currentDoctor = DoctorRepo.GetDoctorByUserId(userId);
-            if (currentDoctor != null)
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var userId = user.FindFirst(c => c.Type.Contains("nameidentifier"))?.Value;
+
+            if (!string.IsNullOrEmpty(userId))
             {
-                stats = DoctorRepo.GetDoctorDashboardStats(currentDoctor.DoctorId);
+                currentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                if (currentDoctor != null)
+                {
+                    stats = DoctorRepo.GetDoctorDashboardStats(currentDoctor.DoctorId);
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Dashboard Error", $"Failed to load dashboard: {ex.Message}");
         }
     }
 
@@ -248,18 +266,27 @@
             return;
         }
 
-        isLoading = true;
+        try
+        {
+            isLoading = true;
 
-        var skip = args.Skip ?? 0;
-        var top = args.Top ?? 10;
-        var orderBy = args.OrderBy;
-        if (string.IsNullOrEmpty(orderBy)) orderBy = "AppointmentDate DESC";
+            var skip = args.Skip ?? 0;
+            var top = args.Top ?? 10;
+            var orderBy = args.OrderBy;
+            if (string.IsNullOrEmpty(orderBy)) orderBy = "AppointmentDate DESC";
 
-        appointments = AppointmentRepo.GetAppointmentsByDoctorIdPaged(currentDoctor.DoctorId, skip, top, orderBy);
-        appointmentCount = AppointmentRepo.GetAppointmentsByDoctorIdCount(currentDoctor.DoctorId);
-
-        isLoading = false;
-        StateHasChanged();
+            appointments = AppointmentRepo.GetAppointmentsByDoctorIdPaged(currentDoctor.DoctorId, skip, top, orderBy);
+            appointmentCount = AppointmentRepo.GetAppointmentsByDoctorIdCount(currentDoctor.DoctorId);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Data Load Error", $"Failed to load appointments: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
     BadgeStyle GetStatusBadgeStyle(string status)
@@ -314,3 +341,4 @@
         // Potentially open details
     }
 }
+

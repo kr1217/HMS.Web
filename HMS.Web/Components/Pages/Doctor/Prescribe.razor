@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: Prescribe.razor
+ * PURPOSE: Doctor-facing component for clinical management.
+ * COMMUNICATES WITH: DoctorRepository, AppointmentRepository, PrescriptionRepository, NotificationRepository
+*@
 @page "/Doctor/Prescribe/{PatientId:int}"
 @using Microsoft.AspNetCore.Authorization
 @using HMS.Web.Models
@@ -15,6 +20,12 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Nav
 @inject NotificationRepository NotificationRepo
+@inject NotificationService NotificationService
+@*
+    COMPONENT: Prescription Management
+    PURPOSE: Interface for creating and signing digital prescriptions.
+    OPTIMIZATION: [Client-Side Validation] Ensures all medications are valid before submission to prevent server errors.
+*@
 
 <RadzenStack Class="rz-p-4" Gap="2rem">
     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
@@ -176,26 +187,33 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var userClaims = authState.User;
-
-        if (userClaims.Identity?.IsAuthenticated == true)
+        try
         {
-            var userId = UserManager.GetUserId(userClaims);
-            if (!string.IsNullOrEmpty(userId))
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userClaims = authState.User;
+
+            if (userClaims.Identity?.IsAuthenticated == true)
             {
-                CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                var userId = UserManager.GetUserId(userClaims);
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                }
+            }
+
+            if (CurrentDoctor != null)
+            {
+                PatientAppointments = AppointmentRepo.GetAppointmentsByPatientId(PatientId);
+                var firstAppt = PatientAppointments.FirstOrDefault();
+                if (firstAppt != null)
+                {
+                    PatientName = firstAppt.PatientName;
+                }
             }
         }
-
-        if (CurrentDoctor != null)
+        catch (Exception ex)
         {
-            PatientAppointments = AppointmentRepo.GetAppointmentsByPatientId(PatientId);
-            var firstAppt = PatientAppointments.FirstOrDefault();
-            if (firstAppt != null)
-            {
-                PatientName = firstAppt.PatientName;
-            }
+            NotificationService.Notify(NotificationSeverity.Error, "Initialization Error", ex.Message);
         }
     }
 
@@ -222,52 +240,59 @@
 
     private void SavePrescription()
     {
-        ErrorMessage = "";
-
-        // Auto-add if user typed in medicine but didn't click Add
-        if (!string.IsNullOrWhiteSpace(NewMed.Name))
+        try
         {
-            AddMedicine();
-        }
+            ErrorMessage = "";
 
-        if (!MedicationsList.Any() && string.IsNullOrWhiteSpace(PrescriptionDetails))
-        {
-            ErrorMessage = "Please add at least one medication or enter diagnosis/notes.";
-            return;
-        }
+            // Auto-add if user typed in medicine but didn't click Add
+            if (!string.IsNullOrWhiteSpace(NewMed.Name))
+            {
+                AddMedicine();
+            }
 
-        if (CurrentDoctor == null) return;
+            if (!MedicationsList.Any() && string.IsNullOrWhiteSpace(PrescriptionDetails))
+            {
+                ErrorMessage = "Please add at least one medication or enter diagnosis/notes.";
+                return;
+            }
 
-        var prescription = new Prescription
+            if (CurrentDoctor == null) return;
+
+            var prescription = new Prescription
+                {
+                    PatientId = PatientId,
+                    DoctorId = CurrentDoctor.DoctorId,
+                    AppointmentId = AppointmentId,
+                    PrescribedDate = DateTime.Now,
+                    Details = PrescriptionDetails,
+                    Medications = JsonSerializer.Serialize(MedicationsList),
+                    IsLocked = true,
+                    DigitalSignature = $"Digitally Signed by Dr. {CurrentDoctor.FullName} ({CurrentDoctor.MedicalLicenseNumber}) on {DateTime.Now:yyyy-MM-dd HH:mm:ss}"
+                };
+
+            PrescriptionRepo.CreatePrescription(prescription);
+
+            // Mark appointment as Completed if linked
+            if (AppointmentId.HasValue)
+            {
+                 AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
+            }
+
+            NotificationRepo.CreateNotification(new Notification
             {
                 PatientId = PatientId,
-                DoctorId = CurrentDoctor.DoctorId,
-                AppointmentId = AppointmentId,
-                PrescribedDate = DateTime.Now,
-                Details = PrescriptionDetails,
-                Medications = JsonSerializer.Serialize(MedicationsList),
-                IsLocked = true,
-                DigitalSignature = $"Digitally Signed by Dr. {CurrentDoctor.FullName} ({CurrentDoctor.MedicalLicenseNumber}) on {DateTime.Now:yyyy-MM-dd HH:mm:ss}"
-            };
+                Title = "New Prescription",
+                Message = $"Dr. {CurrentDoctor.FullName} has issued a new prescription for you.",
+                CreatedDate = DateTime.Now,
+                IsRead = false
+            });
 
-        PrescriptionRepo.CreatePrescription(prescription);
-
-        // Mark appointment as Completed if linked
-        if (AppointmentId.HasValue)
-        {
-             AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
+            Nav.NavigateTo("/Doctor/Dashboard?tab=patients");
         }
-
-        NotificationRepo.CreateNotification(new Notification
+        catch (Exception ex)
         {
-            PatientId = PatientId,
-            Title = "New Prescription",
-            Message = $"Dr. {CurrentDoctor.FullName} has issued a new prescription for you.",
-            CreatedDate = DateTime.Now,
-            IsRead = false
-        });
-
-        Nav.NavigateTo("/Doctor/Dashboard?tab=patients");
+            NotificationService.Notify(NotificationSeverity.Error, "Submission Error", $"Failed to save prescription: {ex.Message}");
+        }
     }
 
     private void GoBack()
@@ -275,3 +300,4 @@
         Nav.NavigateTo("/Doctor/Dashboard");
     }
 }
+

@@ -1,3 +1,8 @@
+/*
+ * FILE: Program.cs
+ * PURPOSE: Application entry point, service registration, and HTTP request pipeline configuration.
+ * COMMUNICATES WITH: All Application Services, Repositories, and Database Contexts.
+ */
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -47,7 +52,10 @@ builder.Services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, UserCla
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 // DAL Services
-builder.Services.AddTransient<HMS.Web.DAL.DatabaseHelper>();
+// OPTIMIZATION: [Singleton Lifetime] DatabaseHelper is registered as a Singleton.
+// WHY: It holds no request-specific state and managing its lifetime as a singleton ensures better SQL Connection Pooling efficiency.
+builder.Services.AddSingleton<HMS.Web.DAL.DatabaseHelper>();
+builder.Services.AddHostedService<HMS.Web.Services.HospitalBackgroundService>();
 builder.Services.AddScoped<HMS.Web.DAL.PatientRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.DoctorRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.DoctorShiftRepository>();
@@ -95,39 +103,5 @@ app.MapRazorComponents<App>()
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
 
-// Automatic database seeding on first run
-var seedFlagPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".seeded");
-if (!File.Exists(seedFlagPath))
-{
-    using (var scope = app.Services.CreateScope())
-    {
-        var services = scope.ServiceProvider;
-        try
-        {
-            var dbHelper = services.GetRequiredService<HMS.Web.DAL.DatabaseHelper>();
-            var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-
-            var seeder = new HMS.Web.Services.DatabaseSeeder(dbHelper, userManager, roleManager);
-
-            Console.WriteLine("=== FIRST RUN DETECTED: Starting automatic database seeding ===");
-            await seeder.SeedAllData();
-
-            // Create flag file to prevent re-seeding
-            File.WriteAllText(seedFlagPath, DateTime.Now.ToString());
-            Console.WriteLine("=== Database seeding completed. Flag file created. ===");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"=== ERROR during automatic seeding: {ex.Message} ===");
-            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-            // Don't create flag file if seeding failed
-        }
-    }
-}
-else
-{
-    Console.WriteLine("=== Database already seeded (flag file exists). Skipping automatic seeding. ===");
-}
 
 app.Run();

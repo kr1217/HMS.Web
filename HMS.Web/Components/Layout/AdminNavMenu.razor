@@ -1,3 +1,8 @@
+﻿@*
+ * FILE: AdminNavMenu.razor
+ * PURPOSE: Layout definition component.
+ * COMMUNICATES WITH: None
+*@
 @implements IDisposable
 @inject NavigationManager NavigationManager
 @inject HMS.Web.DAL.FinanceRepository FinanceRepo
@@ -102,3 +107,4 @@
         await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('adminLogoutForm').submit();");
     }
 }
+

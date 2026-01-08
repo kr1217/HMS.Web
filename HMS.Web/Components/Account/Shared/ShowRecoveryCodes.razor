@@ -1,4 +1,9 @@
-﻿<StatusMessage Message="@StatusMessage" />
+﻿@*
+ * FILE: ShowRecoveryCodes.razor
+ * PURPOSE: Frontend web component.
+ * COMMUNICATES WITH: None
+*@
+<StatusMessage Message="@StatusMessage" />
 
 <RadzenStack Gap="1.5rem">
     <RadzenText Text="Emergency Recovery Protocols" TextStyle="TextStyle.H5" Class="rz-m-0 rz-color-primary" />
@@ -33,3 +38,4 @@
     [Parameter]
     public string? StatusMessage { get; set; }
 }
+

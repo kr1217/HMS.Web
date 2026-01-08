@@ -1,4 +1,9 @@
-﻿@page "/Account/Manage/GenerateRecoveryCodes"
+﻿@*
+ * FILE: GenerateRecoveryCodes.razor
+ * PURPOSE: Frontend web component.
+ * COMMUNICATES WITH: None
+*@
+@page "/Account/Manage/GenerateRecoveryCodes"
 
 @using Microsoft.AspNetCore.Identity
 @using HMS.Web.Data
@@ -81,3 +86,4 @@
         Logger.LogInformation("User with ID '{UserId}' has generated new 2FA recovery codes.", userId);
     }
 }
+

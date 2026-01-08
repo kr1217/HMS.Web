@@ -1,4 +1,9 @@
-﻿@page "/Account/Manage/Passkeys"
+﻿@*
+ * FILE: Passkeys.razor
+ * PURPOSE: Frontend web component.
+ * COMMUNICATES WITH: None
+*@
+@page "/Account/Manage/Passkeys"
 
 @using HMS.Web.Data
 @using Microsoft.AspNetCore.Identity
@@ -200,3 +205,4 @@
         RedirectManager.RedirectToCurrentPageWithStatus("Passkey deleted successfully.", HttpContext);
     }
 }
+

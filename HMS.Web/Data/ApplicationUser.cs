@@ -1,3 +1,8 @@
+/*
+ * FILE: ApplicationUser.cs
+ * PURPOSE: Extended Identity User model for the application.
+ * COMMUNICATES WITH: Identity Framework
+ */
 using Microsoft.AspNetCore.Identity;
 
 namespace HMS.Web.Data;

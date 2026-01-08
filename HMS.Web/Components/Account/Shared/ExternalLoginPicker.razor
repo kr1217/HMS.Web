@@ -1,4 +1,9 @@
-﻿@using Microsoft.AspNetCore.Authentication
+﻿@*
+ * FILE: ExternalLoginPicker.razor
+ * PURPOSE: Frontend web component.
+ * COMMUNICATES WITH: None
+*@
+@using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
 @using HMS.Web.Data
 
@@ -46,3 +51,4 @@ else
         externalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).ToArray();
     }
 }
+

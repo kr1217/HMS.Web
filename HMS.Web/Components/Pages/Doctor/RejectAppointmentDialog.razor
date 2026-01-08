@@ -1,6 +1,16 @@
+﻿@*
+ * FILE: RejectAppointmentDialog.razor
+ * PURPOSE: Doctor-facing component for clinical management.
+ * COMMUNICATES WITH: None
+*@
 @using HMS.Web.Models
 @using HMS.Web.DAL
 @inject DialogService DialogService
+@*
+COMPONENT: Rejection Dialog
+PURPOSE: Captures the clinical or logistical reason for rejecting a patient appointment.
+OPTIMIZATION: [Context Aware] Displays current shift conflicts to help the doctor provide an accurate reason.
+*@
 
 <RadzenStack Gap="1.5rem" Class="rz-p-4">
     <RadzenStack Gap="0.5rem">
@@ -31,7 +41,7 @@
             <RadzenStack Gap="0.25rem">
                 @foreach (var shift in DoctorShifts.Take(5))
                 {
-                    <RadzenText Text="@($"• {shift.DayOfWeek}: {FormatTime(shift.StartTime)} - {FormatTime(shift.EndTime)}")"
+                    <RadzenText Text="@($"â€¢ {shift.DayOfWeek}: {FormatTime(shift.StartTime)} - {FormatTime(shift.EndTime)}")"
                         TextStyle="TextStyle.Caption" />
                 }
             </RadzenStack>
@@ -57,3 +67,4 @@
         return DateTime.Today.Add(time).ToString("hh:mm tt");
     }
 }
+
