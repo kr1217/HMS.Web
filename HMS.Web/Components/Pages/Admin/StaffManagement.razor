@@ -15,71 +15,130 @@
 
 <PageTitle>Staff Management | Admin</PageTitle>
 
-<div class="row mb-3">
-    <div class="col-md-6">
-        <h3>Staff Registry</h3>
-    </div>
-    <div class="col-md-6 text-end">
-        <RadzenButton Icon="add" Text="Add New Staff" ButtonStyle="ButtonStyle.Primary" Click="@ShowAddStaffDialog" />
-    </div>
-</div>
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Institutional Staff Registry" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+            <RadzenText
+                Text="Centralized management of clinical and administrative personnel, credentials, and access tiers."
+                TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+        </RadzenStack>
+        <RadzenButton Icon="person_add" Text="Register Personnel" ButtonStyle="ButtonStyle.Primary"
+            Click="@ShowAddStaffDialog" Class="rz-shadow-2" />
+    </RadzenStack>
 
-<RadzenDataGrid Data="@staffList" TItem="Staff" AllowFiltering="true" AllowPaging="true" PageSize="10"
-    AllowSorting="true" ColumnWidth="150px" Style="height: calc(100vh - 200px);">
-    <Columns>
-        <RadzenDataGridColumn TItem="Staff" Property="StaffId" Title="ID" Width="50px" />
-        <RadzenDataGridColumn TItem="Staff" Property="FullName" Title="Name" />
-        <RadzenDataGridColumn TItem="Staff" Property="Role" Title="Role">
-            <Template Context="data">
-                <span class="badge @GetRoleBadgeClass(data.Role)">@data.Role</span>
-            </Template>
-        </RadzenDataGridColumn>
-        <RadzenDataGridColumn TItem="Staff" Property="Department" Title="Department" />
-        <RadzenDataGridColumn TItem="Staff" Property="Shift" Title="Shift" />
-        <RadzenDataGridColumn TItem="Staff" Property="IsActive" Title="Status">
-            <Template Context="data">
-                <RadzenBadge BadgeStyle="@(data.IsActive ? BadgeStyle.Success : BadgeStyle.Danger)"
-                    Text="@(data.IsActive ? "Active" : "Inactive")" />
-            </Template>
-        </RadzenDataGridColumn>
-        <RadzenDataGridColumn TItem="Staff" Title="Actions" Sortable="false" Filterable="false">
-            <Template Context="data">
-                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat"
-                    Size="ButtonSize.Medium" Click="@(() => EditStaff(data))" />
-            </Template>
-        </RadzenDataGridColumn>
-    </Columns>
-</RadzenDataGrid>
-<HMS.Web.Components.Shared.RadzenInfrastructure />
+    <RadzenCard Class="rz-p-0 rz-shadow-4" Style="overflow: hidden; border-radius: 12px;">
+        <RadzenDataGrid @ref="grid" TItem="Staff" Count="@count" Data="@staffList" LoadData="@LoadData"
+            IsLoading="@isLoading" AllowFiltering="true" AllowPaging="true" PageSize="10" AllowSorting="true"
+            SelectionMode="DataGridSelectionMode.Single" FilterMode="FilterMode.Simple">
+            <EmptyTemplate>
+                <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                    <RadzenIcon Icon="group_off" Style="font-size: 5rem; color: var(--rz-text-disabled-color);" />
+                    <RadzenText Text="No personnel records found." TextStyle="TextStyle.H6"
+                        Class="rz-color-text-secondary rz-m-0" />
+                    <RadzenText Text="Start by registering your clinical and administrative staff."
+                        TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+                </RadzenStack>
+            </EmptyTemplate>
+            <Columns>
+                <RadzenDataGridColumn TItem="Staff" Property="StaffId" Title="Audit ID" Width="100px"
+                    TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="Staff" Title="Official Name" Property="FullName">
+                    <Template Context="data">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                            <RadzenIcon Icon="account_circle" Style="color: var(--rz-primary-dark);" />
+                            <RadzenText Text="@data.FullName" TextStyle="TextStyle.Subtitle2"
+                                Class="rz-m-0 rz-font-weight-bold" />
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Staff" Title="Professional Role" Width="180px" Property="Role">
+                    <Template Context="data">
+                        <RadzenBadge BadgeStyle="@GetRoleBadgeStyle(data.Role)" Text="@data.Role" Variant="Variant.Flat"
+                            Shade="Shade.Lighter" IsPill="true" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Staff" Property="Department" Title="Clinical Unit" />
+                <RadzenDataGridColumn TItem="Staff" Title="Assigned Shift" Width="150px" Property="Shift">
+                    <Template Context="data">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenIcon Icon="schedule" Size="14px" Style="color: var(--rz-text-disabled-color);" />
+                            <RadzenText Text="@data.Shift" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Staff" Title="Status" Width="120px" TextAlign="TextAlign.Center"
+                    Property="IsActive">
+                    <Template Context="data">
+                        <RadzenBadge BadgeStyle="@(data.IsActive ? BadgeStyle.Success : BadgeStyle.Danger)"
+                            IsPill="true" Text="@(data.IsActive ? "Authorized" : "Revoked")" Shade="Shade.Lighter" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Staff" Title="Ops" Sortable="false" Filterable="false" Width="80px"
+                    TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <RadzenButton Icon="tune" ButtonStyle="ButtonStyle.Base" Variant="Variant.Text"
+                            Size="ButtonSize.Small" Click="@(() => EditStaff(data))" Tooltip="Configure Access" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+</RadzenStack>
 
 @code {
-    private List<Staff> staffList = new();
+    RadzenDataGrid<Staff> grid = default!;
+    private IEnumerable<Staff> staffList = new List<Staff>();
+    private int count;
+    private bool isLoading = false;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await LoadStaff();
-        await EnsureRoles();
-    }
-
-    private async Task LoadStaff()
-    {
-        staffList = StaffRepo.GetAllStaff();
-        // Fallback for demo if empty
-        if (!staffList.Any())
+        if (firstRender && grid != null)
         {
-            // Optional: load dummy data? No, let's keep it clean.
+            await grid.Reload();
+            StateHasChanged();
         }
     }
 
-    private string GetRoleBadgeClass(string role)
+    async Task LoadData(LoadDataArgs args)
+    {
+        isLoading = true;
+
+        // Skip/Take for pagination
+        var skip = args.Skip ?? 0;
+        var take = args.Top ?? 10;
+
+        // OrderBy
+        var orderBy = args.OrderBy;
+        if (string.IsNullOrEmpty(orderBy))
+        {
+            orderBy = "FullName"; // Default
+        }
+
+        // Implementation of server-side pagination
+        staffList = StaffRepo.GetStaffPaged(skip, take, args.Filter, orderBy);
+        count = StaffRepo.GetStaffCount();
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await EnsureRoles();
+    }
+
+    private BadgeStyle GetRoleBadgeStyle(string role)
     {
         return role switch
         {
-            "Admin" => "bg-danger",
-            "Doctor" => "bg-primary",
-            "Nurse" => "bg-info text-dark",
-            "Receptionist" => "bg-warning text-dark",
-            _ => "bg-secondary"
+            "Admin" => BadgeStyle.Danger,
+            "Doctor" => BadgeStyle.Primary,
+            "Nurse" => BadgeStyle.Info,
+            "Receptionist" => BadgeStyle.Warning,
+            _ => BadgeStyle.Secondary
         };
     }
 
@@ -91,7 +150,7 @@
 
         if (result == true)
         {
-            await LoadStaff();
+            await grid.Reload();
             NotificationService.Notify(NotificationSeverity.Success, "Staff Created", "New staff member added successfully.");
         }
     }
@@ -104,7 +163,7 @@
 
         if (result == true)
         {
-            await LoadStaff();
+            await grid.Reload();
             NotificationService.Notify(NotificationSeverity.Success, "Staff Updated", "Staff details updated successfully.");
         }
     }

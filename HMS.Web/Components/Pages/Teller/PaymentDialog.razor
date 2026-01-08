@@ -7,107 +7,133 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IJSRuntime JSRuntime
 
-<div class="row gap-3">
+<RadzenStack Gap="1.5rem">
     <!-- Detailed Bill View -->
-    <div class="col-12 mb-2">
-        <RadzenCard class="p-0">
-            <RadzenAccordion>
-                <Items>
-                    <RadzenAccordionItem Text="View Detailed Bill" Icon="receipt_long">
-                        <div id="printable-bill">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h5>Hospital Bill Invoice</h5>
-                                <small class="text-muted">Bill #@BillId</small>
-                            </div>
+    <RadzenCard Class="rz-p-0" Style="overflow: hidden; border-radius: 12px;">
+        <RadzenAccordion>
+            <Items>
+                <RadzenAccordionItem Text="View Detailed Bill Audit" Icon="receipt_long">
+                    <RadzenStack Gap="1.5rem" Class="rz-p-4" id="printable-bill">
+                        <RadzenAlert AlertStyle="AlertStyle.Light" Variant="Variant.Flat" Shade="Shade.Lighter"
+                            AllowClose="false" Class="rz-text-align-center rz-p-6"
+                            Style="border: 1px solid var(--rz-border-color-light);">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenText Text="TOTAL AMOUNT" TextStyle="TextStyle.Caption"
+                                    Class="rz-color-text-secondary rz-m-0" />
+                                <RadzenText Text="@BillAmount.ToString("C")" TextStyle="TextStyle.H2"
+                                    Class="rz-m-0 rz-font-weight-bold" />
+                                @if (DueAmount > 0)
+                                {
+                                    <RadzenText Text="@($"Balance Due: {DueAmount:C}")" TextStyle="TextStyle.Subtitle2"
+                                        Class="rz-color-danger rz-font-weight-bold" />
+                                }
+                            </RadzenStack>
+                        </RadzenAlert>
 
-                            <table class="table table-sm table-bordered">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Description</th>
-                                        <th class="text-end">Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in BillItems)
-                                    {
-                                        <tr>
-                                            <td>
-                                                <span class="badge bg-secondary me-2">@item.Category</span>
-                                                @item.Description
-                                            </td>
-                                            <td class="text-end">@item.Amount.ToString("C")</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                                <tfoot>
-                                    <tr class="fw-bold">
-                                        <td>Total</td>
-                                        <td class="text-end">@BillAmount.ToString("C")</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                        <div class="text-end">
-                            <RadzenButton Text="Print Bill" Icon="print" Size="ButtonSize.Small"
-                                ButtonStyle="ButtonStyle.Secondary" Click="@PrintBill" />
-                        </div>
-                    </RadzenAccordionItem>
-                </Items>
-            </RadzenAccordion>
-        </RadzenCard>
-    </div>
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenText Text="Internal Itemized Audit" TextStyle="TextStyle.Subtitle2"
+                                Class="rz-font-weight-bold rz-border-bottom rz-pb-1" />
+                            <RadzenDataGrid Data="@BillItems" TItem="BillItem" Density="Density.Compact"
+                                Class="rz-border-none">
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="BillItem" Title="Description">
+                                        <Template Context="item">
+                                            <RadzenStack Orientation="Orientation.Horizontal"
+                                                AlignItems="AlignItems.Center" Gap="0.5rem">
+                                                <RadzenBadge Text="@item.Category" BadgeStyle="BadgeStyle.Secondary"
+                                                    IsPill="true" Shade="Shade.Lighter" />
+                                                <RadzenText Text="@item.Description" TextStyle="TextStyle.Body2" />
+                                            </RadzenStack>
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="BillItem" Title="Amount" Width="120px"
+                                        TextAlign="TextAlign.Right">
+                                        <Template Context="item">
+                                            <RadzenText Text="@item.Amount.ToString("C")" TextStyle="TextStyle.Body2" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                </Columns>
+                            </RadzenDataGrid>
+                        </RadzenStack>
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End"
+                        Class="rz-p-4">
+                        <RadzenButton Text="Print Bill" Icon="print" Size="ButtonSize.Small"
+                            ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Flat" Click="@PrintBill" />
+                    </RadzenStack>
+                </RadzenAccordionItem>
+            </Items>
+        </RadzenAccordion>
+    </RadzenCard>
 
     <!-- Payment Form -->
-    <div class="col-12">
-        <RadzenTemplateForm Data="@paymentModel" Submit="@(async (Payment args) => await SubmitPayment(args))">
-            <RadzenCard Class="mb-3">
-                <RadzenText TextStyle="TextStyle.Overline">Total Bill Amount</RadzenText>
-                <RadzenText TextStyle="TextStyle.H4">@BillAmount.ToString("C")</RadzenText>
-
-                <RadzenText TextStyle="TextStyle.Overline" Class="mt-2">Amount Due</RadzenText>
-                <RadzenText TextStyle="TextStyle.H5" Class="text-danger">@DueAmount.ToString("C")</RadzenText>
+    <RadzenTemplateForm Data="@paymentModel" Submit="@(async (Payment args) => await SubmitPayment(args))">
+        <RadzenStack Gap="1.5rem">
+            <RadzenCard Class="rz-shadow-2">
+                <RadzenRow>
+                    <RadzenColumn Size="12" SizeMD="6" Class="rz-text-align-center rz-text-align-md-left">
+                        <RadzenStack Gap="0">
+                            <RadzenText Text="Total Bill Amount" TextStyle="TextStyle.Caption"
+                                Class="rz-color-text-secondary" />
+                            <RadzenText Text="@BillAmount.ToString("C")" TextStyle="TextStyle.H5"
+                                Class="rz-font-weight-bold" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="6" Class="rz-text-align-center rz-text-align-md-right">
+                        <RadzenStack Gap="0">
+                            <RadzenText Text="Amount Due" TextStyle="TextStyle.Caption"
+                                Class="rz-color-text-secondary" />
+                            <RadzenText Text="@DueAmount.ToString("C")" TextStyle="TextStyle.H5"
+                                Class="rz-color-danger rz-font-weight-bold" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                </RadzenRow>
             </RadzenCard>
 
-            <div class="mb-3">
-                <RadzenLabel Component="Amount" Text="Amount Received" />
-                <RadzenNumeric @bind-Value="paymentModel.Amount" Name="Amount" Class="w-100" Max="@DueAmount"
-                    Format="C" />
-                <RadzenRequiredValidator Component="Amount" Text="Amount is required" />
-                <RadzenCompareValidator Value="@(0.01m)" Component="Amount" Text="Amount must be greater than 0"
-                    Operator="CompareOperator.GreaterThanEqual" />
-            </div>
+            <RadzenStack Gap="1rem">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenLabel Component="Amount" Text="Amount Received" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenNumeric @bind-Value="paymentModel.Amount" Name="Amount" Class="rz-w-100" Max="@DueAmount"
+                        Format="C" />
+                    <RadzenRequiredValidator Component="Amount" Text="Amount is required" />
+                    <RadzenCompareValidator Value="@(0.01m)" Component="Amount" Text="Amount must be greater than 0"
+                        Operator="CompareOperator.GreaterThanEqual" />
+                </RadzenStack>
 
-            <div class="mb-3">
-                <RadzenLabel Component="PaymentMethod" Text="Payment Method" />
-                <RadzenDropDown @bind-Value="paymentModel.PaymentMethod" Data="@paymentMethods" Name="PaymentMethod"
-                    Class="w-100" />
-                <RadzenRequiredValidator Component="PaymentMethod" Text="Method is required" />
-            </div>
+                <RadzenStack Gap="0.5rem">
+                    <RadzenLabel Component="PaymentMethod" Text="Payment Method" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenDropDown @bind-Value="paymentModel.PaymentMethod" Data="@paymentMethods" Name="PaymentMethod"
+                        Class="rz-w-100" />
+                    <RadzenRequiredValidator Component="PaymentMethod" Text="Method is required" />
+                </RadzenStack>
 
-            @if (paymentModel.PaymentMethod != "Cash")
-            {
-                <div class="mb-3">
-                    <RadzenLabel Component="ReferenceNumber" Text="Reference Number / Transaction ID" />
-                    <RadzenTextBox @bind-Value="paymentModel.ReferenceNumber" Name="ReferenceNumber" Class="w-100" />
-                    <RadzenRequiredValidator Component="ReferenceNumber"
-                        Text="Reference Number is required for digital payments" />
-                </div>
-            }
+                @if (paymentModel.PaymentMethod != "Cash")
+                {
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenLabel Component="ReferenceNumber" Text="Reference Number / Transaction ID"
+                            TextStyle="TextStyle.Subtitle2" />
+                        <RadzenTextBox @bind-Value="paymentModel.ReferenceNumber" Name="ReferenceNumber" Class="rz-w-100" />
+                        <RadzenRequiredValidator Component="ReferenceNumber"
+                            Text="Reference Number is required for digital payments" />
+                    </RadzenStack>
+                }
 
-            <div class="mb-3">
-                <RadzenLabel Component="Remarks" Text="Remarks (Optional)" />
-                <RadzenTextArea @bind-Value="paymentModel.Remarks" Name="Remarks" Class="w-100" />
-            </div>
+                <RadzenStack Gap="0.5rem">
+                    <RadzenLabel Component="Remarks" Text="Remarks (Optional)" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenTextArea @bind-Value="paymentModel.Remarks" Name="Remarks" Class="rz-w-100" Rows="2" />
+                </RadzenStack>
+            </RadzenStack>
 
-            <div class="text-end mt-4">
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem"
+                Class="rz-mt-4">
                 <RadzenButton ButtonType="ButtonType.Submit" Text="Confirm Payment" ButtonStyle="ButtonStyle.Primary"
                     Icon="check_circle" />
-                <RadzenButton Text="Cancel" Click="@(() => DialogService.Close(false))" ButtonStyle="ButtonStyle.Light"
-                    Class="ms-2" />
-            </div>
-        </RadzenTemplateForm>
-    </div>
-</div>
+                <RadzenButton Text="Cancel" Click="@(() => DialogService.Close(false))"
+                    ButtonStyle="ButtonStyle.Light" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenTemplateForm>
+</RadzenStack>
 
 @code {
     [Parameter] public int BillId { get; set; }

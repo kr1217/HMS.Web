@@ -359,8 +359,10 @@ namespace HMS.Web.Models
         public string? PatientName { get; set; }
         public string? BedNumber { get; set; }
         public string? WardName { get; set; }
+        public string? RoomNumber { get; set; }
         public string? RoomTypeName { get; set; }
         public decimal DailyRate { get; set; }
+        public bool HasPendingBill { get; set; }
     }
 
     public class Ward
@@ -453,5 +455,14 @@ namespace HMS.Web.Models
         public string TheaterName { get; set; } = string.Empty;
         public string Status { get; set; } = "Available"; // Available, Maintenance, InUse
         public bool IsActive { get; set; } = true;
+    }
+
+    public class DoctorDashboardStats
+    {
+        public int AppointmentsToday { get; set; }
+        public int PendingApprovals { get; set; }
+        public int TotalPatientsServed { get; set; }
+        public decimal MonthlyCommission { get; set; }
+        public int PendingReports { get; set; }
     }
 }

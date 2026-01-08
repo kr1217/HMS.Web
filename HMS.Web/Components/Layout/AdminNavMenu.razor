@@ -3,107 +3,58 @@
 @inject HMS.Web.DAL.FinanceRepository FinanceRepo
 @inject AuthenticationStateProvider AuthProvider
 @inject IJSRuntime JSRuntime
-@rendermode InteractiveServer
+@using Radzen.Blazor
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="admin/dashboard">HMS Admin</a>
-    </div>
-</div>
+<RadzenPanelMenu>
+    <AuthorizeView Roles="Admin">
+        <Authorized>
+            <RadzenPanelMenuItem Text="Governance" Icon="admin_panel_settings" Expanded="true">
+                <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="admin/dashboard" />
+                <RadzenPanelMenuItem Text="Staff Registry" Icon="people" Path="admin/staff" />
+            </RadzenPanelMenuItem>
 
+            <RadzenPanelMenuItem Text="Clinical Operations" Icon="local_hospital">
+                <RadzenPanelMenuItem Text="Admissions" Icon="bed" Path="admin/admissions" />
+                <RadzenPanelMenuItem Text="Pending Ops" Icon="emergency" Path="Admin/OperationRequests" />
+                <RadzenPanelMenuItem Text="OT Schedule" Icon="event" Path="admin/ot-schedule" />
+                <RadzenPanelMenuItem Text="Post-Op Handover" Icon="transfer_within_a_station"
+                    Path="admin/pending-transfers" />
+            </RadzenPanelMenuItem>
 
-<div class="nav-scrollable">
-    <nav class="nav flex-column">
-        @using Radzen.Blazor
-        <AuthorizeView Roles="Admin">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/dashboard">
-                        <RadzenIcon Icon="dashboard" Style="margin-right: 10px;" /> Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/staff">
-                        <RadzenIcon Icon="people" Style="margin-right: 10px;" /> Staff Registry
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/finance">
-                        <RadzenIcon Icon="attach_money" /> Financials
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/facilities">
-                        <RadzenIcon Icon="meeting_room" /> Facilities
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/admissions">
-                        <RadzenIcon Icon="local_hospital" Style="margin-right: 10px;" /> Admissions
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Admin/OperationRequests">
-                        <RadzenIcon Icon="emergency" Style="margin-right: 10px;" /> Pending Ops
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/ot-schedule">
-                        <RadzenIcon Icon="calendar_today" Style="margin-right: 10px;" /> OT Schedule
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/pending-transfers">
-                        <RadzenIcon Icon="transfer_within_a_station" Style="margin-right: 10px;" /> Post-Op Handover
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/settlements">
-                        <RadzenIcon Icon="payments" Style="margin-right: 10px;" /> Settlements
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/shift-report">
-                        <RadzenIcon Icon="assessment" Style="margin-right: 10px;" /> Shift Reports
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
+            <RadzenPanelMenuItem Text="Infrastructure" Icon="business">
+                <RadzenPanelMenuItem Text="Facilities" Icon="meeting_room" Path="admin/facilities" />
+            </RadzenPanelMenuItem>
 
-        <AuthorizeView Roles="Teller">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="teller/dashboard">
-                        <RadzenIcon Icon="point_of_sale" Style="margin-right: 10px;" /> Teller Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/shift-report">
-                        <RadzenIcon Icon="assessment" Style="margin-right: 10px;" /> Shift Reports
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
+            <RadzenPanelMenuItem Text="Finance & HR" Icon="payments">
+                <RadzenPanelMenuItem Text="Financial Hub" Icon="attach_money" Path="admin/finance" />
+                <RadzenPanelMenuItem Text="Doctor Settlements" Icon="account_balance" Path="admin/settlements" />
+                <RadzenPanelMenuItem Text="Shift Reports" Icon="assessment" Path="admin/shift-report" />
+            </RadzenPanelMenuItem>
+        </Authorized>
+    </AuthorizeView>
 
-        <AuthorizeView>
-            <Authorized>
-                <div class="nav-item px-3">
-                    <form action="/Account/Logout" method="post" @ref="logoutForm">
-                        <AntiforgeryToken />
-                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                        <button type="button" class="nav-link" @onclick="HandleLogout">
-                            <RadzenIcon Icon="logout" Style="margin-right: 10px;" /> Logout
-                        </button>
-                    </form>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-    </nav>
-</div>
+    <AuthorizeView Roles="Teller">
+        <Authorized>
+            <RadzenPanelMenuItem Text="Teller Services" Icon="point_of_sale" Expanded="true">
+                <RadzenPanelMenuItem Text="Teller Desk" Icon="desk" Path="teller/dashboard" />
+            </RadzenPanelMenuItem>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView>
+        <Authorized>
+            <RadzenPanelMenuItem Text="Exit" Icon="close" Click="HandleLogout" />
+        </Authorized>
+    </AuthorizeView>
+</RadzenPanelMenu>
+
+<form action="/Account/Logout" method="post" id="adminLogoutForm" style="display:none">
+    <AntiforgeryToken />
+    <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+</form>
 
 @code {
     private string? currentUrl;
-    private ElementReference logoutForm;
 
     protected override void OnInitialized()
     {
@@ -148,8 +99,6 @@
             }
         }
 
-        // Submit the form
-        // Using a simpler JS approach to avoid prototype lookup issues
-        await JSRuntime.InvokeVoidAsync("eval", $"document.querySelector('form[action=\"/Account/Logout\"]').submit();");
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('adminLogoutForm').submit();");
     }
 }

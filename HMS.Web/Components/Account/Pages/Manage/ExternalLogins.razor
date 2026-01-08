@@ -9,58 +9,70 @@
 @inject IUserStore<ApplicationUser> UserStore
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Manage your external logins</PageTitle>
+<PageTitle>Clinical Federation | External Identity</PageTitle>
 
-<StatusMessage />
-@if (currentLogins?.Count > 0)
-{
-    <h3>Registered Logins</h3>
-    <table class="table">
-        <tbody>
-            @foreach (var login in currentLogins)
-            {
-                <tr>
-                    <td>@login.ProviderDisplayName</td>
-                    <td>
-                        @if (showRemoveButton)
-                        {
-                            <form @formname="@($"remove-login-{login.LoginProvider}")" @onsubmit="OnSubmitAsync" method="post">
-                                <AntiforgeryToken />
-                                <div>
+<RadzenStack Gap="1.5rem">
+    <RadzenText Text="External Clinical Identity Management" TextStyle="TextStyle.H5" Class="rz-m-0 rz-color-primary" />
+    <StatusMessage />
+
+    @if (currentLogins?.Count > 0)
+    {
+        <RadzenCard Class="rz-shadow-2">
+            <RadzenText Text="Authorized External Providers" TextStyle="TextStyle.Subtitle1" Class="rz-mb-4" />
+            <RadzenStack Gap="1rem">
+                @foreach (var login in currentLogins)
+                {
+                    <RadzenCard Variant="Variant.Flat" Class="rz-background-color-base-100 rz-p-3">
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenIcon Icon="extension" Style="color: var(--rz-primary);" />
+                                <RadzenText Text="@login.ProviderDisplayName" TextStyle="TextStyle.Body1" Class="rz-m-0 rz-font-weight-bold" />
+                            </RadzenStack>
+
+                            @if (showRemoveButton)
+                            {
+                                <form @formname="@($"remove-login-{login.LoginProvider}")" @onsubmit="OnSubmitAsync" method="post">
+                                    <AntiforgeryToken />
                                     <input type="hidden" name="@nameof(LoginProvider)" value="@login.LoginProvider" />
                                     <input type="hidden" name="@nameof(ProviderKey)" value="@login.ProviderKey" />
-                                    <button type="submit" class="btn btn-primary" title="Remove this @login.ProviderDisplayName login from your account">Remove</button>
-                                </div>
-                            </form>
-                        }
-                        else
-                        {
-                            @: &nbsp;
-                        }
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
-@if (otherLogins?.Count > 0)
-{
-    <h4>Add another service to log in.</h4>
-    <hr />
-    <form class="form-horizontal" action="Account/Manage/LinkExternalLogin" method="post">
-        <AntiforgeryToken />
-        <div>
-            <p>
-                @foreach (var provider in otherLogins)
-                {
-                    <button type="submit" class="btn btn-primary" name="Provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">
-                        @provider.DisplayName
-                    </button>
+                                    <RadzenButton ButtonType="ButtonType.Submit" Icon="link_off" 
+                                                  ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" 
+                                                  Text="Revoke Authorization" 
+                                                  ToolTip="@($"Unlink {login.ProviderDisplayName} from institutional account")" />
+                                </form>
+                            }
+                            else
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="Primary Identity" />
+                            }
+                        </RadzenStack>
+                    </RadzenCard>
                 }
-            </p>
-        </div>
-    </form>
-}
+            </RadzenStack>
+        </RadzenCard>
+    }
+
+    @if (otherLogins?.Count > 0)
+    {
+        <RadzenCard Class="rz-shadow-2">
+            <RadzenText Text="Establish New External Federation" TextStyle="TextStyle.Subtitle1" Class="rz-mb-4" />
+            <RadzenText Text="Select a secure provider to authorize for secondary access control." TextStyle="TextStyle.Caption" Class="rz-mb-4 rz-color-text-secondary" />
+            
+            <form action="Account/Manage/LinkExternalLogin" method="post">
+                <AntiforgeryToken />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" Wrap="FlexWrap.Wrap">
+                    @foreach (var provider in otherLogins)
+                    {
+                        <RadzenButton ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Filled"
+                                      Icon="add_link" Text="@($"Authorize {provider.DisplayName}")"
+                                      Attributes="@(new Dictionary<string, object> { { "name", "Provider" }, { "value", provider.Name } })"
+                                      Title="@($"Authenticate using your {provider.DisplayName} credentials")" />
+                    }
+                </RadzenStack>
+            </form>
+        </RadzenCard>
+    }
+</RadzenStack>
 
 @code {
     public const string LinkLoginCallbackAction = "LinkLoginCallback";
@@ -121,12 +133,12 @@
         var result = await UserManager.RemoveLoginAsync(user, LoginProvider!, ProviderKey!);
         if (!result.Succeeded)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: The external login was not removed.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: External identity revocation failed.", HttpContext);
         }
         else
         {
             await SignInManager.RefreshSignInAsync(user);
-            RedirectManager.RedirectToCurrentPageWithStatus("The external login was removed.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("External identity authorization revoked.", HttpContext);
         }
     }
 
@@ -142,7 +154,7 @@
         var info = await SignInManager.GetExternalLoginInfoAsync(userId);
         if (info is null)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: Could not load external login info.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: Unable to retrieve external federation manifests.", HttpContext);
             return;
         }
 
@@ -152,11 +164,11 @@
             // Clear the existing external cookie to ensure a clean login process
             await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
 
-            RedirectManager.RedirectToCurrentPageWithStatus("The external login was added.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("External identity federation established.", HttpContext);
         }
         else
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: The external login was not added. External logins can only be associated with one account.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: Federation failed. External identity may already be orchestrated elsewhere.", HttpContext);
         }
     }
 }

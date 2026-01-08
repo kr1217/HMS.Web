@@ -1,0 +1,155 @@
+@page "/admin/seed-database"
+@using HMS.Web.Services
+@using HMS.Web.DAL
+@using Microsoft.AspNetCore.Identity
+@using HMS.Web.Data
+@using Microsoft.AspNetCore.Authorization
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@inject DatabaseHelper DatabaseHelper
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+
+<PageTitle>Database Seeder</PageTitle>
+
+<RadzenStack Gap="2rem" Class="rz-p-4">
+    <RadzenText TextStyle="TextStyle.H4" Text="Database Seeder" />
+    
+    @if (isSeeding)
+    {
+        <RadzenCard>
+            <RadzenStack AlignItems="AlignItems.Center" Gap="1rem">
+                <RadzenProgressBarCircular Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                <RadzenText Text="Seeding database... This may take several minutes." TextStyle="TextStyle.H6" />
+                <RadzenText Text="@currentStatus" TextStyle="TextStyle.Body1" Class="rz-color-info" />
+            </RadzenStack>
+        </RadzenCard>
+    }
+    else if (seedingComplete)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Success" Variant="Variant.Flat" Shade="Shade.Lighter">
+            <RadzenStack Gap="0.5rem">
+                <RadzenText Text="Database seeding completed successfully!" TextStyle="TextStyle.H6" />
+                <RadzenText Text="@completionMessage" TextStyle="TextStyle.Body2" />
+            </RadzenStack>
+        </RadzenAlert>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter">
+            <RadzenStack Gap="0.5rem">
+                <RadzenText Text="Error during seeding:" TextStyle="TextStyle.H6" />
+                <RadzenText Text="@errorMessage" TextStyle="TextStyle.Body2" />
+            </RadzenStack>
+        </RadzenAlert>
+    }
+
+    <RadzenCard>
+        <RadzenStack Gap="1rem">
+            <RadzenText TextStyle="TextStyle.H6" Text="Seeding Information" />
+            <RadzenText TextStyle="TextStyle.Body1">
+                This will seed the database with:
+            </RadzenText>
+            <ul>
+                <li>1000 entries for each table (Wards, Rooms, Beds, etc.)</li>
+                <li>10 working Doctor profiles (doctor1@antigravity.hospital to doctor10@antigravity.hospital)</li>
+                <li>10 working Patient profiles (patient1@antigravity.hospital to patient10@antigravity.hospital)</li>
+                <li>10 working Teller profiles (teller1@antigravity.hospital to teller10@antigravity.hospital)</li>
+                <li>10 working OT Staff profiles (otstaff1@antigravity.hospital to otstaff10@antigravity.hospital)</li>
+                <li>1 Admin profile (admin@antigravity.hospital)</li>
+                <li>Password for all profiles: Role@123 (e.g., Doctor@123, Patient@123)</li>
+            </ul>
+
+            <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter">
+                <RadzenText Text="Warning: This operation will add a large amount of data to your database. Make sure you have a backup before proceeding." />
+            </RadzenAlert>
+
+            <RadzenButton Text="Start Seeding" 
+                         ButtonStyle="ButtonStyle.Primary" 
+                         Icon="play_arrow"
+                         Click="@StartSeeding" 
+                         Disabled="@isSeeding"
+                         Size="ButtonSize.Large" />
+        </RadzenStack>
+    </RadzenCard>
+
+    @if (seedingComplete)
+    {
+        <RadzenCard>
+            <RadzenStack Gap="1rem">
+                <RadzenText TextStyle="TextStyle.H6" Text="Test Credentials" />
+                <RadzenText TextStyle="TextStyle.Body1">You can now login with these credentials:</RadzenText>
+                
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText TextStyle="TextStyle.Subtitle1" Text="Admin:" Class="rz-font-weight-bold" />
+                    <RadzenText Text="Email: admin@antigravity.hospital" />
+                    <RadzenText Text="Password: Admin@123" />
+                </RadzenStack>
+
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText TextStyle="TextStyle.Subtitle1" Text="Doctors:" Class="rz-font-weight-bold" />
+                    <RadzenText Text="Email: doctor1@antigravity.hospital to doctor10@antigravity.hospital" />
+                    <RadzenText Text="Password: Doctor@123" />
+                </RadzenStack>
+
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText TextStyle="TextStyle.Subtitle1" Text="Patients:" Class="rz-font-weight-bold" />
+                    <RadzenText Text="Email: patient1@antigravity.hospital to patient10@antigravity.hospital" />
+                    <RadzenText Text="Password: Patient@123" />
+                </RadzenStack>
+
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText TextStyle="TextStyle.Subtitle1" Text="Tellers:" Class="rz-font-weight-bold" />
+                    <RadzenText Text="Email: teller1@antigravity.hospital to teller10@antigravity.hospital" />
+                    <RadzenText Text="Password: Teller@123" />
+                </RadzenStack>
+
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText TextStyle="TextStyle.Subtitle1" Text="OT Staff:" Class="rz-font-weight-bold" />
+                    <RadzenText Text="Email: otstaff1@antigravity.hospital to otstaff10@antigravity.hospital" />
+                    <RadzenText Text="Password: OTStaff@123" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+    }
+</RadzenStack>
+
+@code {
+    private bool isSeeding = false;
+    private bool seedingComplete = false;
+    private string currentStatus = "";
+    private string errorMessage = "";
+    private string completionMessage = "";
+
+    private async Task StartSeeding()
+    {
+        isSeeding = true;
+        seedingComplete = false;
+        errorMessage = "";
+        currentStatus = "Initializing seeder...";
+        StateHasChanged();
+
+        try
+        {
+            var seeder = new DatabaseSeeder(DatabaseHelper, UserManager, RoleManager);
+            
+            currentStatus = "Seeding database tables... Please wait.";
+            StateHasChanged();
+
+            await seeder.SeedAllData();
+
+            seedingComplete = true;
+            completionMessage = "All tables have been seeded successfully with 1000 entries each. Test user accounts are ready to use.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"{ex.Message}\n\nStack Trace: {ex.StackTrace}";
+        }
+        finally
+        {
+            isSeeding = false;
+            StateHasChanged();
+        }
+    }
+}

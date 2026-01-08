@@ -6,76 +6,94 @@
 @inject AppointmentRepository AppointmentRepo
 @inject PatientRepository PatientRepo
 @inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
 
-<h3>Online Consultation</h3>
+<PageTitle>Tele-Consultation Hub | Patient</PageTitle>
 
-<div class="row">
-    <div class="col-md-8">
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                Upcoming Video Consultations
-            </div>
-            <div class="card-body">
-                @if (appointments == null)
-                {
-                    <p>Loading...</p>
-                }
-                else if (!appointments.Any(a => a.AppointmentMode == "Online"))
-                {
-                    <p>No upcoming online consultations.</p>
-                    <a href="/patient/appointments" class="btn btn-outline-primary">Book Consultation</a>
-                }
-                else
-                {
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Doctor</th>
-                                    <th>Status</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var appt in appointments.Where(a => a.AppointmentMode == "Online"))
-                                {
-                                    <tr>
-                                        <td>@appt.AppointmentDate.ToString("g")</td>
-                                        <td>@appt.DoctorName</td>
-                                        <td><span class="badge bg-info">@appt.Status</span></td>
-                                        <td>
-                                            @if (appt.Status == "Confirmed")
-                                            {
-                                                <button class="btn btn-success btn-sm" @onclick="JoinConsultation">Join Call <span class="oi oi-camera-slr"></span></button>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">Waiting for confirmation</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-         <div class="card">
-            <div class="card-header">
-                Digital Prescriptions
-            </div>
-             <div class="card-body">
-                 <p>Prescriptions will appear here after your call.</p>
-                 <a href="/patient/prescriptions" class="btn btn-link">View All History</a>
-             </div>
-         </div>
-    </div>
-</div>
+<RadzenStack Gap="1.5rem" Class="rz-p-4 rz-p-md-6">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="Online Tele-Consultation Hub" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="Access your virtual clinical orchestrations and post-consultation digital artifacts." TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+    </RadzenStack>
+
+    <RadzenRow Gap="2rem">
+        <RadzenColumn Size="12" SizeMD="8">
+            <RadzenCard Class="rz-shadow-3 rz-p-0" Style="overflow: hidden; border-radius: 12px;">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Class="rz-p-4 rz-background-color-primary-darker">
+                    <RadzenIcon Icon="video_chat" Style="color: white;" />
+                    <RadzenText Text="Upcoming Virtual Engagements" TextStyle="TextStyle.H6" Class="rz-m-0" Style="color: white;" />
+                </RadzenStack>
+
+                <RadzenStack Gap="1rem" Class="rz-p-6">
+                    @if (appointments == null)
+                    {
+                        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 200px;" />
+                            <RadzenText Text="Synchronizing session data..." TextStyle="TextStyle.Caption" />
+                        </RadzenStack>
+                    }
+                    else if (!appointments.Any(a => a.AppointmentMode == "Online"))
+                    {
+                        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                            <RadzenIcon Icon="event_busy" Style="font-size: 4rem; color: var(--rz-text-disabled-color);" />
+                            <RadzenText Text="No virtual clinical orchestrations found." TextStyle="TextStyle.Subtitle1" Class="rz-color-text-secondary" />
+                            <RadzenButton Text="Schedule Virtual Session" Icon="add_circle" ButtonStyle="ButtonStyle.Primary" Click="@(() => NavigationManager.NavigateTo("/patient/appointments"))" />
+                        </RadzenStack>
+                    }
+                    else
+                    {
+                        <RadzenDataGrid Data="@appointments.Where(a => a.AppointmentMode == "Online")" TItem="Appointment" AllowPaging="true" PageSize="5">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="Appointment" Property="AppointmentDate" Title="Temporal Schedule">
+                                    <Template Context="appt">
+                                        <RadzenText Text="@appt.AppointmentDate.ToString("f")" TextStyle="TextStyle.Body2" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="Appointment" Property="DoctorName" Title="Assigned Physician" />
+                                <RadzenDataGridColumn TItem="Appointment" Property="Status" Title="Orchestration State" Width="150px">
+                                    <Template Context="appt">
+                                        <RadzenBadge Text="@appt.Status" BadgeStyle="@GetStatusBadgeStyle(appt.Status)" IsPill="true" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="Appointment" Title="Actions" Width="150px" TextAlign="TextAlign.Center" Sortable="false" Filterable="false">
+                                    <Template Context="appt">
+                                        @if (appt.Status == "Confirmed")
+                                        {
+                                            <RadzenButton Text="Synchronize (Join)" Icon="videocam" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" Click="@JoinConsultation" />
+                                        }
+                                        else
+                                        {
+                                            <RadzenText Text="Awaiting Clearance" TextStyle="TextStyle.Caption" Class="rz-color-text-disabled" />
+                                        }
+                                    </Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </RadzenDataGrid>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenStack Gap="1.5rem">
+                <RadzenCard Class="rz-shadow-2">
+                    <RadzenStack Gap="1rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenIcon Icon="description" Style="color: var(--rz-primary);" />
+                            <RadzenText Text="Clinical Artifacts" TextStyle="TextStyle.Subtitle1" Class="rz-m-0 rz-font-weight-bold" />
+                        </RadzenStack>
+                        <RadzenText Text="Digital prescriptions and clinical summaries will materialize here post-session synchronization." TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                        <RadzenButton Text="Audit Prescription History" Variant="Variant.Text" Icon="history" Click="@(() => NavigationManager.NavigateTo("/patient/prescriptions"))" Class="rz-p-0 rz-text-align-left" />
+                    </RadzenStack>
+                </RadzenCard>
+                
+                <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="help">
+                    Technological Prerequisites: Ensure your terminal has an active optical sensor and acoustic transducer engaged before synchronization.
+                </RadzenAlert>
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+</RadzenStack>
 
 @code {
     private List<Appointment>? appointments;
@@ -89,7 +107,7 @@
         var authState = await AuthenticationStateTask;
         var user = authState.User;
 
-        if (user.Identity.IsAuthenticated)
+        if (user.Identity?.IsAuthenticated == true)
         {
             var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId != null)
@@ -103,9 +121,19 @@
         }
     }
 
+    private BadgeStyle GetStatusBadgeStyle(string status)
+    {
+        return status switch
+        {
+            "Confirmed" => BadgeStyle.Success,
+            "Pending" => BadgeStyle.Warning,
+            "Cancelled" => BadgeStyle.Danger,
+            _ => BadgeStyle.Info
+        };
+    }
+
     private void JoinConsultation()
     {
         // Mock logic for joining a video call
-        // In a real app, this would redirect to a WebRTC room or Zoom integration
     }
 }

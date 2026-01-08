@@ -1,1111 +1,316 @@
-@page "/Doctor/Dashboard"
+@page "/doctor/dashboard"
 @rendermode InteractiveServer
-@using Microsoft.AspNetCore.Authorization
-@using HMS.Web.Models
-@using HMS.Web.DAL
-@using HMS.Web.Data
-@using Microsoft.AspNetCore.Identity
-@using System.Security.Claims
 @attribute [Authorize(Roles = "Doctor")]
 @inject DoctorRepository DoctorRepo
-@inject DoctorShiftRepository ShiftRepo
 @inject AppointmentRepository AppointmentRepo
-@inject NotificationRepository NotificationRepo
+@inject DoctorShiftRepository ShiftRepo
+@inject ReportRepository ReportRepo
 @inject AuthenticationStateProvider AuthStateProvider
-@inject UserManager<ApplicationUser> UserManager
-@inject NavigationManager Nav
+@inject NavigationManager Navigation
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using Microsoft.AspNetCore.Components.Authorization
 
-<div class="container-fluid mt-4">
-    @if (CurrentDoctor == null)
-    {
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card shadow">
-                    <div class="card-header bg-primary text-white">
-                        <h3 class="mb-0">Complete Your Professional Profile</h3>
-                    </div>
-                    <div class="card-body">
-                        <p class="text-muted">Welcome, Doctor! Please complete your profile to start managing your practice.</p>
-                        <EditForm Model="NewDoctor" OnValidSubmit="CreateProfile" FormName="DoctorProfileForm">
-                            <DataAnnotationsValidator />
-                            <ValidationSummary class="text-danger" />
+<PageTitle>Doctor Dashboard | Hospital Management</PageTitle>
 
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Full Name</label>
-                                    <InputText @bind-Value="NewDoctor.FullName" class="form-control" placeholder="Dr. Name" />
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Contact Number</label>
-                                    <InputText @bind-Value="NewDoctor.ContactNumber" class="form-control" />
-                                </div>
-                            </div>
+<RadzenStack Gap="1.5rem" Class="rz-p-4 rz-p-md-6">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="@($"Welcome, Dr. {currentDoctor?.FullName ?? "Physician"}")" TextStyle="TextStyle.H4"
+                Class="rz-m-0 rz-color-primary" />
+            <RadzenText Text="Manage your clinical schedule, patient consultations, and diagnostic reports."
+                TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+        </RadzenStack>
+        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@(currentDoctor?.Specialization ?? "General Practice")"
+            IsPill="true" Style="font-size: 1rem; padding: 0.5rem 1rem;" />
+    </RadzenStack>
 
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Gender</label>
-                                    <InputSelect @bind-Value="NewDoctor.Gender" class="form-select">
-                                        <option value="">Select Gender</option>
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Other">Other</option>
-                                    </InputSelect>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Email</label>
-                                    <InputText @bind-Value="NewDoctor.Email" class="form-control" />
-                                </div>
-                            </div>
+    <RadzenRow Gap="1.5rem">
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="rz-p-4 rz-background-color-primary-lighter"
+                Style="border-radius: 12px; border-left: 6px solid var(--rz-primary);">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="calendar_today" Style="font-size: 2.5rem; color: var(--rz-primary);" />
+                    <RadzenStack Gap="0">
+                        <RadzenText Text="Today's Sessions" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                        <RadzenText Text="@stats.AppointmentsToday.ToString()" TextStyle="TextStyle.H4"
+                            Class="rz-m-0 rz-font-weight-bold" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="rz-p-4 rz-background-color-warning-lighter"
+                Style="border-radius: 12px; border-left: 6px solid var(--rz-warning);">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="pending_actions" Style="font-size: 2.5rem; color: var(--rz-warning);" />
+                    <RadzenStack Gap="0">
+                        <RadzenText Text="Pending Approvals" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                        <RadzenText Text="@stats.PendingApprovals.ToString()" TextStyle="TextStyle.H4"
+                            Class="rz-m-0 rz-font-weight-bold" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="rz-p-4 rz-background-color-success-lighter"
+                Style="border-radius: 12px; border-left: 6px solid var(--rz-success);">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="group" Style="font-size: 2.5rem; color: var(--rz-success);" />
+                    <RadzenStack Gap="0">
+                        <RadzenText Text="Total Patients" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                        <RadzenText Text="@stats.TotalPatientsServed.ToString()" TextStyle="TextStyle.H4"
+                            Class="rz-m-0 rz-font-weight-bold" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="rz-p-4 rz-background-color-info-lighter"
+                Style="border-radius: 12px; border-left: 6px solid var(--rz-info);">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="account_balance_wallet" Style="font-size: 2.5rem; color: var(--rz-info);" />
+                    <RadzenStack Gap="0">
+                        <RadzenText Text="Monthly Accrual" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                        <RadzenText Text="@stats.MonthlyCommission.ToString("C")" TextStyle="TextStyle.H4"
+                            Class="rz-m-0 rz-font-weight-bold" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
 
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Qualification</label>
-                                    <InputText @bind-Value="NewDoctor.Qualification" class="form-control" placeholder="MBBS, FCPS, etc." />
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Specialization</label>
-                                    <InputText @bind-Value="NewDoctor.Specialization" class="form-control" placeholder="Cardiology, etc." />
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Medical License Number</label>
-                                    <InputText @bind-Value="NewDoctor.MedicalLicenseNumber" class="form-control" />
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Years of Experience</label>
-                                    <InputNumber @bind-Value="NewDoctor.YearsOfExperience" class="form-control" />
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Consultation Fee</label>
-                                    <InputNumber @bind-Value="NewDoctor.ConsultationFee" class="form-control" />
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Department</label>
-                                    <InputSelect @bind-Value="NewDoctor.DepartmentId" class="form-select">
-                                        <option value="0">Select Department</option>
-                                        <option value="1">Cardiology</option>
-                                        <option value="2">Orthopedics</option>
-                                        <option value="3">Pediatrics</option>
-                                        <option value="4">Neurology</option>
-                                        <option value="5">Dermatology</option>
-                                    </InputSelect>
-                                </div>
-                            </div>
-
-                            <div class="mt-4">
-                                <button type="submit" class="btn btn-primary w-100">Save and Continue</button>
-                            </div>
-                        </EditForm>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
-    else
-    {
-        <div class="row">
-            <!-- Sidebar / Stats -->
-            <div class="col-lg-3">
-                <div class="card border-0 shadow-sm mb-4 bg-primary text-white text-center p-4">
-                    <div class="mb-3">
-                        <i class="bi bi-person-circle fs-1"></i>
-                    </div>
-                    <h4 class="mb-0">@CurrentDoctor.FullName</h4>
-                    <p class="mb-0 small opacity-75">@CurrentDoctor.Specialization</p>
-                    <hr class="bg-white opacity-25" />
-                    <div class="d-flex justify-content-around">
-                        <div>
-                            <div class="fw-bold">@PendingAppointments.Count</div>
-                            <div class="small opacity-75">Pending</div>
-                        </div>
-                        <div>
-                            <div class="fw-bold">@TodayAppointments.Count</div>
-                            <div class="small opacity-75">Today</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="list-group shadow-sm border-0 mb-4">
-                    <a href="/Doctor/Dashboard?tab=dashboard" class="list-group-item list-group-item-action @(ActiveTab == "dashboard" ? "active" : "")">
-                        <i class="bi bi-speedometer2 me-2"></i> Dashboard
-                    </a>
-                    <a href="/Doctor/Dashboard?tab=shifts" class="list-group-item list-group-item-action @(ActiveTab == "shifts" ? "active" : "")">
-                        <i class="bi bi-clock-history me-2"></i> My Shifts
-                    </a>
-                    <a href="/Doctor/Dashboard?tab=appointments" class="list-group-item list-group-item-action @(ActiveTab == "appointments" ? "active" : "")">
-                        <i class="bi bi-calendar-event me-2"></i> Appointment Requests
-                        @if (PendingAppointments.Any())
-                        {
-                            <span class="badge bg-danger rounded-pill float-end">@PendingAppointments.Count</span>
-                        }
-                    </a>
-                    <a href="/Doctor/Dashboard?tab=patients" class="list-group-item list-group-item-action @(ActiveTab == "patients" ? "active" : "")">
-                        <i class="bi bi-people me-2"></i> My Patients
-                    </a>
-                    <a href="/Doctor/Dashboard?tab=profile" class="list-group-item list-group-item-action @(ActiveTab == "profile" ? "active" : "")">
-                        <i class="bi bi-person-lines-fill me-2"></i> My Profile
-                    </a>
-                </div>
-            </div>
-
-
-
-            <!-- Main Content -->
-            <div class="col-lg-9">
-                @if (ActiveTab == "dashboard")
-                {
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <h2 class="mb-3 fw-bold">Doctor Dashboard</h2>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card border-0 shadow-sm bg-info text-white p-3 mb-3">
-                                <div class="small fw-bold">Active Cases</div>
-                                <div class="fs-2 fw-bold">@AllAppointments.Count(a => a.Status == "Pending" || a.Status == "Approved")</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card border-0 shadow-sm bg-success text-white p-3 mb-3">
-                                <div class="small fw-bold">Completed Today</div>
-                                <div class="fs-2 fw-bold">@TodayAppointments.Count(a => a.Status == "Completed")</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card border-0 shadow-sm bg-warning text-dark p-3 mb-3">
-                                <div class="small fw-bold">Revenue Today</div>
-                                <div class="fs-2 fw-bold">@((TodayAppointments.Count(a => a.Status == "Completed") * CurrentDoctor.ConsultationFee).ToString("C0"))</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                             <div class="card border-0 shadow-sm bg-primary text-white p-3 mb-3">
-                                <div class="small fw-bold">Total Revenue</div>
-                                <div class="fs-2 fw-bold">@((AllAppointments.Count(a => a.Status == "Completed") * CurrentDoctor.ConsultationFee).ToString("C0"))</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Shift Overview -->
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-white border-bottom-0 pt-3">
-                            <h5 class="mb-0">This Week's Schedule</h5>
-                        </div>
-                        <div class="card-body">
-                            @if (!DoctorShifts.Any())
-                            {
-                                <div class="text-center py-4 text-muted">
-                                    <i class="bi bi-calendar-x fs-1"></i>
-                                    <p class="mt-2">No shifts configured. <a href="/Doctor/Dashboard?tab=shifts">Add your shifts</a></p>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="row">
-                                    @foreach (var shift in DoctorShifts.Take(7))
-                                    {
-                                        <div class="col-md-6 mb-2">
-                                            <div class="d-flex align-items-center p-2 border rounded">
-                                                <div class="me-3">
-                                                    <i class="bi bi-calendar-check text-primary fs-4"></i>
-                                                </div>
-                                                <div class="flex-grow-1">
-                                                    <div class="fw-bold">@shift.DayOfWeek</div>
-                                                    <div class="small text-muted">@($"{shift.StartTime.Hours:D2}:{shift.StartTime.Minutes:D2}") - @($"{shift.EndTime.Hours:D2}:{shift.EndTime.Minutes:D2}")</div>
-                                                </div>
-                                                @if (!string.IsNullOrEmpty(shift.ShiftType))
-                                                {
-                                                    <span class="badge bg-secondary">@shift.ShiftType</span>
-                                                }
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </div>
-
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-white border-bottom-0 pt-3">
-                            <h5 class="mb-0">Today's Schedule</h5>
-                        </div>
-                        <div class="card-body">
-                            @if (!TodayAppointments.Any())
-                            {
-                                <div class="text-center py-5 text-muted">
-                                    <i class="bi bi-calendar-x fs-1"></i>
-                                    <p class="mt-2">No appointments scheduled for today.</p>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="table-responsive">
-                                    <table class="table align-middle">
-                                        <thead>
-                                            <tr>
-                                                <th>Patient</th>
-                                                <th>Time</th>
-                                                <th>Type</th>
-                                                <th>Status</th>
-                                                <th>Details</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach (var appt in TodayAppointments)
-                                            {
-                                                <tr>
-                                                    <td>@appt.PatientName</td>
-                                                    <td>@appt.AppointmentDate.ToShortTimeString()</td>
-                                                    <td>@appt.AppointmentMode</td>
-                                                    <td>
-                                                        <span class="badge @(appt.Status == "Approved" ? "bg-success" : "bg-primary")">@appt.Status</span>
-                                                    </td>
-                                                    <td>
-                                                        <div class="btn-group btn-group-sm">
-                                                            <button class="btn btn-outline-primary" @onclick="() => NavigateToPrescription(appt.PatientId, appt.AppointmentId)">
-                                                                <i class="bi bi-pencil-square"></i> Prescribe
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-                else if (ActiveTab == "shifts")
-                {
-                    <div class="row">
-                        <div class="col-12">
-                            <h2 class="mb-3 fw-bold">Manage Shifts</h2>
-                        </div>
-                        
-                        <!-- Add Shift Form -->
-                        <div class="col-md-5 mb-4">
-                            <div class="card border-0 shadow-sm">
-                                <div class="card-header bg-primary text-white">
-                                    <h5 class="mb-0">@(EditingShift == null ? "Add New Shift" : "Edit Shift")</h5>
-                                </div>
-                                <div class="card-body">
-                                    <EditForm Model="NewShift" OnValidSubmit="SaveShift" FormName="ShiftForm">
-                                        <DataAnnotationsValidator />
-                                        <ValidationSummary class="text-danger" />
-
-                                        <div class="mb-3">
-                                            <label class="form-label">Day of Week <span class="text-danger">*</span></label>
-                                            <InputSelect @bind-Value="NewShift.DayOfWeek" class="form-select">
-                                                <option value="">Select Day</option>
-                                                <option value="Monday">Monday</option>
-                                                <option value="Tuesday">Tuesday</option>
-                                                <option value="Wednesday">Wednesday</option>
-                                                <option value="Thursday">Thursday</option>
-                                                <option value="Friday">Friday</option>
-                                                <option value="Saturday">Saturday</option>
-                                                <option value="Sunday">Sunday</option>
-                                            </InputSelect>
-                                        </div>
-
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">Start Time <span class="text-danger">*</span></label>
-                                                <input type="time" @bind="StartTimeInput" class="form-control" required />
-                                            </div>
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">End Time <span class="text-danger">*</span></label>
-                                                <input type="time" @bind="EndTimeInput" class="form-control" required />
-                                            </div>
-                                        </div>
-
-                                        <div class="mb-3">
-                                            <label class="form-label">Shift Type</label>
-                                            <InputSelect @bind-Value="NewShift.ShiftType" class="form-select">
-                                                <option value="">Select Type (Optional)</option>
-                                                <option value="Morning">Morning</option>
-                                                <option value="Evening">Evening</option>
-                                                <option value="Night">Night</option>
-                                                <option value="Full Day">Full Day</option>
-                                            </InputSelect>
-                                        </div>
-
-                                        <div class="mb-3">
-                                            <label class="form-label">Notes</label>
-                                            <InputTextArea @bind-Value="NewShift.Notes" class="form-control" rows="2" placeholder="Optional notes..." />
-                                        </div>
-
-                                        <div class="d-flex gap-2">
-                                            <button type="submit" class="btn btn-primary flex-grow-1">
-                                                <i class="bi bi-save me-1"></i> @(EditingShift == null ? "Add Shift" : "Update Shift")
-                                            </button>
-                                            @if (EditingShift != null)
-                                            {
-                                                <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
-                                            }
-                                        </div>
-                                    </EditForm>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Shifts List -->
-                        <div class="col-md-7">
-                            <div class="card border-0 shadow-sm">
-                                <div class="card-header bg-white border-bottom-0 pt-3">
-                                    <h5 class="mb-0">Your Shifts</h5>
-                                </div>
-                                <div class="card-body">
-                                    @if (!DoctorShifts.Any())
-                                    {
-                                        <div class="text-center py-5 text-muted">
-                                            <i class="bi bi-calendar-x fs-1"></i>
-                                            <p class="mt-2">No shifts added yet.</p>
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <div class="list-group">
-                                            @foreach (var shift in DoctorShifts)
-                                            {
-                                                <div class="list-group-item">
-                                                    <div class="d-flex justify-content-between align-items-start">
-                                                        <div class="flex-grow-1">
-                                                            <div class="d-flex align-items-center mb-1">
-                                                                <h6 class="mb-0 me-2">@shift.DayOfWeek</h6>
-                                                                @if (!string.IsNullOrEmpty(shift.ShiftType))
-                                                                {
-                                                                    <span class="badge bg-info">@shift.ShiftType</span>
-                                                                }
-                                                            </div>
-                                                            <div class="text-muted small">
-                                                                <i class="bi bi-clock me-1"></i>
-                                                                @FormatTime(shift.StartTime) - @FormatTime(shift.EndTime)
-                                                            </div>
-                                                            @if (!string.IsNullOrEmpty(shift.Notes))
-                                                            {
-                                                                <div class="text-muted small mt-1">
-                                                                    <i class="bi bi-sticky me-1"></i>@shift.Notes
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                        <div class="btn-group btn-group-sm">
-                                                            <button class="btn btn-outline-primary" @onclick="() => EditShift(shift)">
-                                                                <i class="bi bi-pencil"></i>
-                                                            </button>
-                                                            <button class="btn btn-outline-danger" @onclick="() => DeleteShift(shift.ShiftId)">
-                                                                <i class="bi bi-trash"></i>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            }
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                }
-                else if (ActiveTab == "appointments")
-                {
-                    <div class="row">
-                        <div class="col-12">
-                            <h2 class="mb-3 fw-bold">Appointment Requests</h2>
-                        </div>
-                        
-                        @if (!string.IsNullOrEmpty(StatusMessage))
-                        {
-                            <div class="col-12 mb-3">
-                                <div class="alert @StatusMessageClass alert-dismissible fade show" role="alert">
-                                    @StatusMessage
-                                    <button type="button" class="btn-close" @onclick='() => StatusMessage = ""' aria-label="Close"></button>
-                                </div>
-                            </div>
-                        }
-
-                        @if (!PendingAppointments.Any())
-                        {
-                            <div class="col-12">
-                                <div class="card border-0 shadow-sm p-5 text-center text-muted">
-                                    <i class="bi bi-clock-history fs-1 mb-3"></i>
-                                    <h5>No pending requests at the moment.</h5>
-                                </div>
-                            </div>
-                        }
-                        else
-                        {
-                            @foreach (var appt in PendingAppointments)
-                            {
-                                var isAvailable = ShiftRepo.IsAvailableAtTime(CurrentDoctor.DoctorId, appt.AppointmentDate);
-                                var dayShifts = DoctorShifts.Where(s => s.DayOfWeek == appt.AppointmentDate.DayOfWeek.ToString()).ToList();
-                                
-                                <div class="col-md-6 mb-3">
-                                    <div class="card border-0 shadow-sm h-100 @(isAvailable ? "" : "border-warning border-2")">
-                                        <div class="card-body">
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <h5 class="mb-0 fw-bold">@appt.PatientName</h5>
-                                                <span class="badge bg-warning text-dark">Pending</span>
-                                            </div>
-                                            <div class="mb-2 small">
-                                                <i class="bi bi-calendar3 me-2 text-primary"></i> @appt.AppointmentDate.ToString("MMM dd, yyyy | hh:mm tt")
-                                            </div>
-                                            <div class="mb-2 small">
-                                                <i class="bi bi-laptop me-2 text-primary"></i> @appt.AppointmentMode
-                                            </div>
-                                            <div class="mb-3">
-                                                <p class="text-muted small"><strong>Reason:</strong> @appt.Reason</p>
-                                            </div>
-
-                                            <!-- Availability Check -->
-                                            @if (!isAvailable)
-                                            {
-                                                <div class="alert alert-warning py-2 mb-3">
-                                                    <i class="bi bi-exclamation-triangle me-1"></i>
-                                                    <strong>Outside shift hours!</strong>
-                                                    @if (dayShifts.Any())
-                                                    {
-                                                        <div class="small mt-1">
-                                                            Your shifts on @appt.AppointmentDate.DayOfWeek:
-                                                            @foreach (var shift in dayShifts)
-                                                            {
-                                                                <div>• @FormatTime(shift.StartTime) - @FormatTime(shift.EndTime)</div>
-                                                            }
-                                                        </div>
-                                                    }
-                                                    else
-                                                    {
-                                                        <div class="small">No shifts scheduled for @appt.AppointmentDate.DayOfWeek</div>
-                                                    }
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <div class="alert alert-success py-2 mb-3">
-                                                    <i class="bi bi-check-circle me-1"></i> Within your shift hours
-                                                </div>
-                                            }
-
-                                            <div class="d-flex gap-2">
-                                                <button class="btn btn-primary btn-sm flex-grow-1" @onclick="() => ApproveAppointment(appt)">
-                                                    <i class="bi bi-check-lg me-1"></i>Approve
-                                                </button>
-                                                <button class="btn btn-outline-danger btn-sm" @onclick="() => ShowRejectModal(appt)">
-                                                    <i class="bi bi-x-lg me-1"></i>Reject
-                                                </button>
-                                                <button class="btn btn-outline-warning btn-sm" @onclick="() => ShowRescheduleModal(appt)">
-                                                    <i class="bi bi-clock me-1"></i>Reschedule
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                        }
-                    </div>
-                }
-                else if (ActiveTab == "patients")
-                {
-                    <div class="row">
-                        <div class="col-12">
-                            <h2 class="mb-3 fw-bold">My Patients</h2>
-                        </div>
-                        
-                        @if (!MyPatients.Any())
-                        {
-                            <div class="col-12 text-center text-muted py-5">
-                                <i class="bi bi-people fs-1"></i>
-                                <p class="mt-2">No patients found from your appointment history.</p>
-                            </div>
-                        }
-                        else
-                        {
-                            @foreach (var patient in MyPatients)
-                            {
-                                <div class="col-md-6 mb-4">
-                                    <div class="card border-0 shadow-sm h-100">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-center mb-3">
-                                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px; font-size: 1.2rem;">
-                                                    @(string.IsNullOrEmpty(patient.PatientName) ? "?" : patient.PatientName.Substring(0, 1).ToUpper())
-                                                </div>
-                                                <div>
-                                                    <h5 class="mb-0 fw-bold">@patient.PatientName</h5>
-                                                    <div class="text-muted small">Patient ID: @patient.PatientId</div>
-                                                    <div class="text-muted small">Last Visit: @patient.AppointmentDate.ToShortDateString()</div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="d-flex gap-2">
-                                                <button class="btn btn-outline-primary flex-grow-1" @onclick="() => NavigateToPrescription(patient.PatientId, null)">
-                                                    <i class="bi bi-file-medical me-2"></i>Prescribe
-                                                </button>
-                                                <button class="btn btn-outline-info flex-grow-1" @onclick="() => NavigateToReport(patient.PatientId, patient.AppointmentId)">
-                                                    <i class="bi bi-upload me-2"></i>Report
-                                                </button>
-                                                <button class="btn btn-outline-danger flex-grow-1" @onclick="() => NavigateToOperation(patient.PatientId, patient.AppointmentId)">
-                                                    <i class="bi bi-activity me-2"></i>Op
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                        }
-                    </div>
-                }
-                else if (ActiveTab == "profile")
-                {
-                     <div class="row">
-                        <div class="col-md-9">
-                            <div class="card border-0 shadow-sm">
-                                <div class="card-header bg-white border-bottom-0 pt-3">
-                                    <h5 class="mb-0">Edit Profile</h5>
-                                </div>
-                                <div class="card-body">
-                                    <EditForm Model="CurrentDoctor" OnValidSubmit="UpdateProfile" FormName="UpdateProfileForm">
-                                        <DataAnnotationsValidator />
-                                        <ValidationSummary class="text-danger" />
-
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">Full Name</label>
-                                                <InputText @bind-Value="CurrentDoctor.FullName" class="form-control" />
-                                            </div>
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">Contact Number</label>
-                                                <InputText @bind-Value="CurrentDoctor.ContactNumber" class="form-control" />
-                                            </div>
-                                        </div>
-
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">Gender</label>
-                                                <InputSelect @bind-Value="CurrentDoctor.Gender" class="form-select">
-                                                    <option value="">Select Gender</option>
-                                                    <option value="Male">Male</option>
-                                                    <option value="Female">Female</option>
-                                                    <option value="Other">Other</option>
-                                                </InputSelect>
-                                            </div>
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">Email</label>
-                                                <InputText @bind-Value="CurrentDoctor.Email" class="form-control" />
-                                            </div>
-                                        </div>
-
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">Qualification</label>
-                                                <InputText @bind-Value="CurrentDoctor.Qualification" class="form-control" />
-                                            </div>
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">Specialization</label>
-                                                <InputText @bind-Value="CurrentDoctor.Specialization" class="form-control" />
-                                            </div>
-                                        </div>
-
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">Medical License Number</label>
-                                                <InputText @bind-Value="CurrentDoctor.MedicalLicenseNumber" class="form-control" />
-                                            </div>
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">Years of Experience</label>
-                                                <InputNumber @bind-Value="CurrentDoctor.YearsOfExperience" class="form-control" />
-                                            </div>
-                                        </div>
-
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">Consultation Fee</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text">$</span>
-                                                    <InputNumber @bind-Value="CurrentDoctor.ConsultationFee" class="form-control" />
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6 mb-3">
-                                                <label class="form-label">Department</label>
-                                                <InputSelect @bind-Value="CurrentDoctor.DepartmentId" class="form-select">
-                                                    <option value="0">Select Department</option>
-                                                    <option value="1">Cardiology</option>
-                                                    <option value="2">Orthopedics</option>
-                                                    <option value="3">Pediatrics</option>
-                                                    <option value="4">Neurology</option>
-                                                    <option value="5">Dermatology</option>
-                                                </InputSelect>
-                                            </div>
-                                        </div>
-
-                                        <div class="mt-4">
-                                            <button type="submit" class="btn btn-primary">Update Profile</button>
-                                        </div>
-                                    </EditForm>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-    }
-</div>
-
-<!-- Reject Appointment Modal -->
-@if (ShowRejectDialog && SelectedAppointment != null)
-{
-    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Reject Appointment</h5>
-                    <button type="button" class="btn-close" @onclick="CloseRejectModal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Patient: <strong>@SelectedAppointment.PatientName</strong></p>
-                    <p>Requested Time: <strong>@SelectedAppointment.AppointmentDate.ToString("MMM dd, yyyy | hh:mm tt")</strong></p>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Reason for Rejection <span class="text-danger">*</span></label>
-                        <textarea @bind="RejectionMessage" class="form-control" rows="4" placeholder="Explain why you're rejecting this appointment or suggest alternative times..."></textarea>
-                    </div>
-
-                    @if (DoctorShifts.Any())
-                    {
-                        <div class="alert alert-info">
-                            <strong>Your upcoming shifts:</strong>
-                            <div class="small mt-2">
-                                @foreach (var shift in DoctorShifts.Take(5))
+    <RadzenRow Gap="1.5rem">
+        <RadzenColumn Size="12" SizeLG="8">
+            <RadzenCard Class="rz-p-0" Style="overflow: hidden; border-radius: 12px;">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                    Class="rz-p-4 rz-background-color-primary-darker">
+                    <RadzenIcon Icon="list_alt" Style="color: white;" />
+                    <RadzenText Text="Recent Encounter Schedule" TextStyle="TextStyle.H6" Class="rz-m-0"
+                        Style="color: white;" />
+                </RadzenStack>
+                <RadzenDataGrid @ref="appointmentGrid" TItem="Appointment" Data="@appointments"
+                    Count="@appointmentCount" LoadData="@LoadAppointmentsData" IsLoading="@isLoading"
+                    AllowFiltering="true" AllowPaging="true" PageSize="10" AllowSorting="true"
+                    FilterMode="FilterMode.Simple" RowSelect="@OnAppointmentSelect">
+                    <EmptyTemplate>
+                        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                            <RadzenIcon Icon="event_busy"
+                                Style="font-size: 4rem; color: var(--rz-text-disabled-color);" />
+                            <RadzenText Text="No appointment requests found in the current period."
+                                TextStyle="TextStyle.Subtitle1" Class="rz-color-text-secondary" />
+                        </RadzenStack>
+                    </EmptyTemplate>
+                    <Columns>
+                        <RadzenDataGridColumn TItem="Appointment" Property="AppointmentDate" Title="Date/Time"
+                            FormatString="{0:MMM dd, hh:mm tt}" Width="160px" />
+                        <RadzenDataGridColumn TItem="Appointment" Property="PatientName" Title="Patient Designation" />
+                        <RadzenDataGridColumn TItem="Appointment" Title="Shift Status" Width="140px">
+                            <Template Context="appt">
+                                @if (IsOnShift(appt))
                                 {
-                                    <div>• @shift.DayOfWeek: @FormatTime(shift.StartTime) - @FormatTime(shift.EndTime)</div>
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="During Shift" Shade="Shade.Lighter"
+                                        IsPill="true" Icon="check_circle" />
                                 }
-                            </div>
-                        </div>
-                    }
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseRejectModal">Cancel</button>
-                    <button type="button" class="btn btn-danger" @onclick="ConfirmReject" disabled="@string.IsNullOrWhiteSpace(RejectionMessage)">
-                        Send Rejection
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+                                else
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Off-Shift" Shade="Shade.Lighter"
+                                        IsPill="true" Icon="warning" />
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="Appointment" Title="Clinical Status" Width="120px"
+                            TextAlign="TextAlign.Center">
+                            <Template Context="appt">
+                                <RadzenBadge BadgeStyle="@GetStatusBadgeStyle(appt.Status)" Text="@appt.Status"
+                                    IsPill="true" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="Appointment" Title="Operations" Sortable="false" Filterable="false"
+                            TextAlign="TextAlign.Right" Width="200px">
+                            <Template Context="appt">
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem"
+                                    JustifyContent="JustifyContent.End">
+                                    @if (appt.Status == "Pending")
+                                    {
+                                        <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                                            Click="@(() => ApproveAppointment(appt))" />
+                                        <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small"
+                                            Click="@(() => RejectAppointment(appt))" />
+                                    }
+                                    @if (appt.Status == "Approved")
+                                    {
+                                        <RadzenButton Text="Prescribe" Icon="medication" ButtonStyle="ButtonStyle.Info"
+                                            Size="ButtonSize.Small"
+                                            Click="@(() => Navigation.NavigateTo($"/doctor/prescribe/{appt.PatientId}/{appt.AppointmentId}"))" />
+                                        <RadzenButton Text="Surgery" Icon="biotech" ButtonStyle="ButtonStyle.Danger"
+                                            Variant="Variant.Flat" Size="ButtonSize.Small"
+                                            Click="@(() => Navigation.NavigateTo($"/Doctor/RecommendOperation/{appt.PatientId}?AppointmentId={appt.AppointmentId}"))" />
+                                    }
+                                </RadzenStack>
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </RadzenCard>
+        </RadzenColumn>
 
-<!-- Reschedule Appointment Modal -->
-@if (ShowRescheduleDialog && SelectedAppointment != null)
-{
-    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Reschedule Appointment</h5>
-                    <button type="button" class="btn-close" @onclick="CloseRescheduleModal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Patient: <strong>@SelectedAppointment.PatientName</strong></p>
-                    <p>Original Time: <strong>@SelectedAppointment.AppointmentDate.ToString("MMM dd, yyyy | hh:mm tt")</strong></p>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">New Date & Time <span class="text-danger">*</span></label>
-                        <input type="datetime-local" @bind="NewRescheduleDate" class="form-control" />
-                    </div>
+        <RadzenColumn Size="12" SizeLG="4">
+            <RadzenStack Gap="1.5rem">
+                <RadzenCard Style="border-radius: 12px;">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Class="rz-mb-4">
+                        <RadzenIcon Icon="assignment" Class="rz-color-info" />
+                        <RadzenText Text="Diagnostic Action Items" TextStyle="TextStyle.H6" Class="rz-m-0" />
+                    </RadzenStack>
+                    <RadzenText Text="@($"{stats.PendingReports} pending reports require final observations.")"
+                        TextStyle="TextStyle.Body2" Class="rz-color-text-secondary rz-mb-4" />
+                    <RadzenButton Text="Review Reports" Icon="rate_review" ButtonStyle="ButtonStyle.Info"
+                        Variant="Variant.Flat" Class="rz-w-100"
+                        Click="@(() => Navigation.NavigateTo("/doctor/patients"))" />
+                </RadzenCard>
 
-                    <div class="alert alert-info small">
-                        The patient will be notified of this change.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseRescheduleModal">Cancel</button>
-                    <button type="button" class="btn btn-warning" @onclick="ConfirmReschedule">
-                        Confirm Reschedule
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+                <RadzenCard Style="border-radius: 12px;">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Class="rz-mb-4">
+                        <RadzenIcon Icon="settings" Class="rz-color-secondary" />
+                        <RadzenText Text="Practice Management" TextStyle="TextStyle.H6" Class="rz-m-0" />
+                    </RadzenStack>
+                    <RadzenStack Gap="0.75rem">
+                        <RadzenButton Text="Modify Availability" Icon="schedule" ButtonStyle="ButtonStyle.Light"
+                            Variant="Variant.Flat" Class="rz-w-100 rz-text-align-left"
+                            Click="@(() => Navigation.NavigateTo("/doctor/shifts"))" />
+                        <RadzenButton Text="Clinical Profile" Icon="account_circle" ButtonStyle="ButtonStyle.Light"
+                            Variant="Variant.Flat" Class="rz-w-100 rz-text-align-left"
+                            Click="@(() => Navigation.NavigateTo("/doctor/profile"))" />
+                        <RadzenButton Text="Surgical Recommendations" Icon="medical_services"
+                            ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Class="rz-w-100 rz-text-align-left"
+                            Click="@(() => Navigation.NavigateTo("/doctor/recommendations"))" />
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+</RadzenStack>
+
+<RadzenComponents />
 
 @code {
-    [SupplyParameterFromQuery]
-    public string? Tab { get; set; }
-
-    private Doctor? CurrentDoctor;
-    [SupplyParameterFromForm]
-    private Doctor NewDoctor { get; set; } = new();
-    
-    [SupplyParameterFromForm]
-    private DoctorShift NewShift { get; set; } = new();
-    
-    private DoctorShift? EditingShift;
-    private ApplicationUser? User;
-    private string ActiveTab = "dashboard";
-    private List<Appointment> AllAppointments = new();
-    private List<DoctorShift> DoctorShifts = new();
-    private List<Appointment> PendingAppointments => AllAppointments.Where(a => a.Status == "Pending").ToList();
-    private List<Appointment> TodayAppointments => AllAppointments.Where(a => a.AppointmentDate.Date == DateTime.Today && a.Status != "Rejected").ToList();
-    private List<Appointment> MyPatients => AllAppointments
-        .GroupBy(a => a.PatientId)
-        .Select(g => g.OrderByDescending(a => a.AppointmentDate).First())
-        .ToList();
-
-    private DateTime StartTimeInput { get; set; } = DateTime.Today.AddHours(9);
-    private DateTime EndTimeInput { get; set; } = DateTime.Today.AddHours(17);
-
-    private bool ShowRejectDialog = false;
-    private bool ShowRescheduleDialog = false;
-    private Appointment? SelectedAppointment;
-    private string RejectionMessage = "";
-    private DateTime NewRescheduleDate = DateTime.Now;
+    DoctorDashboardStats stats = new();
+    Doctor? currentDoctor;
+    IEnumerable<Appointment> appointments = new List<Appointment>();
+    RadzenDataGrid<Appointment> appointmentGrid = default!;
+    int appointmentCount;
+    bool isLoading = false;
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var userClaims = authState.User;
+        var user = authState.User;
+        var userId = user.FindFirst(c => c.Type.Contains("nameidentifier"))?.Value;
 
-        if (userClaims.Identity?.IsAuthenticated == true)
+        if (!string.IsNullOrEmpty(userId))
         {
-            var userId = UserManager.GetUserId(userClaims);
-            if (!string.IsNullOrEmpty(userId))
+            currentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+            if (currentDoctor != null)
             {
-                User = await UserManager.FindByIdAsync(userId);
-                CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
-
-                if (CurrentDoctor != null)
-                {
-                    LoadAppointments();
-                    LoadShifts();
-                }
-                else
-                {
-                    NewDoctor ??= new Doctor();
-                    NewDoctor.UserId = userId;
-                    NewDoctor.Email = User?.Email ?? "";
-                }
+                stats = DoctorRepo.GetDoctorDashboardStats(currentDoctor.DoctorId);
             }
         }
     }
 
-    protected override void OnParametersSet()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!string.IsNullOrEmpty(Tab))
+        if (firstRender && appointmentGrid != null)
         {
-            ActiveTab = Tab;
-        }
-        
-        // Ensure models are never null to prevent EditForm errors
-        NewDoctor ??= new();
-        NewShift ??= new();
-    }
-
-    private void LoadAppointments()
-    {
-        if (CurrentDoctor != null)
-        {
-            AllAppointments = AppointmentRepo.GetAppointmentsByDoctorId(CurrentDoctor.DoctorId);
+            await appointmentGrid.Reload();
+            StateHasChanged();
         }
     }
 
-    private void LoadShifts()
+    bool IsOnShift(Appointment appt)
     {
-        if (CurrentDoctor != null)
-        {
-            DoctorShifts = ShiftRepo.GetShiftsByDoctorId(CurrentDoctor.DoctorId);
-        }
+        if (currentDoctor == null) return false;
+        // Optimization: Ensure we don't call DB too many times if possible,
+        // but for now, simple check
+        return ShiftRepo.IsAvailableAtTime(currentDoctor.DoctorId, appt.AppointmentDate);
     }
 
-    private async Task CreateProfile()
+    async Task LoadAppointmentsData(LoadDataArgs args)
     {
-        try
+        // Even if currentDoctor is null initially, we shouldn't fail.
+        // We'll return empty until initialized.
+        if (currentDoctor == null)
         {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            
-            if (string.IsNullOrEmpty(userId)) 
-            {
-                StatusMessage = "User ID not found.";
-                StatusMessageClass = "alert-danger";
-                return;
-            }
-            if (string.IsNullOrWhiteSpace(NewDoctor.FullName))
-            {
-                StatusMessage = "Full Name is required.";
-                StatusMessageClass = "alert-danger";
-                return;
-            }
-            if (NewDoctor.DepartmentId == 0)
-            {
-                StatusMessage = "Please select a department.";
-                StatusMessageClass = "alert-danger";
-                return;
-            }
-            
-            NewDoctor.UserId = userId;
-            NewDoctor.IsActive = true;
-            NewDoctor.CreatedAt = DateTime.Now;
-            NewDoctor.HospitalJoiningDate = DateTime.Now;
-            NewDoctor.IsAvailable = true;
-            
-            DoctorRepo.CreateDoctor(NewDoctor);
-            CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
-            
-            if (CurrentDoctor != null)
-            {
-                LoadAppointments();
-                LoadShifts();
-                // Refresh full page or just state?
-                StatusMessage = "Profile created successfully!";
-                StatusMessageClass = "alert-success";
-            }
-            else 
-            {
-                StatusMessage = "Profile created but could not be loaded.";
-                StatusMessageClass = "alert-warning";
-            }
+            appointments = new List<Appointment>();
+            appointmentCount = 0;
+            return;
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error creating profile: {ex}");
-            StatusMessage = $"Error creating profile: {ex.Message}";
-            StatusMessageClass = "alert-danger";
-        }
+
+        isLoading = true;
+
+        var skip = args.Skip ?? 0;
+        var top = args.Top ?? 10;
+        var orderBy = args.OrderBy;
+        if (string.IsNullOrEmpty(orderBy)) orderBy = "AppointmentDate DESC";
+
+        appointments = AppointmentRepo.GetAppointmentsByDoctorIdPaged(currentDoctor.DoctorId, skip, top, orderBy);
+        appointmentCount = AppointmentRepo.GetAppointmentsByDoctorIdCount(currentDoctor.DoctorId);
+
+        isLoading = false;
         StateHasChanged();
     }
 
-    private void UpdateProfile()
+    BadgeStyle GetStatusBadgeStyle(string status)
     {
-        if (CurrentDoctor == null) return;
-        
-        try
+        return status switch
         {
-            DoctorRepo.UpdateDoctor(CurrentDoctor);
-            StatusMessage = "Profile updated successfully!";
-            StatusMessageClass = "alert-success";
-            
-            // Auto-clear message
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(5000);
-                StatusMessage = "";
-                await InvokeAsync(StateHasChanged);
-            });
-        }
-        catch (Exception ex)
-        {
-             StatusMessage = "Error updating profile: " + ex.Message;
-             StatusMessageClass = "alert-danger";
-        }
-    }
-
-    private void SaveShift()
-    {
-        if (CurrentDoctor == null) return;
-        if (string.IsNullOrWhiteSpace(NewShift.DayOfWeek)) return;
-
-        NewShift.StartTime = StartTimeInput.TimeOfDay;
-        NewShift.EndTime = EndTimeInput.TimeOfDay;
-        NewShift.DoctorId = CurrentDoctor.DoctorId;
-        NewShift.IsActive = true;
-        NewShift.CreatedAt = DateTime.Now;
-
-        if (EditingShift != null)
-        {
-            NewShift.ShiftId = EditingShift.ShiftId;
-            ShiftRepo.UpdateShift(NewShift);
-            EditingShift = null;
-        }
-        else
-        {
-            ShiftRepo.CreateShift(NewShift);
-        }
-
-        LoadShifts();
-        NewShift = new DoctorShift();
-        StartTimeInput = DateTime.Today.AddHours(9);
-        EndTimeInput = DateTime.Today.AddHours(17);
-    }
-
-    private void EditShift(DoctorShift shift)
-    {
-        EditingShift = shift;
-        NewShift = new DoctorShift
-        {
-            ShiftId = shift.ShiftId,
-            DoctorId = shift.DoctorId,
-            DayOfWeek = shift.DayOfWeek,
-            StartTime = shift.StartTime,
-            EndTime = shift.EndTime,
-            ShiftType = shift.ShiftType,
-            Notes = shift.Notes,
-            IsActive = shift.IsActive
+            "Pending" => BadgeStyle.Warning,
+            "Approved" => BadgeStyle.Success,
+            "Rejected" => BadgeStyle.Danger,
+            "Completed" => BadgeStyle.Info,
+            _ => BadgeStyle.Light
         };
-        StartTimeInput = DateTime.Today.Add(shift.StartTime);
-        EndTimeInput = DateTime.Today.Add(shift.EndTime);
-        ActiveTab = "shifts";
     }
 
-    private void CancelEdit()
-    {
-        EditingShift = null;
-        NewShift = new DoctorShift();
-        StartTimeInput = DateTime.Today.AddHours(9);
-        EndTimeInput = DateTime.Today.AddHours(17);
-    }
-
-    private void DeleteShift(int shiftId)
-    {
-        ShiftRepo.DeleteShift(shiftId);
-        LoadShifts();
-    }
-
-    private string StatusMessage = "";
-    private string StatusMessageClass = "";
-
-    private async Task ApproveAppointment(Appointment appt)
+    async Task ApproveAppointment(Appointment appt)
     {
         try
         {
             AppointmentRepo.UpdateAppointmentStatus(appt.AppointmentId, "Approved");
-            
-            try 
-            {
-                NotificationRepo.CreateNotification(new Notification
-                {
-                    PatientId = appt.PatientId,
-                    Title = "Appointment Approved",
-                    Message = $"Dr. {CurrentDoctor.FullName} has approved your appointment for {appt.AppointmentDate}",
-                    CreatedDate = DateTime.Now,
-                    IsRead = false
-                });
-            }
-            catch {}
-
-            StatusMessage = $"Appointment for {appt.PatientName} has been approved.";
-            StatusMessageClass = "alert-success";
-            
-            LoadAppointments();
-            
-            // Auto-clear message
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(5000);
-                StatusMessage = "";
-                await InvokeAsync(StateHasChanged);
-            });
+            NotificationService.Notify(NotificationSeverity.Success, "Appointment Approved");
+            await appointmentGrid.Reload();
+            stats = DoctorRepo.GetDoctorDashboardStats(currentDoctor!.DoctorId);
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error approving appointment: {ex.Message}";
-            StatusMessageClass = "alert-danger";
+            NotificationService.Notify(NotificationSeverity.Error, "Action Failed", ex.Message);
         }
     }
 
-    private void ShowRejectModal(Appointment appt)
+    async Task RejectAppointment(Appointment appt)
     {
-        SelectedAppointment = appt;
-        RejectionMessage = "";
-        ShowRejectDialog = true;
-    }
-
-    private void CloseRejectModal()
-    {
-        ShowRejectDialog = false;
-        SelectedAppointment = null;
-    }
-
-    private void ShowRescheduleModal(Appointment appt)
-    {
-        SelectedAppointment = appt;
-        NewRescheduleDate = appt.AppointmentDate;
-        ShowRescheduleDialog = true;
-    }
-
-    private void CloseRescheduleModal()
-    {
-        ShowRescheduleDialog = false;
-        SelectedAppointment = null;
-    }
-
-    private void ConfirmReschedule()
-    {
-        if (SelectedAppointment != null)
+        try
         {
-             AppointmentRepo.UpdateAppointmentStatus(SelectedAppointment.AppointmentId, "Rescheduled", rescheduledDate: NewRescheduleDate);
-             NotificationRepo.CreateNotification(new Notification 
-             {
-                PatientId = SelectedAppointment.PatientId,
-                Title = "Appointment Rescheduled",
-                Message = $"Dr. {CurrentDoctor.FullName} has rescheduled your appointment to {NewRescheduleDate.ToString("MMM dd | hh:mm tt")}.",
-                CreatedDate = DateTime.Now,
-                IsRead = false
-             });
-             LoadAppointments();
-             CloseRescheduleModal();
+            var result = await DialogService.OpenAsync<RejectAppointmentDialog>("Reject Appointment",
+            new Dictionary<string, object> { { "AppointmentId", appt.AppointmentId } },
+            new DialogOptions { Width = "500px", Height = "auto", Resizable = true, Draggable = true });
+
+            if (result == true)
+            {
+                await appointmentGrid.Reload();
+                stats = DoctorRepo.GetDoctorDashboardStats(currentDoctor!.DoctorId);
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Dialog Error", ex.Message);
         }
     }
 
-    private void ConfirmReject()
+    void OnAppointmentSelect(Appointment appt)
     {
-        if (SelectedAppointment != null)
-        {
-            AppointmentRepo.UpdateAppointmentStatus(SelectedAppointment.AppointmentId, "Rejected", rejectionReason: RejectionMessage);
-            NotificationRepo.CreateNotification(new Notification 
-             {
-                PatientId = SelectedAppointment.PatientId,
-                Title = "Appointment Rejected",
-                Message = $"Dr. {CurrentDoctor.FullName} has rejected your appointment. Reason: {RejectionMessage}",
-                CreatedDate = DateTime.Now,
-                IsRead = false
-             });
-            LoadAppointments();
-            CloseRejectModal();
-        }
-    }
-
-    private void NavigateToPrescription(int patientId, int? appointmentId = null)
-    {
-        if (appointmentId.HasValue)
-        {
-            Nav.NavigateTo($"/Doctor/Prescribe/{patientId}?AppointmentId={appointmentId}");
-        }
-        else
-        {
-            Nav.NavigateTo($"/Doctor/Prescribe/{patientId}");
-        }
-    }
-
-    private void NavigateToReport(int patientId, int? appointmentId = null)
-    {
-        if (appointmentId.HasValue)
-        {
-             Nav.NavigateTo($"/Doctor/UploadReport/{patientId}?AppointmentId={appointmentId}");
-        }
-        else
-        {
-             Nav.NavigateTo($"/Doctor/UploadReport/{patientId}");
-        }
-    }
-
-    private void NavigateToOperation(int patientId, int? appointmentId = null)
-    {
-        if (appointmentId.HasValue)
-        {
-            Nav.NavigateTo($"/Doctor/RecommendOperation/{patientId}?AppointmentId={appointmentId}");
-        }
-        else
-        {
-            Nav.NavigateTo($"/Doctor/RecommendOperation/{patientId}");
-        }
-    }
-
-
-    private string FormatTime(TimeSpan time)
-    {
-        return DateTime.Today.Add(time).ToString("hh:mm tt");
+        // Potentially open details
     }
 }

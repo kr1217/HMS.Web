@@ -1,0 +1,36 @@
+@using HMS.Web.Models
+@inject DialogService DialogService
+
+<RadzenStack Gap="1.5rem" Class="rz-p-4">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="Appointment Adjustment" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+        <RadzenText Text="@Appointment.PatientName" TextStyle="TextStyle.H6" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="@($"Original: {Appointment.AppointmentDate:MMM dd, yyyy | hh:mm tt}")"
+            TextStyle="TextStyle.Body2" />
+    </RadzenStack>
+
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="New Clinical Slot" TextStyle="TextStyle.Subtitle2" />
+        <RadzenDatePicker @bind-Value="NewDate" ShowTime="true" DateFormat="MMM dd, yyyy hh:mm tt"
+            Style="width: 100%;" />
+        <RadzenText Text="The patient will receive an automated notification of this change."
+            TextStyle="TextStyle.Caption" Class="rz-color-info-dark" />
+    </RadzenStack>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
+        <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" />
+        <RadzenButton Text="Authorize Reschedule" Icon="update" ButtonStyle="ButtonStyle.Warning"
+            Click="@(() => DialogService.Close(NewDate))" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public Appointment Appointment { get; set; } = new();
+
+    DateTime NewDate;
+
+    protected override void OnInitialized()
+    {
+        NewDate = Appointment.AppointmentDate;
+    }
+}

@@ -5,40 +5,43 @@
 @inject OperationRepository OperationRepo
 @inject DialogService DialogService
 
-<RadzenCard Class="rz-p-4">
-    <div class="mb-4">
-        <h5 class="text-primary"><i class="bi bi-play-fill me-2"></i>Commence Surgery</h5>
-        <div class="text-muted small">Confirm theater and surgical team for <strong>@Operation.PatientName</strong>.
-        </div>
-    </div>
+<RadzenCard Class="rz-p-6 rz-shadow-0">
+    <RadzenStack Gap="1.5rem">
+        <RadzenStack Gap="0.5rem" Class="rz-mb-4">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenIcon Icon="play_circle" Style="color: var(--rz-primary); font-size: 1.5rem;" />
+                <RadzenText Text="Commence Surgical Procedure" TextStyle="TextStyle.H6" Class="rz-m-0 rz-color-primary" />
+            </RadzenStack>
+            <RadzenText Text="@($"Confirm theater assignment and clinical leadership for {Operation.PatientName}.")" 
+                        TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+        </RadzenStack>
 
-    <RadzenTemplateForm TItem="PatientOperation" Data="@Operation" Submit="OnSubmit">
-        <div class="row g-3">
-            <div class="col-12">
-                <RadzenText Text="Operation Theater" Component="TheaterId" />
-                <RadzenDropDown @bind-Value="Operation.TheaterId" Data="@AvailableTheaters" TextProperty="TheaterName"
-                    ValueProperty="TheaterId" Placeholder="Select available theater..." Style="width: 100%"
-                    Name="TheaterId" />
-                <RadzenRequiredValidator Component="TheaterId" Text="Theater is required" Style="position: absolute" />
-            </div>
+        <RadzenTemplateForm TItem="PatientOperation" Data="@Operation" Submit="OnSubmit">
+            <RadzenStack Gap="1.5rem">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenLabel Text="Designated Operation Theater" Component="TheaterId" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenDropDown @bind-Value="Operation.TheaterId" Data="@AvailableTheaters" TextProperty="TheaterName"
+                                    ValueProperty="TheaterId" Placeholder="Select sterilized theater..." Style="width: 100%"
+                                    Name="TheaterId" />
+                    <RadzenRequiredValidator Component="TheaterId" Text="Theater assignment is clinically mandatory" />
+                </RadzenStack>
 
-            <div class="col-12">
-                <RadzenText Text="Lead Surgeon" Component="DoctorId" />
-                <RadzenDropDown @bind-Value="Operation.DoctorId" Data="@Doctors" TextProperty="FullName"
-                    ValueProperty="DoctorId" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
-                    FilterOperator="StringFilterOperator.Contains" AllowFiltering="true" Placeholder="Assign surgeon..."
-                    Style="width: 100%" Name="DoctorId" />
-                <RadzenRequiredValidator Component="DoctorId" Text="Surgeon is required" Style="position: absolute" />
-            </div>
+                <RadzenStack Gap="0.5rem">
+                    <RadzenLabel Text="Attending Lead Surgeon" Component="DoctorId" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenDropDown @bind-Value="Operation.DoctorId" Data="@Doctors" TextProperty="FullName"
+                                    ValueProperty="DoctorId" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                    FilterOperator="StringFilterOperator.Contains" AllowFiltering="true" Placeholder="Assign lead surgeon..."
+                                    Style="width: 100%" Name="DoctorId" />
+                    <RadzenRequiredValidator Component="DoctorId" Text="Surgeon assignment is clinically mandatory" />
+                </RadzenStack>
 
-            <div class="col-12 mt-4 d-flex justify-content-end gap-2">
-                <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light"
-                    Click="@(() => DialogService.Close(false))" />
-                <RadzenButton Text="Start Surgery" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
-                    ButtonType="ButtonType.Submit" />
-            </div>
-        </div>
-    </RadzenTemplateForm>
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-6">
+                    <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                    <RadzenButton Text="Initiate Surgery" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary" ButtonType="ButtonType.Submit" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenTemplateForm>
+    </RadzenStack>
 </RadzenCard>
 
 @code {

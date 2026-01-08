@@ -7,54 +7,69 @@
 @inject PatientRepository PatientRepo
 @inject AuthenticationStateProvider AuthStateProvider
 
-<h3>Zero-Movement Operation Experience</h3>
-<p class="text-muted">Transparent packages. No hidden costs. Everything included.</p>
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="Zero-Movement Operation Experience" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="Transparent packages. No hidden costs. Everything included." TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+    </RadzenStack>
 
-<div class="row">
     @if (myOperations != null && myOperations.Any())
     {
-        <div class="col-12 mb-4">
-             <div class="card border-warning">
-                 <div class="card-header bg-warning text-dark">
-                     Your Scheduled Operations
-                 </div>
-                 <ul class="list-group list-group-flush">
-                     @foreach(var op in myOperations)
-                     {
-                         <li class="list-group-item">
-                             <strong>@op.PackageName</strong> - @op.Status <br/>
-                             <small>Scheduled: @op.ScheduledDate.ToShortDateString()</small>
-                             <p class="mb-0 mt-1">@op.Notes</p>
-                         </li>
-                     }
-                 </ul>
-             </div>
-        </div>
+        <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="medical_services">
+            <RadzenStack Gap="1rem">
+                <RadzenText Text="Your Scheduled Operations" TextStyle="TextStyle.Subtitle1" Class="rz-m-0 rz-font-weight-bold" />
+                <RadzenStack Gap="0.5rem">
+                    @foreach (var op in myOperations)
+                    {
+                        <RadzenCard Class="rz-p-3 rz-shadow-1">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                <RadzenStack Gap="0">
+                                    <RadzenText Text="@op.PackageName" TextStyle="TextStyle.Subtitle2" Class="rz-m-0" />
+                                    <RadzenText Text="@($"Scheduled: {op.ScheduledDate:MMM dd, yyyy}")" TextStyle="TextStyle.Caption" />
+                                    @if (!string.IsNullOrEmpty(op.Notes))
+                                    {
+                                        <RadzenText Text="@op.Notes" TextStyle="TextStyle.Body2" Class="rz-mt-2" />
+                                    }
+                                </RadzenStack>
+                                <RadzenBadge Text="@op.Status" IsPill="true" BadgeStyle="BadgeStyle.Warning" />
+                            </RadzenStack>
+                        </RadzenCard>
+                    }
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenAlert>
     }
+
+    <RadzenText Text="Available Surgical Packages" TextStyle="TextStyle.H5" Class="rz-mt-4" />
 
     @if (packages == null)
     {
-        <p>Loading packages...</p>
+        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 200px;" />
+            <RadzenText Text="Fetching surgical packages..." TextStyle="TextStyle.Caption" />
+        </RadzenStack>
     }
     else
     {
-        @foreach (var pkg in packages)
-        {
-            <div class="col-md-4 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">@pkg.PackageName</h5>
-                        <h6 class="card-subtitle mb-2 text-muted">$@pkg.Cost</h6>
-                        <p class="card-text">@pkg.Description</p>
-                    </div>
-                    <div class="card-footer bg-transparent border-top-0">
-                         <button class="btn btn-outline-primary btn-sm">View Details</button>
-                    </div>
-                </div>
-            </div>
-        }
+        <RadzenRow Gap="1.5rem">
+            @foreach (var pkg in packages)
+            {
+                <RadzenColumn Size="12" SizeMD="6" SizeLG="4">
+                    <RadzenCard Class="rz-p-4 h-100 rz-shadow-2" Style="display: flex; flex-direction: column; justify-content: space-between;">
+                        <RadzenStack Gap="1rem">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                                <RadzenText Text="@pkg.PackageName" TextStyle="TextStyle.H6" Class="rz-m-0 rz-color-primary" />
+                                <RadzenBadge Text="@pkg.Cost.ToString("C")" BadgeStyle="BadgeStyle.Success" Shade="Shade.Lighter" />
+                            </RadzenStack>
+                            <RadzenText Text="@pkg.Description" TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+                        </RadzenStack>
+                        <RadzenButton Text="View Details" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Icon="info" Class="rz-mt-4 rz-align-self-start" />
+                    </RadzenCard>
+                </RadzenColumn>
+            }
+        </RadzenRow>
     }
-</div>
+</RadzenStack>
 
 @code {
     private List<OperationPackage>? packages;

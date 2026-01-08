@@ -3,32 +3,19 @@
 
 @inject SignInManager<ApplicationUser> SignInManager
 
-<ul class="nav nav-pills flex-column">
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage" Match="NavLinkMatch.All">Profile</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Email">Email</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/ChangePassword">Password</NavLink>
-    </li>
+<RadzenPanelMenu Style="width: 100%;">
+    <RadzenPanelMenuItem Text="Personnel Profile" Icon="account_circle" Path="Account/Manage"
+        Match="NavLinkMatch.All" />
+    <RadzenPanelMenuItem Text="Institutional Email" Icon="email" Path="Account/Manage/Email" />
+    <RadzenPanelMenuItem Text="Security Keys" Icon="lock" Path="Account/Manage/ChangePassword" />
     @if (hasExternalLogins)
     {
-        <li class="nav-item">
-            <NavLink class="nav-link" href="Account/Manage/ExternalLogins">External logins</NavLink>
-        </li>
+        <RadzenPanelMenuItem Text="External Federation" Icon="hub" Path="Account/Manage/ExternalLogins" />
     }
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/TwoFactorAuthentication">Two-factor authentication</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Passkeys">Passkeys</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/PersonalData">Personal data</NavLink>
-    </li>
-</ul>
+    <RadzenPanelMenuItem Text="2-Factor Auth" Icon="security" Path="Account/Manage/TwoFactorAuthentication" />
+    <RadzenPanelMenuItem Text="Biometric Passkeys" Icon="fingerprint" Path="Account/Manage/Passkeys" />
+    <RadzenPanelMenuItem Text="Registry Data" Icon="dataset" Path="Account/Manage/PersonalData" />
+</RadzenPanelMenu>
 
 @code {
     private bool hasExternalLogins;

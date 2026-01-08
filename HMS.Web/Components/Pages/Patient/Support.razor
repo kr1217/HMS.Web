@@ -7,62 +7,102 @@
 @inject PatientRepository PatientRepo
 @inject AuthenticationStateProvider AuthStateProvider
 
-<h3>Support Center</h3>
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="Support Center" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="Submit inquiries, report issues, and communicate with our administrative team."
+            TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+    </RadzenStack>
 
-<div class="row">
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">Open a New Ticket</div>
-            <div class="card-body">
+    <RadzenRow Gap="2rem">
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard Class="rz-shadow-3 rz-p-6">
+                <RadzenText Text="Open a New Ticket" TextStyle="TextStyle.H6" Class="rz-mb-4" />
                 <EditForm Model="newTicket" OnValidSubmit="HandleSubmit">
-                    <div class="mb-3">
-                        <label>Subject</label>
-                        <InputText class="form-control" @bind-Value="newTicket.Subject" />
-                    </div>
-                    <div class="mb-3">
-                        <label>Message</label>
-                        <InputTextArea class="form-control" @bind-Value="newTicket.Message" rows="4" />
-                    </div>
-                    <button type="submit" class="btn btn-primary">Submit Ticket</button>
-                </EditForm>
-            </div>
-        </div>
-    </div>
+                    <RadzenStack Gap="1.5rem">
+                        <RadzenFormField Text="Issue Subject" Style="width: 100%;">
+                            <RadzenTextBox @bind-Value="newTicket.Subject" Placeholder="Briefly specify the topic..." />
+                        </RadzenFormField>
 
-    <div class="col-md-8">
-        <h5>Your Tickets</h5>
-        @if (tickets == null)
-        {
-            <p>Loading...</p>
-        }
-        else if (!tickets.Any())
-        {
-            <p>No support tickets found.</p>
-        }
-        else
-        {
-            <div class="list-group">
-                @foreach (var tick in tickets)
-                {
-                    <div class="list-group-item">
-                         <div class="d-flex w-100 justify-content-between">
-                            <h5 class="mb-1">@tick.Subject</h5>
-                            <small>@tick.CreatedDate.ToShortDateString()</small>
-                         </div>
-                         <p class="mb-1">@tick.Message</p>
-                         <small>Status: <span class="badge bg-secondary">@tick.Status</span></small>
-                         @if(!string.IsNullOrEmpty(tick.Response))
-                         {
-                             <div class="alert alert-info mt-2">
-                                 <strong>Response:</strong> @tick.Response
-                             </div>
-                         }
-                    </div>
-                }
-            </div>
-        }
-    </div>
-</div>
+                        <RadzenFormField Text="Detailed Message" Style="width: 100%;">
+                            <RadzenTextArea @bind-Value="newTicket.Message" Rows="4"
+                                Placeholder="Provide detailed information regarding your request..." />
+                        </RadzenFormField>
+
+                        <RadzenButton Text="Submit Ticket" Icon="send" ButtonType="ButtonType.Submit"
+                            ButtonStyle="ButtonStyle.Primary" Class="rz-w-100 rz-mt-2" />
+                    </RadzenStack>
+                </EditForm>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="8">
+            <RadzenCard Class="rz-shadow-2 rz-p-0" Style="overflow: hidden; border-radius: 12px;">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                    Class="rz-p-4 rz-background-color-base-100">
+                    <RadzenIcon Icon="history" Style="color: var(--rz-primary);" />
+                    <RadzenText Text="Your Support History" TextStyle="TextStyle.Subtitle1"
+                        Class="rz-m-0 rz-font-weight-bold" />
+                </RadzenStack>
+
+                <RadzenStack Gap="0" Class="rz-p-4">
+                    @if (tickets == null)
+                    {
+                        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 150px;" />
+                            <RadzenText Text="Synchronizing ticket history..." TextStyle="TextStyle.Caption" />
+                        </RadzenStack>
+                    }
+                    else if (!tickets.Any())
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter"
+                            AllowClose="false" Icon="info_outline">
+                            No active or archived support tickets found.
+                        </RadzenAlert>
+                    }
+                    else
+                    {
+                        <RadzenStack Gap="1rem">
+                            @foreach (var tick in tickets.OrderByDescending(t => t.CreatedDate))
+                            {
+                                <RadzenCard Class="rz-p-4 rz-variant-flat rz-background-color-base-100"
+                                    Style="border-left: 4px solid var(--rz-primary-light);">
+                                    <RadzenStack Gap="1rem">
+                                        <RadzenStack Orientation="Orientation.Horizontal"
+                                            JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                            <RadzenStack Gap="0">
+                                                <RadzenText Text="@tick.Subject" TextStyle="TextStyle.Subtitle2"
+                                                    Class="rz-m-0" />
+                                                <RadzenText Text="@tick.CreatedDate.ToString("MMM dd, yyyy")"
+                                                    TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                                            </RadzenStack>
+                                            <RadzenBadge Text="@tick.Status" BadgeStyle="BadgeStyle.Secondary"
+                                                Shade="Shade.Lighter" IsPill="true" />
+                                        </RadzenStack>
+
+                                        <RadzenText Text="@tick.Message" TextStyle="TextStyle.Body2" />
+
+                                        @if (!string.IsNullOrEmpty(tick.Response))
+                                        {
+                                            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter"
+                                                AllowClose="false" Size="AlertSize.Small">
+                                                <RadzenStack Gap="0.25rem">
+                                                    <RadzenText Text="Official Response" TextStyle="TextStyle.Caption"
+                                                        Class="rz-font-weight-bold" />
+                                                    <RadzenText Text="@tick.Response" TextStyle="TextStyle.Body2" />
+                                                </RadzenStack>
+                                            </RadzenAlert>
+                                        }
+                                    </RadzenStack>
+                                </RadzenCard>
+                            }
+                        </RadzenStack>
+                    }
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+</RadzenStack>
 
 @code {
     private SupportTicket newTicket = new SupportTicket();

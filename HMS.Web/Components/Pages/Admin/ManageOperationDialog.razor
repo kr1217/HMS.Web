@@ -5,68 +5,89 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
-<div class="container-fluid">
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <strong>Patient:</strong> @Operation.PatientName <br />
-            <strong>Procedure:</strong> @Operation.PackageName <br />
-            <strong>Current Status:</strong>
-            <RadzenBadge BadgeStyle="@GetStatusBadge(Operation.Status)" Text="@Operation.Status" />
-            @if (IsOverdue)
-            {
-                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="OVERDUE" Class="ms-2" />
-            }
-        </div>
-    </div>
+<RadzenStack Gap="1.5rem" Class="rz-p-6">
+    <RadzenCard Variant="Variant.Flat" Class="rz-background-color-base-100 rz-p-4">
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenStack Gap="0.25rem">
+                    <RadzenText Text="PATIENT" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary rz-m-0 rz-font-weight-bold" />
+                    <RadzenText Text="@Operation.PatientName" TextStyle="TextStyle.Subtitle1" Class="rz-m-0 rz-font-weight-bold" />
+                    <RadzenText Text="@Operation.PackageName" TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+                </RadzenStack>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4" Class="rz-text-align-center rz-text-align-md-right">
+                <RadzenStack Gap="0.5rem" AlignItems="AlignItems.End">
+                    <RadzenBadge BadgeStyle="@GetStatusBadge(Operation.Status)" Text="@Operation.Status.ToUpper()" IsPill="true" />
+                    @if (IsOverdue)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="OVERDUE" IsPill="true" />
+                    }
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenCard>
 
-    <div class="row mb-3 p-3 bg-light border rounded">
-        <div class="col-md-6">
-            <label class="form-label small text-muted">Start Time</label>
-            <RadzenDatePicker @bind-Value="NewStartTime" ShowTime="true" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt"
-                Change="@CheckConflicts" Class="w-100" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label small text-muted">Duration (mins)</label>
-            <RadzenNumeric TValue="int" @bind-Value="NewDuration" Min="15" Step="15"
-                Change="@(args => CheckConflicts())" Class="w-100" />
-        </div>
-        <div class="col-12 mt-2 text-muted small">
-            End Time: @NewStartTime.AddMinutes(NewDuration).ToString("hh:mm tt")
-        </div>
-        @if (ConflictCount > 0)
-        {
-            <div class="col-12 mt-2 text-danger small">
-                <i class="bi bi-exclamation-octagon-fill"></i> Warning: Updating this schedule will overlap with
-                @ConflictCount other operation(s).
-            </div>
-        }
-    </div>
+    <RadzenCard Class="rz-shadow-2">
+        <RadzenStack Gap="1.5rem">
+            <RadzenRow Gap="1rem">
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenLabel Text="Adjust Scheduled Start" Component="StartTime" TextStyle="TextStyle.Subtitle2" />
+                        <RadzenDatePicker @bind-Value="NewStartTime" ShowTime="true" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt"
+                            Change="@CheckConflicts" Class="rz-w-100" Name="StartTime" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenLabel Text="Allocated Duration (mins)" Component="Duration" TextStyle="TextStyle.Subtitle2" />
+                        <RadzenNumeric TValue="int" @bind-Value="NewDuration" Min="15" Step="15"
+                            Change="@(args => CheckConflicts())" Class="rz-w-100" Name="Duration" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
 
-    <div class="row">
-        <div class="col-md-12 text-end">
-            @if (Operation.Status == "Scheduled")
-            {
-                <RadzenButton Text="Start Operation" ButtonStyle="ButtonStyle.Info" Icon="play_arrow"
-                    Click="@(() => UpdateStatus("Running"))" Class="me-2" />
-            }
-            @if (Operation.Status == "Running")
-            {
-                <RadzenButton Text="Complete Operation" ButtonStyle="ButtonStyle.Success" Icon="check"
-                    Click="@(() => UpdateStatus("Completed"))" Class="me-2" />
-            }
+            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="schedule" Size="AlertSize.Small">
+                Expected Completion: <strong>@NewStartTime.AddMinutes(NewDuration).ToString("hh:mm tt")</strong>
+            </RadzenAlert>
 
-            <RadzenButton Text="Update Schedule" ButtonStyle="ButtonStyle.Primary" Icon="save" Click="@SaveSchedule"
-                Disabled="@(ConflictCount > 0 && !ForceUpdate)" />
             @if (ConflictCount > 0)
             {
-                <div class="d-inline-block ms-2 text-start">
-                    <RadzenCheckBox @bind-Value="ForceUpdate" Name="Force" />
-                    <label class="small text-muted">Force</label>
-                </div>
+                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="warning">
+                    <RadzenStack Gap="0.25rem">
+                        <RadzenText Text="Operational Conflict Detected" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+                        <RadzenText Text="@($"This schedule overlaps with {ConflictCount} other orchestrated procedure(s) in this theater.")" TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
+                </RadzenAlert>
             }
-        </div>
-    </div>
-</div>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
+        @if (Operation.Status == "Scheduled")
+        {
+            <RadzenButton Text="Start Procedure" ButtonStyle="ButtonStyle.Info" Icon="play_arrow"
+                Click="@(() => UpdateStatus("Running"))" />
+        }
+        @if (Operation.Status == "Running")
+        {
+            <RadzenButton Text="Mark Completed" ButtonStyle="ButtonStyle.Success" Icon="check"
+                Click="@(() => UpdateStatus("Completed"))" />
+        }
+
+        <RadzenButton Text="Update Schedule" ButtonStyle="ButtonStyle.Primary" Icon="save" Click="@SaveSchedule"
+            Disabled="@(ConflictCount > 0 && !ForceUpdate)" />
+        
+        @if (ConflictCount > 0)
+        {
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenCheckBox @bind-Value="ForceUpdate" Name="Force" />
+                <RadzenLabel Text="Force Update" Component="Force" TextStyle="TextStyle.Caption" />
+            </RadzenStack>
+        }
+        
+        <RadzenButton Text="Close" Click="@(() => DialogService.Close(false))" ButtonStyle="ButtonStyle.Light" />
+    </RadzenStack>
+</RadzenStack>
 
 @code {
     [Parameter] public PatientOperation Operation { get; set; }

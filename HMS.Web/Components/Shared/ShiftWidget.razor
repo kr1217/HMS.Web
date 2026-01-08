@@ -1,4 +1,3 @@
-@rendermode InteractiveServer
 @using HMS.Web.DAL
 @using HMS.Web.Models
 @using Radzen
@@ -10,7 +9,7 @@
 @inject NotificationService NotificationService
 @inject NavigationManager Navigation
 
-<div class="d-flex align-items-center">
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
     @if (isLoading)
     {
         <RadzenProgressBarCircular ShowValue="true" Mode="ProgressBarMode.Indeterminate"
@@ -18,12 +17,12 @@
     }
     else if (currentShift != null)
     {
-        <div class="me-3 text-end d-md-block">
-             <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Shift Active" />
-             <div class="text-muted small">@currentShift.StartTime.ToString("t")</div>
-        </div>
+        <RadzenStack AlignItems="AlignItems.End" Gap="0">
+             <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Shift Active" IsPill="true" />
+             <RadzenText Text="@currentShift.StartTime.ToString("t")" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+        </RadzenStack>
     }
-</div>
+</RadzenStack>
 
 @code {
     bool isLoading = true;
@@ -64,14 +63,14 @@
     async Task StartShiftDialog()
     {
         var result = await DialogService.OpenAsync("Start Shift", ds =>
-    @<div class="p-3">
-        <p class="mb-3">Enter starting cash amount in drawer:</p>
-        <RadzenNumeric TValue="decimal" @bind-Value="startingCash" Class="w-100 mb-3" Format="c" />
-        <div class="d-flex justify-content-end gap-2">
+    @<RadzenStack Gap="1.5rem" Class="rz-p-4">
+        <RadzenText Text="Enter starting cash amount in drawer:" TextStyle="TextStyle.Body2" />
+        <RadzenNumeric TValue="decimal" @bind-Value="startingCash" Class="rz-w-100" Format="c" />
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
             <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="() => ds.Close(false)" />
             <RadzenButton Text="Start Shift" ButtonStyle="ButtonStyle.Success" Click="() => ds.Close(true)" />
-        </div>
-    </div>
+        </RadzenStack>
+    </RadzenStack>
             , new DialogOptions { Width = "300px", Height = "auto" });
 
         if (result == true)
@@ -96,28 +95,32 @@
         var expectedRev = FinanceRepo.GetShiftRevenue(currentShift.ShiftId);
 
         var result = await DialogService.OpenAsync("End Shift", ds =>
-    @<div class="p-3">
-        <p class="mb-2">Shift Started: <strong>@currentShift?.StartTime.ToString("g")</strong></p>
-        <p class="mb-2 text-primary">System Expected Revenue: <strong>@expectedRev.ToString("C")</strong></p>
-        <hr />
-        <div class="mb-3">
-            <RadzenLabel Text="Physical Cash Counted" Component="cash" />
-            <RadzenNumeric Name="cash" TValue="decimal" @bind-Value="closingActualCash" Class="w-100" Format="c" />
+    @<RadzenStack Gap="1.5rem" Class="rz-p-4">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="@($"Shift Started: {currentShift?.StartTime:g}")" TextStyle="TextStyle.Body2" Class="rz-font-weight-bold" />
+            <RadzenText Text="@($"System Expected Revenue: {expectedRev:C}")" TextStyle="TextStyle.Subtitle2" Class="rz-color-primary rz-font-weight-bold" />
+        </RadzenStack>
+        
+        <RadzenStack Gap="0.5rem">
+            <RadzenLabel Text="Physical Cash Counted" Component="cash" TextStyle="TextStyle.Caption" />
+            <RadzenNumeric Name="cash" TValue="decimal" @bind-Value="closingActualCash" Class="rz-w-100" Format="c" />
             @if (closingActualCash != expectedRev && closingActualCash > 0)
-        {
-            <div class="small text-danger mt-1">Variance: @((closingActualCash - expectedRev).ToString("C"))</div>
-        }
-        </div>
-        <div class="mb-3">
-            <RadzenLabel Text="Notes / Handover" Component="notes" />
-            <RadzenTextArea Name="notes" @bind-Value="closingNotes" Class="w-100" Rows="3"
+            {
+                <RadzenText Text="@($"Variance: {(closingActualCash - expectedRev):C}")" TextStyle="TextStyle.Caption" Class="rz-color-danger rz-mt-1" />
+            }
+        </RadzenStack>
+        
+        <RadzenStack Gap="0.5rem">
+            <RadzenLabel Text="Notes / Handover" Component="notes" TextStyle="TextStyle.Caption" />
+            <RadzenTextArea Name="notes" @bind-Value="closingNotes" Class="rz-w-100" Rows="3"
                 Placeholder="Explain variances if any..." />
-        </div>
-        <div class="d-flex justify-content-end gap-2">
+        </RadzenStack>
+        
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
             <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="() => ds.Close(false)" />
             <RadzenButton Text="End Shift" ButtonStyle="ButtonStyle.Danger" Click="() => ds.Close(true)" />
-        </div>
-    </div>
+        </RadzenStack>
+    </RadzenStack>
 , new DialogOptions { Width = "400px", Height = "auto" });
 
         if (result == true)

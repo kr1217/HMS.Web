@@ -13,52 +13,56 @@
 
 <RadzenDialog />
 
-<h3>My Bills & Payments</h3>
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="My Bills & Payments" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="Access your clinical invoices, track payment status, and download records." TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+    </RadzenStack>
 
-@if (bills == null)
-{
-    <p>Loading payments...</p>
-}
-else if (!bills.Any())
-{
-    <div class="alert alert-info">
-        No bills or payment history found for your account.
-    </div>
-}
-else
-{
-    <div class="row">
-        @foreach (var bill in bills)
-        {
-            <div class="col-md-6 col-lg-4 mb-3">
-                <div class="card border-left-primary shadow h-100 py-2">
-                    <div class="card-body">
-                        <div class="row no-gutters align-items-center">
-                            <div class="col mr-2">
-                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                    Invoice #@bill.BillId</div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800">$@bill.TotalAmount</div>
-                                <div class="mt-2">
-                                    <span
-                                        class="badge @(bill.Status == "Paid" ? "bg-success" : "bg-warning")">@bill.Status</span>
-                                </div>
-                                <small class="text-muted">@bill.BillDate.ToShortDateString()</small>
-                            </div>
-                            <div class="col-auto">
-                                <button class="btn btn-sm btn-outline-info me-2" @onclick="() => ViewDetails(bill)">
-                                    View Details <i class="fas fa-eye"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => DownloadInvoice(bill.BillId)">
-                                    Download <i class="fas fa-download"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        }
-    </div>
-}
+    @if (bills == null)
+    {
+        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 200px;" />
+            <RadzenText Text="Loading payment records..." TextStyle="TextStyle.Caption" />
+        </RadzenStack>
+    }
+    else if (!bills.Any())
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="payments">
+            No bills or payment history found for your account.
+        </RadzenAlert>
+    }
+    else
+    {
+        <RadzenRow Gap="1.5rem">
+            @foreach (var bill in bills)
+            {
+                <RadzenColumn Size="12" SizeMD="6" SizeLG="4">
+                    <RadzenCard Class="rz-p-4 h-100 rz-shadow-2" Style="border-left: 4px solid var(--rz-primary);">
+                        <RadzenStack Gap="1.5rem">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                <RadzenStack Gap="0">
+                                    <RadzenText Text="@($"Invoice #{bill.BillId}")" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                                    <RadzenText Text="@bill.TotalAmount.ToString("C")" TextStyle="TextStyle.H5" Class="rz-m-0 rz-font-weight-bold" />
+                                </RadzenStack>
+                                <RadzenBadge Text="@bill.Status" BadgeStyle="@(bill.Status == "Paid" ? BadgeStyle.Success : BadgeStyle.Warning)" Shade="Shade.Lighter" IsPill="true" />
+                            </RadzenStack>
+
+                            <RadzenStack Gap="0.25rem">
+                                <RadzenText Text="@($"Issued on: {bill.BillDate:MMM dd, yyyy}")" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                            </RadzenStack>
+
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                <RadzenButton Text="Details" Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" Variant="Variant.Flat" Click="@(() => ViewDetails(bill))" Class="rz-flex-1" />
+                                <RadzenButton Text="Invoice" Icon="download" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" Variant="Variant.Flat" Click="@(() => DownloadInvoice(bill.BillId))" />
+                            </RadzenStack>
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenColumn>
+            }
+        </RadzenRow>
+    }
+</RadzenStack>
 
 @code {
     private List<Bill>? bills;
@@ -96,22 +100,33 @@ else
     {
         var items = BillRepo.GetBillItems(bill.BillId);
         await DialogService.OpenAsync("Bill Details", ds =>
-    @<div class="row">
-        <div class="col-12">
-            <p><strong>Bill ID:</strong> #@bill.BillId</p>
-            <p><strong>Date:</strong> @bill.BillDate.ToShortDateString()</p>
-            <p><strong>Status:</strong> <span class="badge bg-secondary">@bill.Status</span></p>
-            <hr />
-            <RadzenDataGrid Data="@items" TItem="BillItem" Density="Density.Compact">
-                <Columns>
-                    <RadzenDataGridColumn TItem="BillItem" Property="Category" Title="Category" />
-                    <RadzenDataGridColumn TItem="BillItem" Property="Description" Title="Description" />
-                    <RadzenDataGridColumn TItem="BillItem" Property="Amount" Title="Amount" FormatString="{0:C}" />
-                </Columns>
-            </RadzenDataGrid>
-            <hr />
-            <h5 class="text-end">Total: @bill.TotalAmount.ToString("C")</h5>
-        </div>
-    </div>, new DialogOptions { Width = "600px" });
+            @<RadzenStack Gap="1.5rem" Class="rz-p-4">
+                <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenText Text="@($"Invoice #{bill.BillId}")" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                    <RadzenText Text="@bill.TotalAmount.ToString("C")" TextStyle="TextStyle.H3" Class="rz-m-0 rz-font-weight-bold" />
+                    <RadzenBadge Text="@bill.Status" BadgeStyle="@(bill.Status == "Paid" ? BadgeStyle.Success : BadgeStyle.Warning)" Shade="Shade.Lighter" IsPill="true" />
+                </RadzenStack>
+
+                <RadzenStack Gap="0.25rem">
+                    <RadzenText Text="@($"Billing Date: {bill.BillDate:MMM dd, yyyy}")" TextStyle="TextStyle.Body2" />
+                </RadzenStack>
+
+                <RadzenAlert AlertStyle="AlertStyle.Light" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Size="AlertSize.Small">
+                    Detailed breakdown is available for hospital audit purposes only.
+                    If you have questions about your bill, please contact the billing department.
+                </RadzenAlert>
+
+                <RadzenStack Gap="0.5rem">
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenText Text="Paid Amount:" TextStyle="TextStyle.Body2" />
+                        <RadzenText Text="@bill.PaidAmount.ToString("C")" TextStyle="TextStyle.Body2" Class="rz-color-success rz-font-weight-bold" />
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenText Text="Balance Due:" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+                        <RadzenText Text="@bill.DueAmount.ToString("C")" TextStyle="TextStyle.Subtitle2" Class="rz-color-danger rz-font-weight-bold" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenStack>
+        , new DialogOptions { Width = "450px" });
     }
 }

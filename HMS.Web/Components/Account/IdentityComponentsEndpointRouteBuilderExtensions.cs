@@ -41,15 +41,6 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             return TypedResults.Challenge(properties, [provider]);
         });
 
-        accountGroup.MapPost("/Logout", async (
-            ClaimsPrincipal user,
-            [FromServices] SignInManager<ApplicationUser> signInManager,
-            [FromForm] string returnUrl) =>
-        {
-            await signInManager.SignOutAsync();
-            return TypedResults.LocalRedirect($"~/{returnUrl}");
-        });
-
         accountGroup.MapPost("/PasskeyCreationOptions", async (
             HttpContext context,
             [FromServices] UserManager<ApplicationUser> userManager,
@@ -145,6 +136,15 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
 
             context.Response.Headers.TryAdd("Content-Disposition", "attachment; filename=PersonalData.json");
             return TypedResults.File(fileBytes, contentType: "application/json", fileDownloadName: "PersonalData.json");
+        });
+
+        accountGroup.MapPost("/Logout", async (
+            ClaimsPrincipal user,
+            [FromServices] SignInManager<ApplicationUser> signInManager,
+            [FromForm] string returnUrl) =>
+        {
+            await signInManager.SignOutAsync();
+            return TypedResults.LocalRedirect($"~/{returnUrl}");
         });
 
         return accountGroup;

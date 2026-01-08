@@ -8,131 +8,79 @@
 @inject PatientRepository PatientRepo
 @inject PrescriptionRepository PrescriptionRepo
 @inject IJSRuntime JS
+@inject DialogService DialogService
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<div class="container mt-4">
-    <h3>My Prescriptions</h3>
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="My Prescriptions" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="Access your clinical medications, verify dosages, and download digitized records."
+            TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+    </RadzenStack>
 
     @if (IsLoading)
     {
-        <p>Loading...</p>
+        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 200px;" />
+            <RadzenText Text="Synchronizing clinical records..." TextStyle="TextStyle.Caption" />
+        </RadzenStack>
     }
     else if (CurrentPatient == null)
     {
-        <div class="alert alert-warning">
-            Please <a href="patient/dashboard">complete your profile</a> first.
-        </div>
+        <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+            Icon="info">
+            Please
+            <RadzenLink Text="complete your profile" Path="patient/dashboard" /> first to view your digital prescriptions.
+        </RadzenAlert>
     }
     else
     {
-        <div class="row">
+        <RadzenRow Gap="1.5rem">
             @foreach (var script in PrescriptionList)
             {
-                <div class="col-md-6 mb-3">
-                    <div class="card shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <div>
-                                    <h5 class="card-title text-primary mb-1">Dr. @script.DoctorName</h5>
-                                    <h6 class="card-subtitle text-muted">@script.PrescribedDate.ToShortDateString()</h6>
-                                </div>
-                                <span class="badge bg-success">Prescribed</span>
-                            </div>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenCard Class="rz-p-4 h-100 rz-shadow-2">
+                        <RadzenStack Gap="1.5rem">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
+                                AlignItems="AlignItems.Start">
+                                <RadzenStack Gap="0">
+                                    <RadzenText Text="@($"Dr. {script.DoctorName}")" TextStyle="TextStyle.H6"
+                                        Class="rz-m-0 rz-color-primary" />
+                                    <RadzenText Text="@script.PrescribedDate.ToString("MMM dd, yyyy")"
+                                        TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                                </RadzenStack>
+                                <RadzenBadge Text="Prescribed" BadgeStyle="BadgeStyle.Success" Shade="Shade.Lighter"
+                                    IsPill="true" />
+                            </RadzenStack>
 
-                            <p class="card-text text-truncate" style="max-height: 3em;"><strong>Notes:</strong> @script.Details
-                            </p>
+                            <RadzenText Text="@script.Details" TextStyle="TextStyle.Body2"
+                                Class="rz-color-text-secondary rz-text-truncate" Style="max-height: 3em;" />
 
-                            <button class="btn btn-outline-primary btn-sm w-100 mt-2" @onclick="() => ViewPrescription(script)">
-                                <i class="bi bi-eye me-1"></i> View & Download
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                            <RadzenButton Text="View & Download" Icon="description" ButtonStyle="ButtonStyle.Info"
+                                Variant="Variant.Flat" Click="@(() => ViewPrescription(script))" Class="rz-w-100" />
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenColumn>
             }
             @if (PrescriptionList.Count == 0)
             {
-                <div class="col-12">
-                    <div class="alert alert-info">No prescriptions found.</div>
-                </div>
+                <RadzenColumn Size="12">
+                    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+                        Icon="medication">
+                        No digital prescriptions have been issued to your profile yet.
+                    </RadzenAlert>
+                </RadzenColumn>
             }
-        </div>
+        </RadzenRow>
     }
-</div>
-
-@if (SelectedPrescription != null)
-{
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Prescription Details</h5>
-                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="d-flex justify-content-between border-bottom pb-2 mb-3">
-                        <div>
-                            <strong>Dr. @SelectedPrescription.DoctorName</strong>
-                            <br />
-                            <small class="text-muted">@SelectedPrescription.PrescribedDate.ToLongDateString()</small>
-                        </div>
-                        <div class="text-end">
-                            <strong>Patient:</strong> @CurrentPatient?.FullName
-                        </div>
-                    </div>
-
-                    <h6 class="fw-bold mt-3">Medications</h6>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Medicine</th>
-                                    <th>Dosage</th>
-                                    <th>Frequency</th>
-                                    <th>Duration</th>
-                                    <th>Instructions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var med in GetMedications(SelectedPrescription.Medications))
-                                {
-                                    <tr>
-                                        <td>@med.Name</td>
-                                        <td>@med.Dosage</td>
-                                        <td>@med.Frequency</td>
-                                        <td>@med.Duration</td>
-                                        <td>@med.Instructions</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-
-                    @if (!string.IsNullOrEmpty(SelectedPrescription.Details))
-                    {
-                        <div class="mt-3">
-                            <h6 class="fw-bold">Notes</h6>
-                            <p class="bg-light p-2 rounded">@SelectedPrescription.Details</p>
-                        </div>
-                    }
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
-                    <a href="/patient/prescription/print/@SelectedPrescription.PrescriptionId" target="_blank"
-                        class="btn btn-primary">
-                        <i class="bi bi-printer me-1"></i> Print / Download
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+</RadzenStack>
 
 @code {
+
     private bool IsLoading = true;
     private Patient? CurrentPatient;
     private List<Prescription> PrescriptionList = new();
-    private Prescription? SelectedPrescription;
 
     protected override async Task OnInitializedAsync()
     {
@@ -153,14 +101,53 @@
         IsLoading = false;
     }
 
-    private void ViewPrescription(Prescription p)
+    private async Task ViewPrescription(Prescription script)
     {
-        SelectedPrescription = p;
+        await DialogService.OpenAsync("Prescription Details", ds =>
+    @<RadzenStack Gap="1.5rem" Class="rz-p-4">
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
+            AlignItems="AlignItems.Center" Class="rz-border-bottom rz-pb-4">
+            <RadzenStack Gap="0">
+                <RadzenText Text="@($"Dr. {script.DoctorName}")" TextStyle="TextStyle.Subtitle1"
+                    Class="rz-m-0 rz-font-weight-bold" />
+                <RadzenText Text="@script.PrescribedDate.ToString("MMMM dd, yyyy")" TextStyle="TextStyle.Caption"
+                    Class="rz-color-text-secondary" />
+            </RadzenStack>
+            <RadzenStack AlignItems="AlignItems.End" Gap="0">
+                <RadzenText Text="Patient" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                <RadzenText Text="@CurrentPatient?.FullName" TextStyle="TextStyle.Subtitle2" />
+            </RadzenStack>
+        </RadzenStack>
+
+        <RadzenText Text="Medications" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+        <RadzenDataGrid Data="@GetMedications(script.Medications)" TItem="PrescriptionMedication" Density="Density.Compact"
+            Class="rz-border-radius-1">
+            <Columns>
+                <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Name" Title="Medicine" />
+                <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Dosage" Title="Dosage" Width="100px" />
+                <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Frequency" Title="Freq" Width="100px" />
+                <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Duration" Title="Dur" Width="100px" />
+            </Columns>
+        </RadzenDataGrid>
+
+        @if (!string.IsNullOrEmpty(script.Details))
+    {
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Clinical Notes" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+            <RadzenAlert AlertStyle="AlertStyle.Light" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+                Size="AlertSize.Small">
+                @script.Details
+            </RadzenAlert>
+        </RadzenStack>
     }
 
-    private void CloseModal()
-    {
-        SelectedPrescription = null;
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
+            <RadzenButton Text="Close" ButtonStyle="ButtonStyle.Light" Click="() => ds.Close()" />
+            <RadzenButton Text="Print / Download" Icon="print" ButtonStyle="ButtonStyle.Primary"
+                Click="@(() => JS.InvokeVoidAsync("open", $"/patient/prescription/print/{script.PrescriptionId}", "_blank"))" />
+        </RadzenStack>
+    </RadzenStack>
+, new DialogOptions { Width = "700px" });
     }
 
     private List<PrescriptionMedication> GetMedications(string json)

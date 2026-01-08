@@ -1,0 +1,328 @@
+@page "/doctor/patient-profile/{PatientId:int}"
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using Microsoft.AspNetCore.Authorization
+@using System.Text.Json
+@using Radzen.Blazor
+@attribute [Authorize(Roles = "Doctor")]
+@rendermode InteractiveServer
+@inject PatientRepository PatientRepo
+@inject AppointmentRepository AppointmentRepo
+@inject PrescriptionRepository PrescriptionRepo
+@inject ReportRepository ReportRepo
+@inject OperationRepository OperationRepo
+@inject NavigationManager Navigation
+
+<PageTitle>Patient Profile | Clinical Portal</PageTitle>
+
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <!-- Header -->
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="1.5rem" AlignItems="AlignItems.Center">
+            <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat"
+                Click="@(() => Navigation.NavigateTo("/doctor/patients"))" Tooltip="Back to Registry" />
+            <RadzenStack Gap="0">
+                <RadzenText Text="Clinical Patient Profile" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+                <RadzenText Text="Comprehensive view of patient's medical journey and clinical status."
+                    TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+            </RadzenStack>
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem">
+            <RadzenButton Text="Recommend Surgery" Icon="biotech" ButtonStyle="ButtonStyle.Danger"
+                Click="@(() => Navigation.NavigateTo($"/Doctor/RecommendOperation/{PatientId}"))" />
+            <RadzenButton Text="Create Prescription" Icon="medication" ButtonStyle="ButtonStyle.Info"
+                Click="@(() => Navigation.NavigateTo($"/Doctor/Prescribe/{PatientId}"))" />
+        </RadzenStack>
+    </RadzenStack>
+
+    @if (patient == null)
+    {
+        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 200px;" />
+            <RadzenText Text="Synchronizing patient records..." TextStyle="TextStyle.Caption" />
+        </RadzenStack>
+    }
+    else
+    {
+        <RadzenRow Gap="2rem">
+            <!-- Left Column: Biography and Stats -->
+            <RadzenColumn Size="12" SizeLG="4">
+                <RadzenStack Gap="1.5rem">
+                    <RadzenCard Class="rz-p-6 rz-shadow-4" Style="border-radius: 16px;">
+                        <RadzenStack AlignItems="AlignItems.Center" Gap="1rem" Class="rz-mb-6">
+                            <div
+                                style="width: 100px; height: 100px; background: var(--rz-primary-lighter); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <RadzenIcon Icon="account_circle" Style="font-size: 5rem; color: var(--rz-primary);" />
+                            </div>
+                            <RadzenStack Gap="0" AlignItems="AlignItems.Center">
+                                <RadzenText Text="@patient.FullName" TextStyle="TextStyle.H5"
+                                    Class="rz-m-0 rz-font-weight-bold" />
+                                <RadzenBadge Text="@($"#PAT-{patient.PatientId}")" BadgeStyle="BadgeStyle.Light"
+                                    IsPill="true" />
+                            </RadzenStack>
+                        </RadzenStack>
+
+                        <RadzenStack Gap="1.25rem">
+                            <div class="patient-info-row">
+                                <RadzenIcon Icon="person" Class="info-icon" />
+                                <div>
+                                    <RadzenText Text="Gender" TextStyle="TextStyle.Caption"
+                                        Class="rz-m-0 rz-color-text-secondary" />
+                                    <RadzenText Text="@patient.Gender" TextStyle="TextStyle.Body2"
+                                        Class="rz-m-0 rz-font-weight-bold" />
+                                </div>
+                            </div>
+                            <div class="patient-info-row">
+                                <RadzenIcon Icon="cake" Class="info-icon" />
+                                <div>
+                                    <RadzenText Text="Birth Date" TextStyle="TextStyle.Caption"
+                                        Class="rz-m-0 rz-color-text-secondary" />
+                                    <RadzenText Text="@(patient.DateOfBirth?.ToString("MMM dd, yyyy") ?? "N/A")"
+                                        TextStyle="TextStyle.Body2" Class="rz-m-0 rz-font-weight-bold" />
+                                </div>
+                            </div>
+                            <div class="patient-info-row">
+                                <RadzenIcon Icon="bloodtype" Class="info-icon rz-color-danger" />
+                                <div>
+                                    <RadzenText Text="Blood Group" TextStyle="TextStyle.Caption"
+                                        Class="rz-m-0 rz-color-text-secondary" />
+                                    <RadzenText Text="@patient.BloodGroup" TextStyle="TextStyle.Body2"
+                                        Class="rz-m-0 rz-font-weight-bold rz-color-danger" />
+                                </div>
+                            </div>
+                            <div class="patient-info-row">
+                                <RadzenIcon Icon="phone" Class="info-icon" />
+                                <div>
+                                    <RadzenText Text="Contact" TextStyle="TextStyle.Caption"
+                                        Class="rz-m-0 rz-color-text-secondary" />
+                                    <RadzenText Text="@patient.ContactNumber" TextStyle="TextStyle.Body2"
+                                        Class="rz-m-0 rz-font-weight-bold" />
+                                </div>
+                            </div>
+                            <div class="patient-info-row">
+                                <RadzenIcon Icon="email" Class="info-icon" />
+                                <div>
+                                    <RadzenText Text="Email" TextStyle="TextStyle.Caption"
+                                        Class="rz-m-0 rz-color-text-secondary" />
+                                    <RadzenText Text="@(patient.Email ?? "N/A")" TextStyle="TextStyle.Body2"
+                                        Class="rz-m-0 rz-font-weight-bold" />
+                                </div>
+                            </div>
+                        </RadzenStack>
+
+                        <RadzenDivider Class="rz-my-6" />
+
+                        <RadzenStack Gap="1.5rem">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                    Gap="0.5rem">
+                                    <RadzenIcon Icon="warning" Style="color: var(--rz-danger); font-size: 1.25rem;" />
+                                    <RadzenText Text="Known Allergies" TextStyle="TextStyle.Subtitle2"
+                                        Class="rz-m-0 rz-color-danger" />
+                                </RadzenStack>
+                                <RadzenText Text="@(patient.Allergies ?? "No known allergies documented.")"
+                                    TextStyle="TextStyle.Body2"
+                                    Class="@(string.IsNullOrEmpty(patient.Allergies) ? "rz-color-text-secondary" : "rz-color-danger rz-font-weight-bold")" />
+                            </RadzenStack>
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                    Gap="0.5rem">
+                                    <RadzenIcon Icon="medical_services"
+                                        Style="color: var(--rz-warning-dark); font-size: 1.25rem;" />
+                                    <RadzenText Text="Chronic Conditions" TextStyle="TextStyle.Subtitle2"
+                                        Class="rz-m-0 rz-color-warning-dark" />
+                                </RadzenStack>
+                                <RadzenText Text="@(patient.ChronicDiseases ?? "No chronic conditions documented.")"
+                                    TextStyle="TextStyle.Body2"
+                                    Class="@(string.IsNullOrEmpty(patient.ChronicDiseases) ? "rz-color-text-secondary" : "rz-color-warning-dark rz-font-weight-bold")" />
+                            </RadzenStack>
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenStack>
+            </RadzenColumn>
+
+            <!-- Right Column: Medical History Tabs -->
+            <RadzenColumn Size="12" SizeLG="8">
+                <RadzenTabs RenderMode="TabRenderMode.Client" Class="rz-shadow-2"
+                    Style="border-radius: 12px; overflow: hidden; height: 100%;">
+                    <Tabs>
+                        <!-- Encounter History -->
+                        <RadzenTabsItem Text="Encounter History" Icon="history">
+                            <RadzenDataGrid Data="@appointments" TItem="Appointment" AllowPaging="true" PageSize="10"
+                                Class="rz-border-none">
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="Appointment" Property="AppointmentDate" Title="Date"
+                                        FormatString="{0:MMM dd, yyyy}" Width="150px" />
+                                    <RadzenDataGridColumn TItem="Appointment" Property="DoctorName" Title="Physician" />
+                                    <RadzenDataGridColumn TItem="Appointment" Property="Reason" Title="Chief Complaint" />
+                                    <RadzenDataGridColumn TItem="Appointment" Title="Status" Width="120px">
+                                        <Template Context="appt">
+                                            <RadzenBadge Text="@appt.Status" BadgeStyle="@GetApptBadge(appt.Status)"
+                                                IsPill="true" Shade="Shade.Lighter" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                </Columns>
+                            </RadzenDataGrid>
+                        </RadzenTabsItem>
+
+                        <!-- Medications -->
+                        <RadzenTabsItem Text="Medication History" Icon="medication">
+                            <RadzenDataGrid Data="@prescriptions" TItem="Prescription" AllowPaging="true" PageSize="10"
+                                Class="rz-border-none">
+                                <EmptyTemplate>
+                                    <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                                        <RadzenIcon Icon="medication_off"
+                                            Style="font-size: 4rem; color: var(--rz-text-disabled-color);" />
+                                        <RadzenText Text="No historical prescriptions found."
+                                            TextStyle="TextStyle.Subtitle1" Class="rz-color-text-secondary" />
+                                    </RadzenStack>
+                                </EmptyTemplate>
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="Prescription" Property="PrescribedDate"
+                                        Title="Prescribed On" FormatString="{0:MMM dd, yyyy}" Width="160px" />
+                                    <RadzenDataGridColumn TItem="Prescription" Property="DoctorName"
+                                        Title="Authorized By" />
+                                    <RadzenDataGridColumn TItem="Prescription" Title="Medications">
+                                        <Template Context="pre">
+                                            @{
+                                                var meds = string.IsNullOrEmpty(pre.Medications) ? new
+                                                List<PrescriptionMedication>() :
+                                                JsonSerializer.Deserialize<List<PrescriptionMedication>>(pre.Medications);
+                                            }
+                                            <RadzenStack Gap="0.25rem">
+                                                @if (meds != null)
+                                                {
+                                                    @foreach (var m in meds.Take(2))
+                                                    {
+                                                        <RadzenText Text="@($"{m.Name} ({m.Dosage})")" TextStyle="TextStyle.Caption"
+                                                            Class="rz-m-0" />
+                                                    }
+                                                    @if (meds.Count > 2)
+                                                    {
+                                                        <RadzenText Text="..." TextStyle="TextStyle.Caption" />
+                                                    }
+                                                }
+                                            </RadzenStack>
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                </Columns>
+                            </RadzenDataGrid>
+                        </RadzenTabsItem>
+
+                        <!-- Diagnostics -->
+                        <RadzenTabsItem Text="Diagnostic Reports" Icon="biotech">
+                            <RadzenDataGrid Data="@reports" TItem="Report" AllowPaging="true" PageSize="10"
+                                Class="rz-border-none">
+                                <EmptyTemplate>
+                                    <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                                        <RadzenIcon Icon="description"
+                                            Style="font-size: 4rem; color: var(--rz-text-disabled-color);" />
+                                        <RadzenText Text="No laboratory or diagnostic reports uploaded."
+                                            TextStyle="TextStyle.Subtitle1" Class="rz-color-text-secondary" />
+                                    </RadzenStack>
+                                </EmptyTemplate>
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="Report" Property="ReportDate" Title="Date"
+                                        FormatString="{0:MMM dd, yyyy}" Width="150px" />
+                                    <RadzenDataGridColumn TItem="Report" Property="ReportName" Title="Investigation" />
+                                    <RadzenDataGridColumn TItem="Report" Property="ReportType" Title="Category"
+                                        Width="140px" />
+                                    <RadzenDataGridColumn TItem="Report" Property="Status" Title="Status" Width="120px">
+                                        <Template Context="rep">
+                                            <RadzenBadge Text="@rep.Status" BadgeStyle="BadgeStyle.Info" IsPill="true"
+                                                Shade="Shade.Lighter" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                </Columns>
+                            </RadzenDataGrid>
+                        </RadzenTabsItem>
+
+                        <!-- Surgical Portfolio -->
+                        <RadzenTabsItem Text="Surgical History" Icon="personal_injury">
+                            <RadzenDataGrid Data="@operations" TItem="PatientOperation" AllowPaging="true" PageSize="10"
+                                Class="rz-border-none">
+                                <EmptyTemplate>
+                                    <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                                        <RadzenIcon Icon="emergency"
+                                            Style="font-size: 4rem; color: var(--rz-text-disabled-color);" />
+                                        <RadzenText Text="No surgical interventions recorded."
+                                            TextStyle="TextStyle.Subtitle1" Class="rz-color-text-secondary" />
+                                    </RadzenStack>
+                                </EmptyTemplate>
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="PatientOperation" Property="ScheduledDate" Title="Date"
+                                        FormatString="{0:MMM dd, yyyy}" Width="150px" />
+                                    <RadzenDataGridColumn TItem="PatientOperation" Property="PackageName"
+                                        Title="Procedure" />
+                                    <RadzenDataGridColumn TItem="PatientOperation" Property="DoctorName"
+                                        Title="Authorized Physician" />
+                                    <RadzenDataGridColumn TItem="PatientOperation" Title="Clinical Status" Width="140px">
+                                        <Template Context="op">
+                                            <RadzenBadge Text="@op.Status" BadgeStyle="@GetOpBadge(op.Status)" IsPill="true"
+                                                Shade="Shade.Lighter" />
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                </Columns>
+                            </RadzenDataGrid>
+                        </RadzenTabsItem>
+                    </Tabs>
+                </RadzenTabs>
+            </RadzenColumn>
+        </RadzenRow>
+    }
+</RadzenStack>
+
+<style>
+    .patient-info-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .info-icon {
+        font-size: 1.5rem;
+        color: var(--rz-text-disabled-color);
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int PatientId { get; set; }
+
+    Patient? patient;
+    List<Appointment> appointments = new();
+    List<Prescription> prescriptions = new();
+    List<Report> reports = new();
+    List<PatientOperation> operations = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        patient = PatientRepo.GetPatientById(PatientId);
+        if (patient != null)
+        {
+            appointments = AppointmentRepo.GetAppointmentsByPatientId(PatientId);
+            prescriptions = PrescriptionRepo.GetPrescriptionsByPatientId(PatientId);
+            reports = ReportRepo.GetReportsByPatientId(PatientId);
+            operations = OperationRepo.GetPatientOperations(PatientId);
+        }
+    }
+
+    BadgeStyle GetApptBadge(string status) => status switch
+    {
+        "Completed" => BadgeStyle.Success,
+        "Approved" => BadgeStyle.Info,
+        "Pending" => BadgeStyle.Warning,
+        "Rejected" => BadgeStyle.Danger,
+        _ => BadgeStyle.Light
+    };
+
+    BadgeStyle GetOpBadge(string status) => status switch
+    {
+        "Completed" => BadgeStyle.Success,
+        "Running" => BadgeStyle.Warning,
+        "Scheduled" => BadgeStyle.Info,
+        "Recommended" => BadgeStyle.Secondary,
+        _ => BadgeStyle.Light
+    };
+}

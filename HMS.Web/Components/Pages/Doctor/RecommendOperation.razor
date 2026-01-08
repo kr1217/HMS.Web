@@ -15,148 +15,142 @@
 @inject NavigationManager Nav
 @inject NotificationRepository NotificationRepo
 
-<div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="fw-bold mb-0">Recommend Operation</h2>
+<RadzenStack Class="rz-p-4" Gap="2rem">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0">
+            <RadzenText Text="Surgical Intervention Planning" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
             @if (Patient != null)
             {
-                <div class="text-muted">For Patient: <span class="fw-bold text-dark">@Patient.FullName</span> (ID:
-                    @PatientId)</div>
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                    <RadzenText Text="@($"Patient: {Patient.FullName}")" TextStyle="TextStyle.Subtitle2" Class="rz-m-0" />
+                    <RadzenBadge Text="@($"#PAT-{PatientId}")" BadgeStyle="BadgeStyle.Light" IsPill="true" />
+                </RadzenStack>
             }
-        </div>
-        <button class="btn btn-outline-secondary" @onclick="GoBack">
-            <i class="bi bi-arrow-left me-1"></i> Back
-        </button>
-    </div>
+        </RadzenStack>
+        <RadzenButton Icon="arrow_back" Text="Dashboard" ButtonStyle="ButtonStyle.Light" Click="@GoBack" Variant="Variant.Flat" />
+    </RadzenStack>
 
     @if (CurrentDoctor == null)
     {
-        <div class="alert alert-warning">Loading doctor profile...</div>
+        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 200px;" />
+            <RadzenText Text="Retrieving clinician credentials..." TextStyle="TextStyle.Caption" />
+        </RadzenStack>
     }
     else
     {
-        <div class="row">
-            <div class="col-md-8">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <EditForm Model="NewOperation" OnValidSubmit="SaveOperation">
-                            <DataAnnotationsValidator />
-                            <ValidationSummary class="text-danger" />
+        <RadzenRow Gap="2rem">
+            <RadzenColumn Size="12" SizeLG="8">
+                <RadzenCard Class="rz-p-6 rz-shadow-4" Style="border-radius: 16px;">
+                    <RadzenText Text="Procedure Details" TextStyle="TextStyle.H6" Class="rz-mb-6 rz-color-primary" />
+                    
+                    <EditForm Model="NewOperation" OnValidSubmit="SaveOperation">
+                        <DataAnnotationsValidator />
+                        <RadzenStack Gap="1.5rem">
+                            
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Class="rz-mb-2">
+                                <RadzenCheckBox TValue="bool" @bind-Value="IsCustomOperation" Name="customOp" />
+                                <RadzenLabel Text="Propose Custom Surgical Procedure (Not in Standard List)" Component="customOp" Class="rz-color-warning-dark" />
+                            </RadzenStack>
 
-                            <div class="mb-3">
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="customOpCheck"
-                                        @onchange="ToggleCustomOperation" />
-                                    <label class="form-check-label" for="customOpCheck">
-                                        Recommend Custom Operation (Not in list)
-                                    </label>
-                                </div>
+                            <RadzenRow Gap="1rem">
+                                <RadzenColumn Size="12" SizeMD="8">
+                                    @if (!IsCustomOperation)
+                                    {
+                                        <RadzenFormField Text="Select Surgical Package" Style="width: 100%;">
+                                            <RadzenDropDown @bind-Value="NewOperation.PackageId" 
+                                                           Data="@Packages" TextProperty="PackageName" ValueProperty="PackageId"
+                                                           Placeholder="Search standard procedures..." TValue="int?" />
+                                        </RadzenFormField>
+                                    }
+                                    else
+                                    {
+                                        <RadzenFormField Text="Procedure Name" Style="width: 100%;">
+                                            <RadzenTextBox @bind-Value="NewOperation.PackageName" Placeholder="Enter full surgical name..." />
+                                        </RadzenFormField>
+                                    }
+                                </RadzenColumn>
+                                <RadzenColumn Size="12" SizeMD="4">
+                                     <RadzenFormField Text="Target Date" Style="width: 100%;">
+                                        <RadzenDatePicker @bind-Value="NewOperation.ScheduledDate" DateFormat="d" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
 
-                                @if (!IsCustomOperation)
-                                {
-                                    <label class="form-label">Operation Package <span class="text-danger">*</span></label>
-                                    <InputSelect @bind-Value="NewOperation.PackageId" class="form-select">
-                                        <option value="0">Select Operation Type</option>
-                                        @foreach (var pkg in Packages)
-                                        {
-                                            <option value="@pkg.PackageId">@pkg.PackageName (@pkg.Cost.ToString("C"))</option>
-                                        }
-                                    </InputSelect>
-                                }
-                                else
-                                {
-                                    <label class="form-label">Operation Name <span class="text-danger">*</span></label>
-                                    <InputText @bind-Value="NewOperation.PackageName" class="form-control"
-                                        placeholder="Enter custom operation name" />
-                                    <div class="form-text">Cost will be determined by administration.</div>
-                                }
-                            </div>
+                            <RadzenRow Gap="1rem">
+                                <RadzenColumn Size="12" SizeMD="6">
+                                    <RadzenFormField Text="Clinical Priority" Style="width: 100%;">
+                                        <RadzenDropDown @bind-Value="NewOperation.Urgency" 
+                                                       Data="@(new[] { "Low", "Medium", "High", "Critical" })" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                                <RadzenColumn Size="12" SizeMD="6">
+                                    <RadzenFormField Text="Est. Recovery Stay (Days)" Style="width: 100%;">
+                                        <RadzenNumeric @bind-Value="NewOperation.ExpectedStayDays" Min="0" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
 
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Scheduled Date <span class="text-danger">*</span></label>
-                                    <InputDate @bind-Value="NewOperation.ScheduledDate" class="form-control" />
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <label class="form-label">Urgency <span class="text-danger">*</span></label>
-                                    <InputSelect @bind-Value="NewOperation.Urgency" class="form-select">
-                                        <option value="">Select Urgency</option>
-                                        <option value="Low">Low</option>
-                                        <option value="Medium">Medium</option>
-                                        <option value="High">High</option>
-                                        <option value="Critical">Critical</option>
-                                    </InputSelect>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <label class="form-label">Est. Stay (Days) <span class="text-danger">*</span></label>
-                                    <InputNumber @bind-Value="NewOperation.ExpectedStayDays" class="form-control" />
-                                </div>
-                            </div>
+                            <RadzenRow Gap="1rem">
+                                <RadzenColumn Size="12" SizeMD="6">
+                                    <RadzenFormField Text="Consumables & Inventory" Style="width: 100%;">
+                                        <RadzenTextArea @bind-Value="NewOperation.RecommendedMedicines" Rows="3" Placeholder="List required drugs and pre-op kits..." />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                                <RadzenColumn Size="12" SizeMD="6">
+                                    <RadzenFormField Text="Specialized Equipment" Style="width: 100%;">
+                                        <RadzenTextArea @bind-Value="NewOperation.RecommendedEquipment" Rows="3" Placeholder="e.g., C-Arm, Laparoscopic set..." />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
 
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Required Medicines</label>
-                                    <div class="form-text text-muted mb-1">List meds for billing/inventory.</div>
-                                    <InputTextArea @bind-Value="NewOperation.RecommendedMedicines" class="form-control"
-                                        rows="3" placeholder="e.g. 2x Propofol, 1x Kit..." />
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Required Equipment</label>
-                                    <div class="form-text text-muted mb-1">List equipment (e.g. Laser, Stent).</div>
-                                    <InputTextArea @bind-Value="NewOperation.RecommendedEquipment" class="form-control"
-                                        rows="3" placeholder="e.g. Laparoscopic Set..." />
-                                </div>
-                            </div>
+                            <RadzenFormField Text="Perioperative Instructions" Style="width: 100%;">
+                                <RadzenTextArea @bind-Value="NewOperation.Notes" Rows="2" Placeholder="Document specific preparation requirements..." />
+                            </RadzenFormField>
 
-                            <div class="mb-3">
-                                <label class="form-label">Notes & Instructions</label>
-                                <InputTextArea @bind-Value="NewOperation.Notes" class="form-control" rows="2"
-                                    placeholder="Any specific pre-op instructions..." />
-                            </div>
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
+                                <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Light" Click="@GoBack" />
+                                <RadzenButton Text="Confirm Recommendation" Icon="assignment_turned_in" ButtonStyle="ButtonStyle.Danger" 
+                                             ButtonType="ButtonType.Submit" Class="rz-px-8" />
+                            </RadzenStack>
+                        </RadzenStack>
+                    </EditForm>
+                </RadzenCard>
+            </RadzenColumn>
 
-                            <div class="d-flex justify-content-end gap-2 mt-4">
-                                <button type="button" class="btn btn-secondary" @onclick="GoBack">Cancel</button>
-                                <button type="submit" class="btn btn-danger">
-                                    <i class="bi bi-heart-pulse me-2"></i>Recommend Operation
-                                </button>
-                            </div>
-                        </EditForm>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Package Details Sidebar -->
-            <div class="col-md-4">
-                @if (NewOperation.PackageId > 0)
-                {
-                    var selectedPkg = Packages.FirstOrDefault(p => p.PackageId == NewOperation.PackageId);
-                    if (selectedPkg != null)
+            <!-- Metadata / Analysis Sidebar -->
+            <RadzenColumn Size="12" SizeLG="4">
+                <RadzenStack Gap="1.5rem">
+                    @if (NewOperation.PackageId > 0 && !IsCustomOperation)
                     {
-                        <div class="card border-0 shadow-sm bg-light mb-3">
-                            <div class="card-body">
-                                <h5 class="fw-bold">@selectedPkg.PackageName</h5>
-                                <h3 class="text-primary fw-bold mb-3">@selectedPkg.Cost.ToString("C")</h3>
-                                <p class="text-muted">@selectedPkg.Description</p>
-                                <hr />
-                                <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Patient will be notified to review
-                                    and accept this recommendation.</small>
-                            </div>
-                        </div>
+                        var selectedPkg = Packages.FirstOrDefault(p => p.PackageId == NewOperation.PackageId);
+                        if (selectedPkg != null)
+                        {
+                            <RadzenCard Class="rz-p-6 rz-background-color-info-lighter" Style="border-radius: 12px;">
+                                <RadzenText Text="Package Valuation" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                                <RadzenText Text="@selectedPkg.PackageName" TextStyle="TextStyle.H5" Class="rz-mb-2 rz-color-info-dark" />
+                                <RadzenText Text="@selectedPkg.Cost.ToString("C")" TextStyle="TextStyle.H4" Class="rz-color-primary rz-font-weight-bold" />
+                                <RadzenText Text="@selectedPkg.Description" TextStyle="TextStyle.Body2" Class="rz-mt-4" />
+                                <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Text" AllowClose="false" Size="AlertSize.Small" Class="rz-mt-4 rz-p-0">
+                                    Financial counseling will be triggered upon patient acceptance.
+                                </RadzenAlert>
+                            </RadzenCard>
+                        }
                     }
-                }
 
-                <div class="card border-0 shadow-sm bg-info text-white">
-                    <div class="card-body">
-                        <h6 class="fw-bold"><i class="bi bi-lightbulb me-2"></i>Tip</h6>
-                        <p class="small mb-0">Ensure the scheduled date allows enough time for patient preparation and
-                            financial clearance.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+                    <RadzenCard Class="rz-p-6 rz-background-color-warning-lighter" Style="border-radius: 12px;">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-mb-2">
+                            <RadzenIcon Icon="lightbulb" Style="color: var(--rz-warning-dark);" />
+                            <RadzenText Text="Clinical Guidance" TextStyle="TextStyle.Subtitle2" Class="rz-m-0 rz-color-warning-dark" />
+                        </RadzenStack>
+                        <RadzenText Text="Ensure the requested date factors in theater availability and patient clearance cycles. Urgent cases should be flagged with appropriate priority levels." 
+                                   TextStyle="TextStyle.Caption" Class="rz-color-warning-dark" />
+                    </RadzenCard>
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
     }
-</div>
+</RadzenStack>
 
 @code {
     [Parameter]
@@ -249,6 +243,15 @@
                 PatientId = PatientId,
                 Title = "Operation Recommended",
                 Message = $"Dr. {CurrentDoctor.FullName} has recommended a procedure: {NewOperation.PackageName}. Please review.",
+                CreatedDate = DateTime.Now,
+                IsRead = false
+            });
+
+        NotificationRepo.CreateNotification(new Notification
+            {
+                TargetRole = "Admin",
+                Title = "New Surgical Recommendation",
+                Message = $"Dr. {CurrentDoctor.FullName} has recommended {NewOperation.PackageName} for {Patient.FullName}. Action required.",
                 CreatedDate = DateTime.Now,
                 IsRead = false
             });

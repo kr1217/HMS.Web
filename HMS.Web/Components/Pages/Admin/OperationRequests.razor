@@ -10,85 +10,121 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
-<div class="container-fluid mt-3">
-    <h3><i class="bi bi-heart-pulse-fill text-danger me-2"></i>Operation Requests</h3>
-    <p class="text-muted">Review doctor recommendations and admit patients for surgery.</p>
+<RadzenStack Class="rz-p-4" Gap="2rem">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0">
+            <RadzenText Text="Surgical Candidate Review" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+            <RadzenText Text="Process surgical admissions and validate deposit status." TextStyle="TextStyle.Body2"
+                Class="rz-m-0 rz-color-text-secondary" />
+        </RadzenStack>
+        <RadzenIcon Icon="assignment_ind" Style="font-size: 3rem; color: var(--rz-primary-light);" />
+    </RadzenStack>
 
-    @if (Requests == null)
-    {
-        <div class="spinner-border text-primary" role="status"></div>
-    }
-    else if (!Requests.Any())
-    {
-        <div class="alert alert-info">No pending operation requests found.</div>
-    }
-    else
-    {
-        <RadzenDataGrid Data="@Requests" TItem="PatientOperation" AllowPaging="true" PageSize="10" AllowSorting="true">
+    <RadzenCard Class="rz-p-0 rz-shadow-2" Style="overflow: hidden; border-radius: 12px;">
+        <RadzenDataGrid @ref="grid" TItem="PatientOperation" Count="@count" Data="@Requests" LoadData="@LoadData"
+            IsLoading="@isLoading" AllowPaging="true" PageSize="10" AllowSorting="true" Class="rz-border-none"
+            FilterMode="FilterMode.Simple" AllowFiltering="true">
+            <EmptyTemplate>
+                <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                    <RadzenIcon Icon="medical_services"
+                        Style="font-size: 5rem; color: var(--rz-text-disabled-color);" />
+                    <RadzenText Text="No pending surgical candidates found." TextStyle="TextStyle.H6"
+                        Class="rz-color-text-secondary rz-m-0" />
+                    <RadzenText
+                        Text="Once a doctor recommends surgery and payment is cleared, candidates will appear here."
+                        TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+                </RadzenStack>
+            </EmptyTemplate>
             <Columns>
-                <RadzenDataGridColumn TItem="PatientOperation" Property="ScheduledDate" Title="Date" FormatString="{0:d}"
-                    Width="120px" />
-                <RadzenDataGridColumn TItem="PatientOperation" Property="PatientName" Title="Patient" />
+                <RadzenDataGridColumn TItem="PatientOperation" Property="ScheduledDate" Title="Date" Width="120px">
+                    <Template Context="op">
+                        <RadzenText Text="@op.ScheduledDate.ToString("MMM dd, yyyy")" TextStyle="TextStyle.Body2" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="PatientOperation" Property="PatientName" Title="Patient">
+                    <Template Context="op">
+                        <RadzenStack Gap="0">
+                            <RadzenText Text="@op.PatientName" TextStyle="TextStyle.Subtitle2"
+                                Class="rz-m-0 rz-color-primary" />
+                            <RadzenText Text="@($"ID: #PAT-{op.PatientId}")" TextStyle="TextStyle.Caption" />
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
                 <RadzenDataGridColumn TItem="PatientOperation" Property="DoctorName" Title="Surgeon" />
                 <RadzenDataGridColumn TItem="PatientOperation" Property="PackageName" Title="Operation" />
                 <RadzenDataGridColumn TItem="PatientOperation" Property="Urgency" Title="Urgency" Width="100px">
                     <Template Context="op">
-                        <span class="badge @GetUrgencyBadge(op.Urgency)">@op.Urgency</span>
+                        <RadzenBadge Text="@op.Urgency" BadgeStyle="@GetUrgencyBadgeStyle(op.Urgency)" IsPill="true" />
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="PatientOperation" Property="Status" Title="Status" Width="130px">
+                <RadzenDataGridColumn TItem="PatientOperation" Property="Status" Title="Status" Width="150px">
                     <Template Context="op">
-                        @if (op.Status == "Pending Deposit")
-                        {
-                            <span class="badge bg-warning text-dark"><i class="bi bi-clock-history me-1"></i>Waiting
-                                Payment</span>
-                        }
-                        else
-                        {
-                            <span class="badge bg-info text-dark">@op.Status</span>
-                        }
+                        <RadzenBadge
+                            Text="@(op.Status == "Pending Deposit" || op.Status == "Advance Payment Requested" ? "WAITING PAYMENT" : op.Status)"
+                            BadgeStyle="@(op.Status == "Pending Deposit" || op.Status == "Advance Payment Requested" ? BadgeStyle.Warning : BadgeStyle.Info)"
+                            Shade="Shade.Lighter" />
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="PatientOperation" Title="Action" Width="180px">
+                <RadzenDataGridColumn TItem="PatientOperation" Title="Action" Width="180px" TextAlign="TextAlign.Right"
+                    Sortable="false" Filterable="false">
                     <Template Context="op">
-                        @if (op.Status == "Pending Deposit")
+                        @if (op.Status == "Pending Deposit" || op.Status == "Advance Payment Requested")
                         {
-                            <RadzenButton Text="Pre-Op Check" Icon="info" ButtonStyle="ButtonStyle.Light"
+                            <RadzenButton Text="Waiting Teller" Icon="hourglass_empty" ButtonStyle="ButtonStyle.Light"
                                 Size="ButtonSize.Small" Disabled="true" />
                         }
                         else
                         {
-                            <RadzenButton Text="Admit & Approve" Icon="Login" ButtonStyle="ButtonStyle.Primary"
+                            <RadzenButton Text="Authorize" Icon="assignment_turned_in" ButtonStyle="ButtonStyle.Primary"
                                 Size="ButtonSize.Small" Click="@(() => OpenAdmitDialog(op))" />
                         }
                     </Template>
                 </RadzenDataGridColumn>
             </Columns>
         </RadzenDataGrid>
-    }
-</div>
+    </RadzenCard>
+</RadzenStack>
 
 @code {
-    List<PatientOperation> Requests;
+    RadzenDataGrid<PatientOperation> grid = default!;
+    IEnumerable<PatientOperation> Requests = new List<PatientOperation>();
+    int count;
+    bool isLoading = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        LoadRequests();
+        if (firstRender && grid != null)
+        {
+            await grid.Reload();
+            StateHasChanged();
+        }
     }
 
-    void LoadRequests()
+    async Task LoadData(LoadDataArgs args)
     {
-        Requests = OperationRepo.GetPendingOperations();
+        isLoading = true;
+
+        var skip = args.Skip ?? 0;
+        var take = args.Top ?? 10;
+        var orderBy = args.OrderBy;
+        if (string.IsNullOrEmpty(orderBy)) orderBy = "ScheduledDate DESC";
+
+        Requests = OperationRepo.GetPendingOperationsPaged(skip, take, orderBy);
+        count = OperationRepo.GetPendingOperationsCount();
+
+        isLoading = false;
+        StateHasChanged();
     }
 
-    string GetUrgencyBadge(string urgency)
+    BadgeStyle GetUrgencyBadgeStyle(string urgency)
     {
         return urgency switch
         {
-            "Critical" => "bg-danger",
-            "High" => "bg-warning text-dark",
-            "Medium" => "bg-info text-dark",
-            _ => "bg-secondary"
+            "Critical" => BadgeStyle.Danger,
+            "High" => BadgeStyle.Warning,
+            "Medium" => BadgeStyle.Info,
+            _ => BadgeStyle.Secondary
         };
     }
 
@@ -101,7 +137,7 @@
         if (result == true)
         {
             NotificationService.Notify(NotificationSeverity.Success, "Success", "Patient admitted and operation approved.");
-            LoadRequests();
+            await grid.Reload();
         }
     }
 }

@@ -9,11 +9,38 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Confirm email change</PageTitle>
+<PageTitle>Identity Update | Confirmation</PageTitle>
 
-<h1>Confirm email change</h1>
+<RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Style="min-height: 50vh;">
+    <RadzenCard Class="rz-shadow-4 rz-p-8 rz-text-align-center"
+        Style="width: 100%; max-width: 500px; border-radius: 20px;">
+        <RadzenStack Gap="1.5rem" AlignItems="AlignItems.Center">
+            @if (message?.Contains("Error") == true)
+            {
+                <div
+                    style="width: 80px; height: 80px; border-radius: 50%; background: var(--rz-danger-lighter); display: flex; align-items: center; justify-content: center;">
+                    <RadzenIcon Icon="error_outline" Style="font-size: 3rem; color: var(--rz-danger);" />
+                </div>
+                <RadzenText Text="Update Failed" TextStyle="TextStyle.H5"
+                    Class="rz-m-0 rz-font-weight-bold rz-color-danger" />
+            }
+            else
+            {
+                <div
+                    style="width: 80px; height: 80px; border-radius: 50%; background: var(--rz-success-lighter); display: flex; align-items: center; justify-content: center;">
+                    <RadzenIcon Icon="check_circle" Style="font-size: 3rem; color: var(--rz-success);" />
+                </div>
+                <RadzenText Text="Identity Updated" TextStyle="TextStyle.H5"
+                    Class="rz-m-0 rz-font-weight-bold rz-color-success-dark" />
+            }
 
-<StatusMessage Message="@message" />
+            <StatusMessage Message="@message" />
+
+            <RadzenButton Text="Proceed to Authorization Gateway" Icon="login" ButtonStyle="ButtonStyle.Primary"
+                Variant="Variant.Flat" Click="@(() => RedirectManager.RedirectTo("Account/Login"))" Class="rz-mt-4" />
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>
 
 @code {
     private string? message;
@@ -35,14 +62,14 @@
         if (UserId is null || Email is null || Code is null)
         {
             RedirectManager.RedirectToWithStatus(
-                "Account/Login", "Error: Invalid email change confirmation link.", HttpContext);
+            "Account/Login", "Error: Unrecognized update confirmation link.", HttpContext);
             return;
         }
 
         var user = await UserManager.FindByIdAsync(UserId);
         if (user is null)
         {
-            message = "Unable to find user with Id '{userId}'";
+            message = $"Error: Unable to verify personnel record with ID '{UserId}'";
             return;
         }
 
@@ -50,7 +77,7 @@
         var result = await UserManager.ChangeEmailAsync(user, Email, code);
         if (!result.Succeeded)
         {
-            message = "Error changing email.";
+            message = "Error: Institutional email update protocol failed.";
             return;
         }
 
@@ -59,11 +86,11 @@
         var setUserNameResult = await UserManager.SetUserNameAsync(user, Email);
         if (!setUserNameResult.Succeeded)
         {
-            message = "Error changing user name.";
+            message = "Error: Personnel identifier synchronization failed.";
             return;
         }
 
         await SignInManager.RefreshSignInAsync(user);
-        message = "Thank you for confirming your email change.";
+        message = "Institutional identity update verified successfully.";
     }
 }

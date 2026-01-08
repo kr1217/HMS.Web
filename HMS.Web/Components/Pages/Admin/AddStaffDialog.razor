@@ -9,67 +9,87 @@
 @inject NotificationService NotificationService
 
 <RadzenTemplateForm TItem="Staff" Data="@model" Submit="@HandleValidSubmit">
-    <div class="row">
-        <div class="col-md-6 mb-3">
-            <RadzenLabel Text="Full Name" />
-            <RadzenTextBox @bind-Value="model.FullName" Name="FullName" Class="w-100" />
-            <RadzenRequiredValidator Component="FullName" Text="Name is required" />
-        </div>
-        <div class="col-md-6 mb-3">
-            <RadzenLabel Text="Email (Login ID)" />
-            <RadzenTextBox @bind-Value="model.Email" Name="Email" Class="w-100" Disabled="@IsEdit" />
-            <RadzenRequiredValidator Component="Email" Text="Email is required" />
-            <RadzenEmailValidator Component="Email" Text="Invalid email" />
-        </div>
-    </div>
+    <RadzenStack Gap="1.5rem" Class="rz-p-2">
+        <RadzenCard Class="rz-shadow-2">
+            <RadzenStack Gap="1.5rem">
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Personnel Full Name" Component="FullName" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenTextBox @bind-Value="model.FullName" Name="FullName" Class="rz-w-100" Placeholder="Enter legal name..." />
+                            <RadzenRequiredValidator Component="FullName" Text="Full name is mandatory" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Institutional Email (Login ID)" Component="Email" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenTextBox @bind-Value="model.Email" Name="Email" Class="rz-w-100" Disabled="@IsEdit" Placeholder="institutional@hms.com" />
+                            <RadzenRequiredValidator Component="Email" Text="Email identifier is required" />
+                            <RadzenEmailValidator Component="Email" Text="Invalid clinical email format" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                </RadzenRow>
 
-    <div class="row">
-        <div class="col-md-6 mb-3">
-            <RadzenLabel Text="Role" />
-            <RadzenDropDown @bind-Value="model.Role" Data="@roles" Class="w-100" Name="Role" />
-            <RadzenRequiredValidator Component="Role" Text="Role is required" />
-        </div>
-        <div class="col-md-6 mb-3">
-            <RadzenLabel Text="Department" />
-            <RadzenDropDown @bind-Value="model.Department" Data="@departments" Class="w-100" Name="Dept" />
-        </div>
-    </div>
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Institutional Role" Component="Role" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenDropDown @bind-Value="model.Role" Data="@roles" Class="rz-w-100" Name="Role" Placeholder="Select registry role..." />
+                            <RadzenRequiredValidator Component="Role" Text="Role assignment is mandatory" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Clinical Department" Component="Dept" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenDropDown @bind-Value="model.Department" Data="@departments" Class="rz-w-100" Name="Dept" Placeholder="Assigned department..." />
+                        </RadzenStack>
+                    </RadzenColumn>
+                </RadzenRow>
 
-    <div class="row">
-        <div class="col-md-6 mb-3">
-            <RadzenLabel Text="Salary" />
-            <RadzenNumeric @bind-Value="model.Salary" Name="Salary" Class="w-100" />
-        </div>
-        <div class="col-md-6 mb-3">
-            <RadzenLabel Text="Shift" />
-            <RadzenDropDown @bind-Value="model.Shift" Data="@shifts" Class="w-100" />
-        </div>
-    </div>
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Remuneration (Salary)" Component="Salary" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenNumeric @bind-Value="model.Salary" Name="Salary" Class="rz-w-100" Format="C" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Shift Orbit" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenDropDown @bind-Value="model.Shift" Data="@shifts" Class="rz-w-100" Placeholder="Standard shift..." />
+                        </RadzenStack>
+                    </RadzenColumn>
+                </RadzenRow>
 
-    <div class="row">
-        <div class="col-md-6 mb-3">
-            <RadzenLabel Text="Phone" />
-            <RadzenTextBox @bind-Value="model.PhoneNumber" Class="w-100" />
-        </div>
-        <div class="col-md-6 mb-3 pt-4">
-            <RadzenCheckBox @bind-Value="model.IsActive" Name="Active" />
-            <RadzenLabel Text="Active Account" Component="Active" Class="ms-2" />
-        </div>
-    </div>
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Contact Number" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenTextBox @bind-Value="model.PhoneNumber" Class="rz-w-100" Placeholder="+1 (555) 000-0000" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-pt-md-8">
+                            <RadzenCheckBox @bind-Value="model.IsActive" Name="Active" />
+                            <RadzenLabel Text="Authorize Account Access" Component="Active" TextStyle="TextStyle.Body2" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                </RadzenRow>
+            </RadzenStack>
+        </RadzenCard>
 
-    @if (!IsEdit)
-    {
-        <div class="alert alert-warning mt-2">
-            Default password will be: <strong>Hospital@123</strong>
-        </div>
-    }
+        @if (!IsEdit)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="security">
+                The institutional credentials will be initialized with the default security key: <strong>Hospital@@123</strong>
+            </RadzenAlert>
+        }
 
-    <div class="row mt-4">
-        <div class="col text-end">
-            <RadzenButton ButtonType="ButtonType.Submit" Text="Save Staff" ButtonStyle="ButtonStyle.Primary" />
-            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-        </div>
-    </div>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Synchronize Registry" ButtonStyle="ButtonStyle.Primary" Icon="save" />
+            <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+        </RadzenStack>
+    </RadzenStack>
 </RadzenTemplateForm>
 
 @code {
@@ -77,9 +97,9 @@
     [Parameter] public bool IsEdit { get; set; } = false;
 
     private Staff model = new();
-    private List<string> roles = new() { "Admin", "Nurse", "Receptionist", "Pharmacist", "Doctor" };
+    private List<string> roles = new() { "Admin", "Nurse", "Receptionist", "Pharmacist", "Doctor", "Teller" };
     private List<string> departments = new() { "Cardiology", "Neurology", "General", "Orthopedics", "Administration",
-"Pharmacy" };
+"Pharmacy", "Finance" };
     private List<string> shifts = new() { "Morning", "Evening", "Night" };
 
     protected override void OnInitialized()
@@ -100,6 +120,13 @@
                     PhoneNumber = StaffModel.PhoneNumber
                 };
         }
+        else
+        {
+            model.IsActive = true;
+            model.Role = "Nurse";
+            model.Department = "General";
+            model.Shift = "Morning";
+        }
     }
 
     private async Task HandleValidSubmit()
@@ -109,6 +136,7 @@
             if (IsEdit)
             {
                 StaffRepo.UpdateStaff(model);
+                NotificationService.Notify(NotificationSeverity.Success, "Registry Updated", "Staff record synchronized successfully.");
                 DialogService.Close(true);
             }
             else
@@ -125,13 +153,14 @@
                     // 3. Create Staff
                     model.UserId = user.Id;
                     StaffRepo.CreateStaff(model);
+                    NotificationService.Notify(NotificationSeverity.Success, "Personnel Enrolled", "New staff account provisioned and enrolled.");
                     DialogService.Close(true);
                 }
                 else
                 {
                     foreach (var error in result.Errors)
                     {
-                        NotificationService.Notify(NotificationSeverity.Error, "Error", error.Description);
+                        NotificationService.Notify(NotificationSeverity.Error, "Credential Error", error.Description);
                     }
                 }
             }

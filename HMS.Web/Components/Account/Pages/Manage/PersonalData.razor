@@ -6,26 +6,32 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Personal Data</PageTitle>
+<PageTitle>Clinical Registry Data | Management</PageTitle>
 
-<StatusMessage />
-<h3>Personal Data</h3>
+<RadzenStack Gap="1.5rem">
+    <RadzenText Text="Institutional Registry Data Management" TextStyle="TextStyle.H5" Class="rz-m-0 rz-color-primary" />
+    <StatusMessage />
 
-<div class="row">
-    <div class="col-md-6">
-        <p>Your account contains personal data that you have given us. This page allows you to download or delete that data.</p>
-        <p>
-            <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
-        </p>
-        <form action="Account/Manage/DownloadPersonalData" method="post">
-            <AntiforgeryToken />
-            <button class="btn btn-primary" type="submit">Download</button>
-        </form>
-        <p>
-            <a href="Account/Manage/DeletePersonalData" class="btn btn-danger">Delete</a>
-        </p>
-    </div>
-</div>
+    <RadzenStack Gap="1.5rem">
+        <RadzenText Text="Your institutional account contains personal artifacts and clinical identifiers orchestrated by your engagement. This terminal allows you to export or terminate that data." 
+                    TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+
+        <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="delete_forever">
+            <RadzenText Text="Critical Authorization Warning" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+            <RadzenText Text="Terminating this data will permanently dissolve your institutional identity. This orchestration cannot be reversed once finalized." TextStyle="TextStyle.Caption" />
+        </RadzenAlert>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Wrap="FlexWrap.Wrap" Gap="1.5rem" Class="rz-mt-4">
+            <form action="Account/Manage/DownloadPersonalData" method="post">
+                <AntiforgeryToken />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Export Clinical Artifacts" Icon="download" ButtonStyle="ButtonStyle.Primary" />
+            </form>
+            
+            <RadzenButton Text="Terminate Institutional Identity" Icon="person_off" ButtonStyle="ButtonStyle.Danger" 
+                          Click="@(() => RedirectManager.RedirectTo("Account/Manage/DeletePersonalData"))" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenStack>
 
 @code {
     [CascadingParameter]

@@ -8,66 +8,77 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Two-factor authentication (2FA)</PageTitle>
+<PageTitle>Multi-Factor Orchestration | 2FA</PageTitle>
 
-<StatusMessage />
-<h3>Two-factor authentication (2FA)</h3>
-@if (canTrack)
-{
-    if (is2faEnabled)
+<RadzenStack Gap="1.5rem">
+    <RadzenText Text="Multi-Factor Authentication (2FA) Orchestration" TextStyle="TextStyle.H5" Class="rz-m-0 rz-color-primary" />
+    <StatusMessage />
+
+    @if (canTrack)
     {
-        if (recoveryCodesLeft == 0)
+        if (is2faEnabled)
         {
-            <div class="alert alert-danger">
-                <strong>You have no recovery codes left.</strong>
-                <p>You must <a href="Account/Manage/GenerateRecoveryCodes">generate a new set of recovery codes</a> before you can log in with a recovery code.</p>
-            </div>
-        }
-        else if (recoveryCodesLeft == 1)
-        {
-            <div class="alert alert-danger">
-                <strong>You have 1 recovery code left.</strong>
-                <p>You can <a href="Account/Manage/GenerateRecoveryCodes">generate a new set of recovery codes</a>.</p>
-            </div>
-        }
-        else if (recoveryCodesLeft <= 3)
-        {
-            <div class="alert alert-warning">
-                <strong>You have @recoveryCodesLeft recovery codes left.</strong>
-                <p>You should <a href="Account/Manage/GenerateRecoveryCodes">generate a new set of recovery codes</a>.</p>
-            </div>
+            if (recoveryCodesLeft == 0)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="error">
+                    <RadzenText Text="Critical: Zero recovery protocols remaining." TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+                    <RadzenText Text="You must generate a new set of recovery credentials to maintain account access during synchronization failures." TextStyle="TextStyle.Caption" />
+                    <RadzenLink Path="Account/Manage/GenerateRecoveryCodes" Text="Generate Recovery Protocols" Class="rz-mt-2" />
+                </RadzenAlert>
+            }
+            else if (recoveryCodesLeft == 1)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="warning">
+                    <RadzenText Text="Warning: Singular recovery protocol remaining." TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+                    <RadzenLink Path="Account/Manage/GenerateRecoveryCodes" Text="Replenish Recovery Protocols" />
+                </RadzenAlert>
+            }
+            else if (recoveryCodesLeft <= 3)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="warning">
+                    <RadzenText Text="@($"Notice: {recoveryCodesLeft} recovery protocols remaining.")" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+                    <RadzenLink Path="Account/Manage/GenerateRecoveryCodes" Text="Replenish Recovery Protocols" />
+                </RadzenAlert>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Wrap="FlexWrap.Wrap" Gap="1rem" Class="rz-mt-4">
+                @if (isMachineRemembered)
+                {
+                    <form @formname="forget-browser" @onsubmit="OnSubmitForgetBrowserAsync" method="post">
+                        <AntiforgeryToken />
+                        <RadzenButton ButtonType="ButtonType.Submit" Text="De-authorize This Browser" Icon="web_asset_off" ButtonStyle="ButtonStyle.Primary" />
+                    </form>
+                }
+
+                <RadzenButton Text="Disable 2FA Orchestration" Icon="lock_open" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Click="@(() => RedirectManager.RedirectTo("Account/Manage/Disable2fa"))" />
+                <RadzenButton Text="Reset Recovery Protocols" Icon="restart_alt" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Flat" Click="@(() => RedirectManager.RedirectTo("Account/Manage/GenerateRecoveryCodes"))" />
+            </RadzenStack>
         }
 
-        if (isMachineRemembered)
-        {
-            <form style="display: inline-block" @formname="forget-browser" @onsubmit="OnSubmitForgetBrowserAsync" method="post">
-                <AntiforgeryToken />
-                <button type="submit" class="btn btn-primary">Forget this browser</button>
-            </form>
-        }
-
-        <a href="Account/Manage/Disable2fa" class="btn btn-primary">Disable 2FA</a>
-        <a href="Account/Manage/GenerateRecoveryCodes" class="btn btn-primary">Reset recovery codes</a>
-    }
-
-    <h4>Authenticator app</h4>
-    @if (!hasAuthenticator)
-    {
-        <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">Add authenticator app</a>
+        <RadzenStack Gap="1rem" Class="rz-mt-8">
+            <RadzenText Text="Clinical Authenticator App" TextStyle="TextStyle.H6" Class="rz-color-primary rz-border-bottom rz-pb-2" />
+            
+            <RadzenStack Orientation="Orientation.Horizontal" Wrap="FlexWrap.Wrap" Gap="1rem">
+                @if (!hasAuthenticator)
+                {
+                    <RadzenButton Text="Enroll Authenticator App" Icon="add_moderator" ButtonStyle="ButtonStyle.Success" Click="@(() => RedirectManager.RedirectTo("Account/Manage/EnableAuthenticator"))" />
+                }
+                else
+                {
+                    <RadzenButton Text="Configure Authenticator App" Icon="settings_suggest" ButtonStyle="ButtonStyle.Primary" Click="@(() => RedirectManager.RedirectTo("Account/Manage/EnableAuthenticator"))" />
+                    <RadzenButton Text="Reset Authenticator Token" Icon="device_reset" ButtonStyle="ButtonStyle.Warning" Click="@(() => RedirectManager.RedirectTo("Account/Manage/ResetAuthenticator"))" />
+                }
+            </RadzenStack>
+        </RadzenStack>
     }
     else
     {
-        <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">Set up authenticator app</a>
-        <a href="Account/Manage/ResetAuthenticator" class="btn btn-primary">Reset authenticator app</a>
+        <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="privacy_tip">
+            <RadzenText Text="Privacy & Cookie Protocols Not Verified" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+            <RadzenText Text="Institutional policy acceptance is mandatory before multi-factor orchestration can be initiated." TextStyle="TextStyle.Caption" />
+        </RadzenAlert>
     }
-}
-else
-{
-    <div class="alert alert-danger">
-        <strong>Privacy and cookie policy have not been accepted.</strong>
-        <p>You must accept the policy before you can enable two factor authentication.</p>
-    </div>
-}
+</RadzenStack>
 
 @code {
     private bool canTrack;
@@ -100,7 +111,7 @@ else
         await SignInManager.ForgetTwoFactorClientAsync();
 
         RedirectManager.RedirectToCurrentPageWithStatus(
-            "The current browser has been forgotten. When you login again from this browser you will be prompted for your 2fa code.",
+            "The current clinical terminal has been de-authorized. Subsequent synchronization will require multi-factor verification.",
             HttpContext);
     }
 }

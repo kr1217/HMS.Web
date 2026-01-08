@@ -1,0 +1,115 @@
+@page "/doctor/recommendations"
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@attribute [Authorize(Roles = "Doctor")]
+@rendermode InteractiveServer
+@inject OperationRepository OperationRepo
+@inject DoctorRepository DoctorRepo
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
+
+<PageTitle>Surgical Portfolio | Doctor</PageTitle>
+
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Surgical Recommendations Registry" TextStyle="TextStyle.H4"
+                Class="rz-m-0 rz-color-primary" />
+            <RadzenText Text="Track and manage clinical status for all referred surgical procedures."
+                TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+        </RadzenStack>
+        <RadzenButton Icon="dashboard" Text="Back to Dashboard"
+            Click="@(() => Navigation.NavigateTo("/doctor/dashboard"))" ButtonStyle="ButtonStyle.Light"
+            Variant="Variant.Flat" />
+    </RadzenStack>
+
+    <RadzenCard Class="rz-p-0 rz-shadow-4"
+        Style="border-radius: 12px; overflow: hidden; border: 1px solid var(--rz-border-color-lighter);">
+        <RadzenDataGrid TItem="PatientOperation" Data="@recommendations" AllowPaging="true" PageSize="10"
+            AllowSorting="true" AllowFiltering="true" FilterMode="FilterMode.Simple" Class="rz-border-none">
+            <EmptyTemplate>
+                <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                    <RadzenIcon Icon="assignment_late" Style="font-size: 5rem; color: var(--rz-text-disabled-color);" />
+                    <RadzenText Text="No surgical recommendations discovered." TextStyle="TextStyle.H6"
+                        Class="rz-color-text-secondary rz-m-0" />
+                    <RadzenText Text="Recommended operations will appear here for tracking purposes."
+                        TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+                </RadzenStack>
+            </EmptyTemplate>
+            <Columns>
+                <RadzenDataGridColumn TItem="PatientOperation" Property="ScheduledDate" Title="Target Date"
+                    FormatString="{0:MMM dd, yyyy}" Width="150px" />
+                <RadzenDataGridColumn TItem="PatientOperation" Property="PatientName" Title="Patient Designation">
+                    <Template Context="op">
+                        <RadzenText Text="@op.PatientName" TextStyle="TextStyle.Subtitle2"
+                            Class="rz-m-0 rz-color-primary" />
+                        <RadzenText Text="@($"ID: #PAT-{op.PatientId}")" TextStyle="TextStyle.Caption" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="PatientOperation" Property="PackageName" Title="Procedure Name" />
+                <RadzenDataGridColumn TItem="PatientOperation" Title="Clinical Urgency" Width="140px">
+                    <Template Context="op">
+                        <RadzenBadge Text="@op.Urgency" BadgeStyle="@GetUrgencyStyle(op.Urgency)" IsPill="true" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="PatientOperation" Title="Current Status" Width="160px">
+                    <Template Context="op">
+                        <RadzenBadge Text="@op.Status" BadgeStyle="@GetStatusStyle(op.Status)" IsPill="true"
+                            Shade="Shade.Lighter" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="PatientOperation" Title="Actions" Width="120px"
+                    TextAlign="TextAlign.Center" Sortable="false" Filterable="false">
+                    <Template Context="op">
+                        <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
+                            Variant="Variant.Flat"
+                            Click="@(() => Navigation.NavigateTo($"/doctor/patient-profile/{op.PatientId}"))"
+                            Tooltip="View Patient Profile" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    List<PatientOperation> recommendations = new();
+    Doctor? currentDoctor;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var userId = UserManager.GetUserId(user);
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            currentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+            if (currentDoctor != null)
+            {
+                recommendations = OperationRepo.GetOperationsByDoctorId(currentDoctor.DoctorId);
+            }
+        }
+    }
+
+    BadgeStyle GetUrgencyStyle(string? urgency) => urgency switch
+    {
+        "Critical" => BadgeStyle.Danger,
+        "High" => BadgeStyle.Warning,
+        "Medium" => BadgeStyle.Info,
+        _ => BadgeStyle.Secondary
+    };
+
+    BadgeStyle GetStatusStyle(string status) => status switch
+    {
+        "Completed" => BadgeStyle.Success,
+        "Running" => BadgeStyle.Warning,
+        "Scheduled" => BadgeStyle.Info,
+        "Recommended" => BadgeStyle.Secondary,
+        _ => BadgeStyle.Light
+    };
+}

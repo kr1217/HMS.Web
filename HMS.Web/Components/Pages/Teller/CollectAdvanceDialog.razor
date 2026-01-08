@@ -1,0 +1,106 @@
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@inject OperationRepository OperationRepo
+@inject BillingRepository BillingRepo
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenStack Gap="1.5rem" Class="rz-p-4">
+    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false">
+        <RadzenStack Gap="0.5rem">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenIcon Icon="person" />
+                <RadzenText Text="Patient Details" TextStyle="TextStyle.Subtitle2" Class="rz-m-0" />
+            </RadzenStack>
+            <RadzenStack Gap="0.25rem" Class="rz-ml-8">
+                <RadzenText TextStyle="TextStyle.Caption" Class="rz-m-0">
+                    <strong>Patient:</strong> @Operation.PatientName
+                </RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption" Class="rz-m-0">
+                    <strong>Operation:</strong> @Operation.PackageName
+                </RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption" Class="rz-m-0">
+                    <strong>Scheduled:</strong> @Operation.ScheduledDate.ToString("MMM dd, yyyy h:mm tt")
+                </RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption" Class="rz-m-0">
+                    <strong>Estimates:</strong> 
+                    Ops: @Operation.AgreedOperationCost?.ToString("C") | 
+                    Meds: @Operation.AgreedMedicineCost?.ToString("C") | 
+                    Eq: @Operation.AgreedEquipmentCost?.ToString("C")
+                </RadzenText>
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenAlert>
+
+    <EditForm Model="this" OnValidSubmit="ConfirmPayment">
+        <RadzenStack Gap="1rem">
+            <RadzenFormField Text="Advance Payment Amount Collected" Style="width: 100%;">
+                <RadzenNumeric @bind-Value="AmountCollected" Format="C" TValue="decimal" ShowGreeting="false" Class="rz-w-100" />
+            </RadzenFormField>
+            <RadzenText Text="Ask the patient how much they are paying today." TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
+                <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Record Payment & Approve" ButtonStyle="ButtonStyle.Success" Icon="check_circle" Disabled="@(AmountCollected <= 0)" />
+            </RadzenStack>
+        </RadzenStack>
+    </EditForm>
+</RadzenStack>
+
+@code {
+    [Parameter] public PatientOperation Operation { get; set; } = new();
+    [Parameter] public int ShiftId { get; set; }
+
+    decimal AmountCollected { get; set; } = 0;
+
+    protected override void OnInitialized()
+    {
+        // Suggest 50% as default but let teller edit
+        if (Operation.AgreedOperationCost.HasValue)
+        {
+            AmountCollected = Operation.AgreedOperationCost.Value * 0.5m;
+        }
+    }
+
+    async Task ConfirmPayment()
+    {
+        if (AmountCollected <= 0)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Invalid Amount", "Please enter a valid payment amount.");
+            return;
+        }
+
+        // 1. Create a PAID Bill
+        var bill = new Bill
+        {
+            PatientId = Operation.PatientId,
+            TotalAmount = AmountCollected,
+            PaidAmount = AmountCollected,
+            DueAmount = 0,
+            Status = "Paid",
+            BillDate = DateTime.Now,
+            ShiftId = ShiftId,
+            CreatedBy = "Teller",
+            Items = new List<BillItem> { 
+                new BillItem { Description = $"Advance Payment for {Operation.PackageName}", Amount = AmountCollected, Category = "Advance" } 
+            }
+        };
+
+        BillingRepo.CreateBill(bill);
+
+        // 2. Update Operation Status to Scheduled
+        OperationRepo.UpdateOperationStatusAndCosts(
+            Operation.OperationId, 
+            "Scheduled", 
+            Operation.AgreedOperationCost, 
+            Operation.AgreedMedicineCost, 
+            Operation.AgreedEquipmentCost, 
+            Operation.TheaterId, 
+            Operation.ScheduledDate, 
+            Operation.DurationMinutes
+        );
+
+        NotificationService.Notify(NotificationSeverity.Success, "Payment Recorded", "Advance payment collected. Operation is now fully scheduled.");
+        DialogService.Close(true);
+    }
+}

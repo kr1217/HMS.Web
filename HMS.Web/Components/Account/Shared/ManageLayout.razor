@@ -1,17 +1,21 @@
 ﻿@inherits LayoutComponentBase
 @layout HMS.Web.Components.Layout.MainLayout
 
-<h1>Manage your account</h1>
+<RadzenStack Gap="2rem" Class="rz-p-4 rz-p-md-8">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="Account Orchestration" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="Synchronize your clinical identity and security parameters." TextStyle="TextStyle.Body1"
+            Class="rz-color-text-secondary" />
+    </RadzenStack>
 
-<div>
-    <h2>Change your account settings</h2>
-    <hr />
-    <div class="row">
-        <div class="col-lg-3">
+    <RadzenRow Gap="2rem">
+        <RadzenColumn Size="12" SizeMD="3">
             <ManageNavMenu />
-        </div>
-        <div class="col-lg-9">
-            @Body
-        </div>
-    </div>
-</div>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="9">
+            <RadzenCard Class="rz-shadow-3 rz-p-6 rz-p-md-8" Style="border-radius: 12px;">
+                @Body
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+</RadzenStack>

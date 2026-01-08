@@ -11,53 +11,82 @@
 
 <PageTitle>Post-Op Handover | Admin Control</PageTitle>
 
-<div class="container-fluid p-4">
-    <div class="row mb-4">
-        <div class="col-12 d-flex justify-content-between align-items-center">
-            <div>
-                <h2 class="text-primary mb-0"><i class="bi bi-person-up me-2"></i>Post-Op Handover</h2>
-                <p class="text-muted">High-priority patients waiting for ward assignment after surgery.</p>
-            </div>
-            <RadzenButton Icon="refresh" Text="Refresh List" Click="LoadPending" ButtonStyle="ButtonStyle.Light" />
-        </div>
-    </div>
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Post-Operative Handover Control" TextStyle="TextStyle.H4"
+                Class="rz-m-0 rz-color-primary" />
+            <RadzenText Text="Critical oversight of patients awaiting ward assignment and recovery stabilization."
+                TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+        </RadzenStack>
+        <RadzenButton Icon="refresh" Text="Re-sync Status" ButtonStyle="ButtonStyle.Light" Click="@LoadPending"
+            Variant="Variant.Flat" />
+    </RadzenStack>
 
     @if (!PendingPatients.Any())
     {
-        <RadzenCard Class="rz-p-10 text-center">
-            <RadzenIcon Icon="done_all" Style="font-size: 4rem; color: #28a745; margin-bottom: 20px;" />
-            <h3>All clear!</h3>
-            <p class="text-muted">There are no patients currently waiting for post-operative transfer.</p>
+        <RadzenCard Class="rz-p-12 rz-text-align-center rz-background-color-base-100" Style="border-radius: 20px;">
+            <RadzenStack AlignItems="AlignItems.Center" Gap="1.5rem">
+                <RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center"
+                    Style="width: 120px; height: 120px; border-radius: 60px; background: var(--rz-success-lighter);">
+                    <RadzenIcon Icon="task_alt" Style="font-size: 5rem; color: var(--rz-success);" />
+                </RadzenStack>
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="Clinical Status: Nominal" TextStyle="TextStyle.H5"
+                        Class="rz-m-0 rz-color-success-dark" />
+                    <RadzenText Text="No patients currently categorized as 'Awaiting Post-Op Transfer'."
+                        TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+                </RadzenStack>
+            </RadzenStack>
         </RadzenCard>
     }
     else
     {
-        <div class="row">
+        <RadzenRow Gap="2rem">
             @foreach (var op in PendingPatients)
             {
-                <div class="col-md-6 col-lg-4 mb-4">
-                    <RadzenCard Class="shadow-sm border-0 border-top border-5 border-success position-relative h-100">
-                        <div class="d-flex justify-content-between mb-2">
-                            <div class="badge bg-success">Surgery Completed</div>
-                            <div class="small text-muted">@op.EndDate.ToString("hh:mm tt")</div>
-                        </div>
+                <RadzenColumn Size="12" SizeMD="6" SizeLG="4">
+                    <RadzenCard Class="rz-p-0 rz-shadow-4" Style="border-radius: 12px; overflow: hidden; height: 100%;">
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
+                            AlignItems="AlignItems.Center" Class="rz-p-3 rz-background-color-success-lighter">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenIcon Icon="check_circle" Style="color: var(--rz-success-dark);" />
+                                <RadzenText Text="Surgery Concluded" TextStyle="TextStyle.Caption"
+                                    Class="rz-m-0 rz-color-success-dark rz-font-weight-bold" />
+                            </RadzenStack>
+                            <RadzenText Text="@op.EndDate.ToString("hh:mm tt")" TextStyle="TextStyle.Caption"
+                                Class="rz-m-0 rz-color-success-dark" />
+                        </RadzenStack>
 
-                        <h5 class="mb-1"><strong>@op.PatientName</strong></h5>
-                        <div class="mb-3">
-                            <div class="small"><i class="bi bi-hospital me-1"></i> Theater: @op.TheaterName</div>
-                            <div class="small"><i class="bi bi-person me-1"></i> Surgeon: @op.DoctorName</div>
-                            <div class="small fw-bold text-primary mt-1"><i class="bi bi-bookmark-star me-1"></i> Procedure:
-                                @op.PackageName</div>
-                        </div>
+                        <RadzenStack Class="rz-p-5" Gap="1.5rem">
+                            <RadzenStack Gap="0.25rem">
+                                <RadzenText Text="@op.PatientName" TextStyle="TextStyle.H6" Class="rz-m-0 rz-color-primary" />
+                                <RadzenText Text="@($"#{op.PackageName}")" TextStyle="TextStyle.Overline"
+                                    Class="rz-m-0 rz-color-text-secondary" />
+                            </RadzenStack>
 
-                        <RadzenButton Text="Assign Ward & Bed" Icon="bed" ButtonStyle="ButtonStyle.Primary" Class="w-100"
-                            Click="@(() => OpenAdmissionDialog(op))" />
+                            <RadzenStack Gap="0.75rem">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                    <RadzenIcon Icon="meeting_room" Style="color: var(--rz-text-disabled-color);" />
+                                    <RadzenText Text="@($"Theater: {op.TheaterName}")" TextStyle="TextStyle.Body2"
+                                        Class="rz-m-0" />
+                                </RadzenStack>
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                    <RadzenIcon Icon="medical_services" Style="color: var(--rz-text-disabled-color);" />
+                                    <RadzenText Text="@($"Lead Surgeon: {op.DoctorName}")" TextStyle="TextStyle.Body2"
+                                        Class="rz-m-0" />
+                                </RadzenStack>
+                            </RadzenStack>
+                            <RadzenButton Text="Authorize Transfer" Icon="king_bed" ButtonStyle="ButtonStyle.Primary"
+                                Class="rz-w-100" Click="@(() => OpenAdmissionDialog(op))" />
+                        </RadzenStack>
                     </RadzenCard>
-                </div>
+                </RadzenColumn>
             }
-        </div>
+        </RadzenRow>
     }
-</div>
+</RadzenStack>
 
 @code {
     List<PatientOperation> PendingPatients = new();
@@ -74,17 +103,30 @@
 
     async Task OpenAdmissionDialog(PatientOperation op)
     {
-        var result = await DialogService.OpenAsync<AdmissionDialog>($"Post-Op Transfer: {op.PatientName}",
-        new Dictionary<string, object> {
+        try
+        {
+            Console.WriteLine($"Opening admission dialog for patient {op.PatientId}, operation {op.OperationId}");
+
+            var result = await DialogService.OpenAsync<AdmissionDialog>($"Post-Op Transfer: {op.PatientName}",
+            new Dictionary<string, object> {
 { "PatientId", op.PatientId },
 { "OperationId", op.OperationId }
-            },
-        new DialogOptions { Width = "600px" });
+                },
+            new DialogOptions { Width = "700px", Height = "auto", Resizable = true, Draggable = true });
 
-        if (result == true)
+            Console.WriteLine($"Dialog result: {result}");
+
+            if (result == true)
+            {
+                NotificationService.Notify(NotificationSeverity.Success, "Transferred", "Patient admitted for recovery.");
+                LoadPending();
+            }
+        }
+        catch (Exception ex)
         {
-            NotificationService.Notify(NotificationSeverity.Success, "Transferred", "Patient admitted for recovery.");
-            LoadPending();
+            Console.WriteLine($"ERROR opening admission dialog: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            NotificationService.Notify(NotificationSeverity.Error, "Dialog Error", $"Failed to open dialog: {ex.Message}");
         }
     }
 }

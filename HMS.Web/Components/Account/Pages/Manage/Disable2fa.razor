@@ -7,27 +7,27 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<Disable2fa> Logger
 
-<PageTitle>Disable two-factor authentication (2FA)</PageTitle>
+<PageTitle>Security Orchestration | Disable 2FA</PageTitle>
 
-<StatusMessage />
-<h3>Disable two-factor authentication (2FA)</h3>
+<RadzenStack Gap="1.5rem">
+    <RadzenText Text="Deactivate Multi-Factor Orchestration" TextStyle="TextStyle.H5" Class="rz-m-0 rz-color-primary" />
+    <StatusMessage />
 
-<div class="alert alert-warning" role="alert">
-    <p>
-        <strong>This action only disables 2FA.</strong>
-    </p>
-    <p>
-        Disabling 2FA does not change the keys used in authenticator apps. If you wish to change the key
-        used in an authenticator app you should <a href="Account/Manage/ResetAuthenticator">reset your authenticator keys.</a>
-    </p>
-</div>
+    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="security_update_warning">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Security Downgrade Warning" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+            <RadzenText Text="This action suspends the multi-factor authentication layer. Your account will rely solely on password entry, increasing vulnerability." TextStyle="TextStyle.Body2" />
+            <RadzenText Text="Note: This does not invalidate existing authenticator keys. To invalidate compromised keys, use the 'Reset Authenticator' protocol." TextStyle="TextStyle.Caption" Class="rz-mt-2" />
+        </RadzenStack>
+    </RadzenAlert>
 
-<div>
-    <form @formname="disable-2fa" @onsubmit="OnSubmitAsync" method="post">
-        <AntiforgeryToken />
-        <button class="btn btn-danger" type="submit">Disable 2FA</button>
-    </form>
-</div>
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Class="rz-mt-4">
+        <form @formname="disable-2fa" @onsubmit="OnSubmitAsync" method="post">
+            <AntiforgeryToken />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Confirm Deactivation" Icon="lock_open_right" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Filled" />
+        </form>
+    </RadzenStack>
+</RadzenStack>
 
 @code {
     private ApplicationUser? user;
@@ -68,7 +68,7 @@
         Logger.LogInformation("User with ID '{UserId}' has disabled 2fa.", userId);
         RedirectManager.RedirectToWithStatus(
             "Account/Manage/TwoFactorAuthentication",
-            "2fa has been disabled. You can reenable 2fa when you setup an authenticator app",
+            "Multi-factor orchestration disabled. Please re-enable for enhanced security.",
             HttpContext);
     }
 }

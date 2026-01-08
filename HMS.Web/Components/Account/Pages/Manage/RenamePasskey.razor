@@ -8,27 +8,43 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<EditForm Model="Input" OnValidSubmit="Rename" FormName="rename-passkey" method="post">
-    <DataAnnotationsValidator />
-    @if (passkey?.Name is { } name)
-    {
-        <h4>Enter a new name for your "@name" passkey</h4>
-    }
-    else
-    {
-        <h4>Enter a name for your passkey</h4>
-    }
-    <hr />
-    <ValidationSummary class="text-danger" role="alert" />
-    <div class="form-floating mb-3">
-        <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" aria-required="true" placeholder="My passkey" />
-        <label for="Input.Name" class="form-label">Passkey name</label>
-        <ValidationMessage For="() => Input.Name" class="text-danger" />
-    </div>
-    <div>
-        <button type="submit" class="w-100 btn btn-lg btn-primary">Continue</button>
-    </div>
-</EditForm>
+<PageTitle>Credential Management | Rename</PageTitle>
+
+<RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Style="min-height: 50vh;">
+    <RadzenCard Class="rz-shadow-4 rz-p-6" Style="width: 100%; max-width: 500px;">
+        <RadzenStack Gap="1.5rem">
+             <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenIcon Icon="edit" Style="font-size: 3rem; color: var(--rz-primary);" />
+                <RadzenText Text="Update Credential Alias" TextStyle="TextStyle.H5" Class="rz-m-0 rz-color-primary" />
+            </RadzenStack>
+
+            <EditForm Model="Input" OnValidSubmit="Rename" FormName="rename-passkey" method="post">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="rz-color-danger" role="alert" />
+                
+                <RadzenStack Gap="1.5rem">
+                    <RadzenText Text="@(passkey?.Name is { } name ? $"Current Alias: {name}" : "Assign an alias for this new biometric credential")" 
+                                TextStyle="TextStyle.Body1" Class="rz-text-align-center rz-color-text-secondary" />
+
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenLabel Text="New Credential Alias" Component="Input.Name" TextStyle="TextStyle.Subtitle2" />
+                        <RadzenTextBox @bind-Value="Input.Name" Name="Input.Name" Class="rz-w-100" 
+                                       Style="height: 3rem; border-radius: 8px;" 
+                                       aria-required="true" placeholder="e.g., Clinical Tablet, Office Workstation" />
+                        <ValidationMessage For="() => Input.Name" Class="rz-color-danger" Style="font-size: 0.75rem;" />
+                    </RadzenStack>
+
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" Class="rz-mt-2">
+                         <RadzenButton ButtonType="ButtonType.Submit" Text="Save Alias" Icon="save" 
+                                      ButtonStyle="ButtonStyle.Primary" Class="rz-w-100" />
+                         <RadzenButton Text="Cancel" Icon="cancel" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" 
+                                       Class="rz-w-100" Click="@(() => RedirectManager.RedirectTo("Account/Manage/Passkeys"))" />
+                    </RadzenStack>
+                </RadzenStack>
+            </EditForm>
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>
 
 @code {
     private ApplicationUser? user;

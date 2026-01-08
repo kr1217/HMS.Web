@@ -9,55 +9,75 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Manage your passkeys</PageTitle>
+<PageTitle>Biometric Credentials | Passkeys</PageTitle>
 
-<h3>Manage your passkeys</h3>
+<RadzenStack Gap="1.5rem">
+    <RadzenText Text="Biometric Access Control (Passkeys)" TextStyle="TextStyle.H5" Class="rz-m-0 rz-color-primary" />
+    <StatusMessage />
 
-<StatusMessage />
-
-@if (currentPasskeys is { Count: > 0 })
-{
-    <table class="table">
-        <tbody>
-            @foreach (var passkey in currentPasskeys)
-            {
-                <tr>
-                    <td>@(passkey.Name ?? "Unnamed passkey")</td>
-                    <td>
-                        @{
-                            var credentialId = Base64Url.EncodeToString(passkey.CredentialId);
-                        }
-                        <form @formname="@($"update-passkey-{credentialId}")" @onsubmit="UpdatePasskey" method="post">
-                            <AntiforgeryToken />
-                            <div>
-                                <input type="hidden" name="CredentialId" value="@credentialId" />
-                                <button type="submit" name="Action" value="rename" class="btn btn-primary" title="Rename this passkey">Rename</button>
-                                <button type="submit" name="Action" value="delete" class="btn btn-danger" title="Remove this passkey from your account">Delete</button>
-                            </div>
-                        </form>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
-else
-{
-    <p>No passkeys are registered.</p>
-}
-
-<form @formname="add-passkey" @onsubmit="AddPasskey" method="post">
-    <AntiforgeryToken />
-    @if (currentPasskeys is { Count: >= MaxPasskeyCount })
+    @if (currentPasskeys is { Count: > 0 })
     {
-        <p class="text-danger">You have reached the maximum number of allowed passkeys. Please delete one before adding a new one.</p>
+        <RadzenCard Class="rz-shadow-2">
+            <RadzenText Text="Registered Biometric Credentials" TextStyle="TextStyle.Subtitle1" Class="rz-mb-4" />
+            <RadzenStack Gap="1rem">
+                @foreach (var passkey in currentPasskeys)
+                {
+                    <RadzenCard Variant="Variant.Flat" Class="rz-background-color-base-100 rz-p-3">
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenIcon Icon="fingerprint" Style="color: var(--rz-primary);" />
+                                <RadzenStack Gap="0">
+                                    <RadzenText Text="@(passkey.Name ?? "Unnamed Credential")" TextStyle="TextStyle.Body1" Class="rz-m-0 rz-font-weight-bold" />
+                                    <RadzenText Text="Secure Hardware Encrypted" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                                </RadzenStack>
+                            </RadzenStack>
+
+                            @{
+                                var credentialId = Base64Url.EncodeToString(passkey.CredentialId);
+                            }
+                            <form @formname="@($"update-passkey-{credentialId}")" @onsubmit="UpdatePasskey" method="post">
+                                <AntiforgeryToken />
+                                <input type="hidden" name="CredentialId" value="@credentialId" />
+                                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                    <RadzenButton ButtonType="ButtonType.Submit" Name="Action" Value="rename" 
+                                                  Icon="edit" ButtonStyle="ButtonStyle.Info" Variant="Variant.Text" 
+                                                  Text="Rename" />
+                                    <RadzenButton ButtonType="ButtonType.Submit" Name="Action" Value="delete" 
+                                                  Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" 
+                                                  Text="Revoke" />
+                                </RadzenStack>
+                            </form>
+                        </RadzenStack>
+                    </RadzenCard>
+                }
+            </RadzenStack>
+        </RadzenCard>
     }
     else
     {
-        <PasskeySubmit Operation="PasskeyOperation.Create" Name="Input" class="btn btn-primary">Add a new passkey</PasskeySubmit>
+        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="info">
+            <RadzenText Text="No biometric credentials registered." TextStyle="TextStyle.Body2" />
+        </RadzenAlert>
     }
 
-</form>
+    <form @formname="add-passkey" @onsubmit="AddPasskey" method="post">
+        <AntiforgeryToken />
+        @if (currentPasskeys is { Count: >= MaxPasskeyCount })
+        {
+             <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="error">
+                <RadzenText Text="Credential Limit Reached" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+                <RadzenText Text="Maximum capacity for hardware credentials reached. Revoke an existing credential to enroll a new one." TextStyle="TextStyle.Caption" />
+            </RadzenAlert>
+        }
+        else
+        {
+            <PasskeySubmit Operation="PasskeyOperation.Create" Name="Input">
+                 <RadzenButton Text="Enroll New Biometric Credential" Icon="add_moderator" 
+                               ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" Class="rz-w-100" />
+            </PasskeySubmit>
+        }
+    </form>
+</RadzenStack>
 
 @code {
     private const int MaxPasskeyCount = 100;

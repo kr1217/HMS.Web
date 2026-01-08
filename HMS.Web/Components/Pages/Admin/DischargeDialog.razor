@@ -7,80 +7,121 @@
 @inject NotificationService NotificationService
 @inject NotificationRepository NotificationRepo
 
-<div class="row">
-    <div class="col-md-12">
-        <RadzenCard class="mb-3">
-            <h4 class="mb-3">Discharge Summary & Billing</h4>
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>Patient:</strong> @Admission.PatientName</p>
-                    <p><strong>Ward:</strong> @Admission.WardName</p>
-                    <p><strong>Room:</strong> @Admission.BedNumber (@Admission.RoomTypeName)</p>
-                </div>
-                <div class="col-md-6">
-                    <p><strong>Admitted On:</strong> @Admission.AdmissionDate.ToShortDateString()</p>
-                    <p><strong>Discharge Date:</strong> @DateTime.Now.ToShortDateString()</p>
-                </div>
-            </div>
-        </RadzenCard>
+<RadzenStack Gap="1.5rem" Class="rz-p-2">
+    <RadzenCard Class="rz-shadow-2 rz-p-0" Style="overflow: hidden; border-radius: 12px;">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+            Class="rz-p-4 rz-background-color-base-100 rz-border-bottom">
+            <RadzenIcon Icon="assignment" Style="color: var(--rz-primary);" />
+            <RadzenText Text="Discharge Summary & Audit Setup" TextStyle="TextStyle.Subtitle1"
+                Class="rz-m-0 rz-font-weight-bold" />
+        </RadzenStack>
 
-        <RadzenCard class="mb-3">
-            <h5 class="mb-3">Bill Details</h5>
-            <RadzenDataGrid Data="@Items" TItem="BillItem" Density="Density.Compact">
+        <RadzenStack Gap="1.5rem" Class="rz-p-6">
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="PATIENT DATA" TextStyle="TextStyle.Caption"
+                            Class="rz-color-text-secondary rz-font-weight-bold" />
+                        <RadzenText Text="@Admission.PatientName" TextStyle="TextStyle.Subtitle2"
+                            Class="rz-m-0 rz-font-weight-bold" />
+                        <RadzenText
+                            Text="@($"{Admission.WardName} | Room {Admission.BedNumber} ({Admission.RoomTypeName})")"
+                            TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6" Class="rz-text-align-center rz-text-align-md-right">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="TEMPORAL DATA" TextStyle="TextStyle.Caption"
+                            Class="rz-color-text-secondary rz-font-weight-bold" />
+                        <RadzenText Text="@($"Admitted: {Admission.AdmissionDate:MMM dd, yyyy}")"
+                            TextStyle="TextStyle.Caption" />
+                        <RadzenText Text="@($"Proposed Discharge: {DateTime.Now:MMM dd, yyyy}")"
+                            TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenCard Class="rz-shadow-3">
+        <RadzenStack Gap="1.5rem">
+            <RadzenText Text="Billing Audit Context" TextStyle="TextStyle.H6" Class="rz-m-0 rz-color-primary" />
+
+            <RadzenDataGrid Data="@Items" TItem="BillItem" Density="Density.Compact" Class="rz-border-radius-1">
                 <Columns>
-                    <RadzenDataGridColumn TItem="BillItem" Property="Category" Title="Category" Width="120px" />
-                    <RadzenDataGridColumn TItem="BillItem" Property="Description" Title="Description" />
-                    <RadzenDataGridColumn TItem="BillItem" Property="Amount" Title="Amount" FormatString="{0:C}"
-                        Width="100px">
+                    <RadzenDataGridColumn TItem="BillItem" Property="Category" Title="Category" Width="130px">
+                        <Template Context="item">
+                            <RadzenBadge Text="@item.Category" IsPill="true" BadgeStyle="BadgeStyle.Secondary"
+                                Shade="Shade.Lighter" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="BillItem" Property="Description" Title="Line Item Description" />
+                    <RadzenDataGridColumn TItem="BillItem" Property="Amount" Title="Amount" Width="120px"
+                        TextAlign="TextAlign.Right">
+                        <Template Context="item">
+                            <RadzenText Text="@item.Amount.ToString("C")" TextStyle="TextStyle.Body2"
+                                Class="rz-font-weight-bold" />
+                        </Template>
                         <FooterTemplate>
-                            <b>@TotalAmount.ToString("C")</b>
+                            <RadzenText Text="@TotalAmount.ToString("C")" TextStyle="TextStyle.Subtitle2"
+                                Class="rz-font-weight-black rz-color-danger" />
                         </FooterTemplate>
                     </RadzenDataGridColumn>
-                    <RadzenDataGridColumn TItem="BillItem" Title="Action" Width="60px">
+                    <RadzenDataGridColumn TItem="BillItem" Title="" Width="50px" TextAlign="TextAlign.Center">
                         <Template Context="item">
                             @if (item.Category != "Room Charges")
                             {
                                 <RadzenButton Icon="delete" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Danger"
-                                    Click="@(() => RemoveItem(item))" />
+                                    Variant="Variant.Flat" Click="@(() => RemoveItem(item))" />
                             }
                         </Template>
                     </RadzenDataGridColumn>
                 </Columns>
             </RadzenDataGrid>
 
-            <div class="row mt-3 align-items-end">
-                <div class="col-md-4">
-                    <RadzenLabel Text="Category" />
-                    <RadzenDropDown @bind-Value="newItemCategory" Data="@categories" Class="w-100" />
-                </div>
-                <div class="col-md-4">
-                    <RadzenLabel Text="Description" />
-                    <RadzenTextBox @bind-Value="newItemDesc" Class="w-100" />
-                </div>
-                <div class="col-md-2">
-                    <RadzenLabel Text="Amount" />
-                    <RadzenNumeric @bind-Value="newItemAmount" Class="w-100" />
-                </div>
-                <div class="col-md-2">
-                    <RadzenButton Text="Add" Icon="add" ButtonStyle="ButtonStyle.Secondary" Class="w-100"
-                        Click="@AddItem" />
-                </div>
-            </div>
-        </RadzenCard>
+            <RadzenCard Variant="Variant.Flat" Class="rz-background-color-base-100 rz-p-4"
+                Style="border: 1px solid var(--rz-border-color-light);">
+                <RadzenRow AlignItems="AlignItems.End" Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="3">
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenLabel Text="Category" TextStyle="TextStyle.Caption" />
+                            <RadzenDropDown @bind-Value="newItemCategory" Data="@categories" Class="rz-w-100" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenLabel Text="Description" TextStyle="TextStyle.Caption" />
+                            <RadzenTextBox @bind-Value="newItemDesc" Class="rz-w-100"
+                                Placeholder="Specify service..." />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="3">
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenLabel Text="Amount" TextStyle="TextStyle.Caption" />
+                            <RadzenNumeric @bind-Value="newItemAmount" Class="rz-w-100" Format="C" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="2">
+                        <RadzenButton Text="Add" Icon="add" ButtonStyle="ButtonStyle.Secondary" Class="rz-w-100"
+                            Click="@AddItem" />
+                    </RadzenColumn>
+                </RadzenRow>
+            </RadzenCard>
+        </RadzenStack>
+    </RadzenCard>
 
-        <div class="form-group mb-3">
-            <RadzenLabel Text="Discharge Notes" />
-            <RadzenTextArea @bind-Value="notes" Rows="2" Class="w-100" />
-        </div>
+    <RadzenStack Gap="0.5rem">
+        <RadzenLabel Text="Clinical Discharge Notes" TextStyle="TextStyle.Subtitle2" />
+        <RadzenTextArea @bind-Value="notes" Rows="2" Class="rz-w-100"
+            Placeholder="Provide final clinical summary or follow-up instructions..." />
+    </RadzenStack>
 
-        <div class="text-end">
-            <RadzenButton Text="Send Bill to Teller" Icon="send" ButtonStyle="ButtonStyle.Danger"
-                Click="@ConfirmDischarge" />
-            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))"
-                Class="ms-2" />
-        </div>
-    </div>
-</div>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
+        <RadzenButton Text="Finalize & Send Bill" Icon="account_balance_wallet" ButtonStyle="ButtonStyle.Primary"
+            Click="@ConfirmDischarge" />
+        <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+    </RadzenStack>
+</RadzenStack>
 
 @code {
     [Parameter] public Admission Admission { get; set; } = default!;
@@ -112,9 +153,6 @@
             });
 
         // Load Operations & Recommendations for billing
-        // Load Operations & Recommendations for billing.
-        // Include 'Scheduled' ones too as they are likely the ones we just performed/admitted for.
-        // Or 'Completed'.
         var ops = OperationRepo.GetPatientOperations(Admission.PatientId);
 
         foreach (var op in ops.Where(o => o.Status == "Completed" || o.Status == "Scheduled" || o.Status == "Recommended"))
@@ -180,10 +218,9 @@
         var user = authState.User;
         var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-        // Fallback for Admin testing if no claim found (though Auth is required for this page)
+        // Fallback for Admin testing if no claim found
         if (string.IsNullOrEmpty(userId))
         {
-            // Try name
             userId = user.Identity?.Name;
         }
 
@@ -217,10 +254,6 @@
                 CreatedDate = DateTime.Now,
                 IsRead = false
             });
-
-        // Note: We do NOT discharge the patient yet.
-        // We set status to "Payment Pending" or just rely on the existence of an unpaid bill linked to admission.
-        // For now, let's keep the admission status as is, the Teller will finalize it.
 
         NotificationService.Notify(NotificationSeverity.Success, "Bill Generated", "Bill sent to Teller. Patient notified.");
         DialogService.Close(true);

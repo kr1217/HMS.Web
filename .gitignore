@@ -77,3 +77,6 @@ npm-debug.log
 brain/
 *.webp
 build_output.txt
+
+# Database seeding flag
+.seeded

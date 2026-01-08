@@ -1,8 +1,31 @@
 ﻿@page "/Account/Lockout"
+@inject NavigationManager NavigationManager
 
-<PageTitle>Locked out</PageTitle>
+<PageTitle>Security Lockout | Access Denied</PageTitle>
 
-<header>
-    <h1 class="text-danger">Locked out</h1>
-    <p class="text-danger" role="alert">This account has been locked out, please try again later.</p>
-</header>
+<RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Style="min-height: 50vh;">
+    <RadzenCard Class="rz-shadow-4 rz-p-8 rz-text-align-center"
+        Style="width: 100%; max-width: 500px; border-radius: 20px; border-left: 5px solid var(--rz-danger);">
+        <RadzenStack Gap="1.5rem" AlignItems="AlignItems.Center">
+
+            <div
+                style="width: 80px; height: 80px; border-radius: 50%; background: var(--rz-danger-lighter); display: flex; align-items: center; justify-content: center;">
+                <RadzenIcon Icon="lock_clock" Style="font-size: 3rem; color: var(--rz-danger);" />
+            </div>
+
+            <RadzenStack Gap="0.5rem">
+                <RadzenText Text="Security Lockout Active" TextStyle="TextStyle.H5"
+                    Class="rz-m-0 rz-font-weight-bold rz-color-danger" />
+                <RadzenText
+                    Text="Multiple failed authorization attempts detected. This terminal has been temporarily suspended from the clinical network."
+                    TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+                <RadzenText
+                    Text="Please wait for the automated lockout timer to expire before re-attempting authentication."
+                    TextStyle="TextStyle.Caption" Class="rz-color-text-disabled" />
+            </RadzenStack>
+
+            <RadzenButton Text="Return to Home" Icon="home" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat"
+                Click="@(() => NavigationManager.NavigateTo("/"))" Class="rz-mt-4" />
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>

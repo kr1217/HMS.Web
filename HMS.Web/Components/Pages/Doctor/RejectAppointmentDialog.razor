@@ -1,0 +1,59 @@
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@inject DialogService DialogService
+
+<RadzenStack Gap="1.5rem" Class="rz-p-4">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="Patient Context" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+        <RadzenText Text="@Appointment.PatientName" TextStyle="TextStyle.H6" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="@($"Requested: {Appointment.AppointmentDate:MMM dd, yyyy | hh:mm tt}")"
+            TextStyle="TextStyle.Body2" />
+    </RadzenStack>
+
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="Reason for Rejection" TextStyle="TextStyle.Subtitle2" />
+        <RadzenTextArea @bind-Value="RejectionMessage" Rows="4"
+            Placeholder="Explain the clinical or scheduling constraint..." Style="width: 100%;" />
+        @if (string.IsNullOrWhiteSpace(RejectionMessage))
+        {
+            <RadzenText Text="Required for patient notification." TextStyle="TextStyle.Caption" Class="rz-color-danger" />
+        }
+    </RadzenStack>
+
+    @if (DoctorShifts != null && DoctorShifts.Any())
+    {
+        <RadzenCard Class="rz-background-color-info-lighter rz-p-4">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-mb-2">
+                <RadzenIcon Icon="info" Style="color: var(--rz-info-dark);" />
+                <RadzenText Text="Current Clinical Availability" TextStyle="TextStyle.Subtitle2"
+                    Class="rz-m-0 rz-color-info-dark" />
+            </RadzenStack>
+            <RadzenStack Gap="0.25rem">
+                @foreach (var shift in DoctorShifts.Take(5))
+                {
+                    <RadzenText Text="@($"• {shift.DayOfWeek}: {FormatTime(shift.StartTime)} - {FormatTime(shift.EndTime)}")"
+                        TextStyle="TextStyle.Caption" />
+                }
+            </RadzenStack>
+        </RadzenCard>
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
+        <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(null))" />
+        <RadzenButton Text="Send Rejection" Icon="send" ButtonStyle="ButtonStyle.Danger"
+            Click="@(() => DialogService.Close(RejectionMessage))"
+            Disabled="@string.IsNullOrWhiteSpace(RejectionMessage)" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public Appointment Appointment { get; set; } = new();
+    [Parameter] public List<DoctorShift> DoctorShifts { get; set; } = new();
+
+    string RejectionMessage = "";
+
+    private string FormatTime(TimeSpan time)
+    {
+        return DateTime.Today.Add(time).ToString("hh:mm tt");
+    }
+}

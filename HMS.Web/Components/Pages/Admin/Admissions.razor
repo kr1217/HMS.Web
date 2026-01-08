@@ -13,76 +13,190 @@
 
 <PageTitle>Patient Admissions | Admin</PageTitle>
 
-<div class="row mb-3">
-    <div class="col-md-6">
-        <h3 class="text-primary">Patient Admissions</h3>
-        <p class="text-muted">Manage active patient admissions and bed assignments.</p>
-    </div>
-    <div class="col-md-6 text-end">
-        <RadzenButton Icon="add" Text="New Admission" ButtonStyle="ButtonStyle.Primary"
-            Click="@(args => ShowAdmissionDialog())" />
-    </div>
-</div>
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Inpatient Admission Management" TextStyle="TextStyle.H4"
+                Class="rz-m-0 rz-color-primary" />
+            <RadzenText Text="Real-time occupancy tracking and clinical discharge workflows."
+                TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+        </RadzenStack>
+        <RadzenButton Icon="add_circle" Text="Initialize Admission" ButtonStyle="ButtonStyle.Primary"
+            Click="@ShowAdmissionDialog" Class="rz-shadow-2" />
+    </RadzenStack>
 
-<RadzenDataGrid Data="@activeAdmissions" TItem="Admission" AllowFiltering="true" AllowPaging="true" PageSize="10"
-    AllowSorting="true">
-    <Columns>
-        <RadzenDataGridColumn TItem="Admission" Property="AdmissionId" Title="ID" Width="60px" />
-        <RadzenDataGridColumn TItem="Admission" Property="PatientName" Title="Patient" />
-        <RadzenDataGridColumn TItem="Admission" Property="WardName" Title="Ward" />
-        <RadzenDataGridColumn TItem="Admission" Property="BedNumber" Title="Bed" />
-        <RadzenDataGridColumn TItem="Admission" Property="AdmissionDate" Title="Admitted On" FormatString="{0:d}" />
-        <RadzenDataGridColumn TItem="Admission" Property="Status" Title="Status">
-            <Template Context="data">
-                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@data.Status" />
-            </Template>
-        </RadzenDataGridColumn>
-        <RadzenDataGridColumn TItem="Admission" Title="Actions" Sortable="false" Filterable="false"
-            TextAlign="TextAlign.Right">
-            <Template Context="data">
-                <RadzenButton Text="Discharge" Icon="input" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small"
-                    Click="@(() => DischargePatient(data))" />
-            </Template>
-        </RadzenDataGridColumn>
-    </Columns>
-</RadzenDataGrid>
+    <RadzenRow Gap="2rem">
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard Class="rz-p-4 rz-background-color-primary-lighter rz-shadow-2"
+                Style="border-left: 4px solid var(--rz-primary);">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="people" Style="font-size: 2.5rem; color: var(--rz-primary);" />
+                    <RadzenStack Gap="0">
+                        <RadzenText Text="Current Census" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                        <RadzenText Text="@count.ToString()" TextStyle="TextStyle.H4"
+                            Class="rz-m-0 rz-color-primary rz-font-weight-bold" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard Class="rz-p-4 rz-background-color-info-lighter rz-shadow-2"
+                Style="border-left: 4px solid var(--rz-info);">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="bed" Style="font-size: 2.5rem; color: var(--rz-info);" />
+                    <RadzenStack Gap="0">
+                        <RadzenText Text="Active Monitoring" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                        <RadzenText Text="Stable" TextStyle="TextStyle.H4"
+                            Class="rz-m-0 rz-color-info-dark rz-font-weight-bold" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard Class="rz-p-4 rz-background-color-success-lighter rz-shadow-2"
+                Style="border-left: 4px solid var(--rz-success);">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="verified" Style="font-size: 2.5rem; color: var(--rz-success);" />
+                    <RadzenStack Gap="0">
+                        <RadzenText Text="Facility Status" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                        <RadzenText Text="Operational" TextStyle="TextStyle.H4"
+                            Class="rz-m-0 rz-color-success-dark rz-font-weight-bold" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenCard Class="rz-p-0 rz-shadow-4" Style="overflow: hidden; border-radius: 12px;">
+        <RadzenDataGrid @ref="grid" Data="@activeAdmissions" TItem="Admission" Count="@count" LoadData="@LoadData"
+            IsLoading="@isLoading" AllowFiltering="true" AllowPaging="true" PageSize="10" AllowSorting="true"
+            ShowPagingSummary="true" FilterMode="FilterMode.Simple">
+            <EmptyTemplate>
+                <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                    <RadzenIcon Icon="bed" Style="font-size: 4rem; color: var(--rz-text-disabled-color);" />
+                    <RadzenText Text="Hospital Census Clear. No active admissions found."
+                        TextStyle="TextStyle.Subtitle1" Class="rz-color-text-secondary" />
+                </RadzenStack>
+            </EmptyTemplate>
+            <Columns>
+                <RadzenDataGridColumn TItem="Admission" Property="AdmissionId" Title="ID" Width="70px"
+                    TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="Admission" Title="Patient Identity" Width="220px">
+                    <Template Context="data">
+                        <RadzenStack Gap="0">
+                            <RadzenText Text="@data.PatientName" TextStyle="TextStyle.Subtitle2"
+                                Class="rz-m-0 rz-color-primary" />
+                            <RadzenText Text="@($"#PAT-{data.PatientId}")" TextStyle="TextStyle.Overline"
+                                Class="rz-m-0 rz-color-text-secondary" />
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Admission" Title="Ward Allocation">
+                    <Template Context="data">
+                        <RadzenStack Gap="0">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                Gap="0.5rem">
+                                <RadzenIcon Icon="apartment" Size="16px" />
+                                <RadzenText Text="@data.WardName" TextStyle="TextStyle.Body2" Class="rz-m-0" />
+                            </RadzenStack>
+                            <RadzenText Text="@($"Room {data.RoomNumber} | Bed {data.BedNumber}")"
+                                TextStyle="TextStyle.Caption" Class="rz-m-0 rz-color-text-secondary" />
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Admission" Property="AdmissionDate" Title="Entry Date"
+                    FormatString="{0:MMM dd, yyyy}" Width="150px" />
+                <RadzenDataGridColumn TItem="Admission" Title="Status" Width="130px" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@data.Status" Shade="Shade.Lighter"
+                            IsPill="true" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Admission" Title="Clinical Actions" Sortable="false" Filterable="false"
+                    TextAlign="TextAlign.Right" Width="180px">
+                    <Template Context="data">
+                        <RadzenButton Text="@(data.HasPendingBill ? "Billing Active" : "Discharge")"
+                            Icon="@(data.HasPendingBill ? "account_balance" : "exit_to_app")"
+                            ButtonStyle="@(data.HasPendingBill ? ButtonStyle.Light : ButtonStyle.Warning)"
+                            Size="ButtonSize.Small" Click="@(() => DischargePatient(data))"
+                            Disabled="@data.HasPendingBill" Class="rz-px-4" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+</RadzenStack>
+
+<RadzenComponents />
 
 @code {
-    List<Admission> activeAdmissions = new();
-
-    protected override void OnInitialized()
+    RadzenDataGrid<Admission> grid = default!;
+    IEnumerable<Admission> activeAdmissions = new List<Admission>();
+    int count;
+    bool isLoading = false;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        LoadAdmissions();
+        if (firstRender && grid != null)
+        {
+            await grid.Reload();
+            StateHasChanged();
+        }
     }
 
-    void LoadAdmissions()
+    async Task LoadData(LoadDataArgs args)
     {
-        activeAdmissions = FacilityRepo.GetActiveAdmissions();
+        isLoading = true;
+
+        var skip = args.Skip ?? 0;
+        var take = args.Top ?? 10;
+        var orderBy = args.OrderBy;
+        if (string.IsNullOrEmpty(orderBy)) orderBy = "AdmissionDate DESC";
+
+        activeAdmissions = FacilityRepo.GetActiveAdmissionsPaged(skip, take, orderBy);
+        count = FacilityRepo.GetActiveAdmissionsCount();
+
+        isLoading = false;
+        StateHasChanged();
     }
 
     async Task ShowAdmissionDialog()
     {
-        var result = await DialogService.OpenAsync<AdmissionDialog>("New Patient Admission",
-        new Dictionary<string, object>(),
-        new DialogOptions() { Width = "600px", Height = "auto" });
-
-        if (result == true)
+        try
         {
-            LoadAdmissions();
-            NotificationService.Notify(NotificationSeverity.Success, "Admission Successful", "Patient has been admitted.");
+            var result = await DialogService.OpenAsync<AdmissionDialog>("New Patient Admission",
+            new Dictionary<string, object>(),
+            new DialogOptions() { Width = "600px", Height = "auto", Resizable = true, Draggable = true });
+
+            if (result == true)
+            {
+                await grid.Reload();
+                NotificationService.Notify(NotificationSeverity.Success, "Admission Successful", "Patient has been admitted.");
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Dialog Error", $"Failed to open dialog: {ex.Message}");
         }
     }
 
     async Task DischargePatient(Admission admission)
     {
-        var result = await DialogService.OpenAsync<DischargeDialog>("Discharge Patient",
-        new Dictionary<string, object> { { "Admission", admission } },
-        new DialogOptions() { Width = "600px", Height = "auto" });
-
-        if (result == true)
+        try
         {
-            LoadAdmissions();
-            NotificationService.Notify(NotificationSeverity.Success, "Patient Discharged", "Bill has been generated.");
+            var result = await DialogService.OpenAsync<DischargeDialog>("Discharge Patient",
+            new Dictionary<string, object> { { "Admission", admission } },
+            new DialogOptions() { Width = "700px", Height = "auto", Resizable = true, Draggable = true });
+
+            if (result == true)
+            {
+                await grid.Reload();
+                NotificationService.Notify(NotificationSeverity.Success, "Patient Discharged", "Bill has been generated.");
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Dialog Error", $"Failed to open dialog: {ex.Message}");
         }
     }
 }

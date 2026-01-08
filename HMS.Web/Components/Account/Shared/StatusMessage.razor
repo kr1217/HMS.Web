@@ -1,9 +1,14 @@
 ﻿@if (!string.IsNullOrEmpty(DisplayMessage))
 {
-    var statusMessageClass = DisplayMessage.StartsWith("Error") ? "danger" : "success";
-    <div class="alert alert-@statusMessageClass" role="alert">
+    var severity = DisplayMessage.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ? NotificationSeverity.Error :
+    NotificationSeverity.Success;
+    var alertStyle = DisplayMessage.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ? AlertStyle.Danger :
+    AlertStyle.Success;
+
+    <RadzenAlert AlertStyle="@alertStyle" Variant="Variant.Flat" Shade="Shade.Lighter" Class="rz-mb-4"
+        Icon="@(alertStyle == AlertStyle.Danger ? "error" : "check_circle")">
         @DisplayMessage
-    </div>
+    </RadzenAlert>
 }
 
 @code {

@@ -17,95 +17,123 @@
 @inject NotificationRepository NotificationRepo
 @inject AppointmentRepository AppointmentRepo
 @inject IWebHostEnvironment Environment
-<div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="fw-bold mb-0">Upload Medical Report</h2>
+<RadzenStack Class="rz-p-4" Gap="2rem">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0">
+            <RadzenText Text="Clinical Report Management" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
             @if (Patient != null)
             {
-                <div class="text-muted">For Patient: <span class="fw-bold text-dark">@Patient.FullName</span> (ID:
-                    @PatientId)</div>
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                    <RadzenText Text="@($"Patient: {Patient.FullName}")" TextStyle="TextStyle.Subtitle2" Class="rz-m-0" />
+                    <RadzenBadge Text="@($"#PAT-{PatientId}")" BadgeStyle="BadgeStyle.Light" IsPill="true" />
+                </RadzenStack>
             }
-        </div>
-        <button class="btn btn-outline-secondary" @onclick="GoBack">
-            <i class="bi bi-arrow-left me-1"></i> Back
-        </button>
-    </div>
+        </RadzenStack>
+        <RadzenButton Icon="arrow_back" Text="Dashboard" ButtonStyle="ButtonStyle.Light" Click="@GoBack"
+            Variant="Variant.Flat" />
+    </RadzenStack>
 
     @if (CurrentDoctor == null)
     {
-        <div class="alert alert-warning">Loading doctor profile...</div>
+        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 200px;" />
+            <RadzenText Text="Authenticating clinician session..." TextStyle="TextStyle.Caption" />
+        </RadzenStack>
     }
     else
     {
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <EditForm Model="NewReport" OnValidSubmit="SaveReport">
-                            <DataAnnotationsValidator />
-                            <ValidationSummary class="text-danger" />
+        <RadzenRow JustifyContent="JustifyContent.Center">
+            <RadzenColumn Size="12" SizeMD="10" SizeLG="8">
+                <RadzenCard Class="rz-p-6 rz-shadow-4" Style="border-radius: 16px;">
+                    <RadzenText Text="Archive New Document" TextStyle="TextStyle.H6" Class="rz-mb-6 rz-color-primary" />
 
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Report Name <span class="text-danger">*</span></label>
-                                    <InputText @bind-Value="NewReport.ReportName" class="form-control"
-                                        placeholder="e.g. CBC Blood Test" />
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Report Type <span class="text-danger">*</span></label>
-                                    <InputSelect @bind-Value="NewReport.ReportType" class="form-select">
-                                        <option value="">Select Type</option>
-                                        <option value="Lab Test">Lab Test</option>
-                                        <option value="Radiology">Radiology (X-Ray, MRI)</option>
-                                        <option value="Diagnosis">Diagnosis / Prescription</option>
-                                        <option value="Other">Other</option>
-                                    </InputSelect>
-                                </div>
-                            </div>
+                    <EditForm Model="NewReport" OnValidSubmit="SaveReport">
+                        <DataAnnotationsValidator />
+                        <RadzenStack Gap="1.5rem">
+                            <RadzenRow Gap="1rem">
+                                <RadzenColumn Size="12" SizeMD="6">
+                                    <RadzenFormField Text="Report Title" Style="width: 100%;">
+                                        <RadzenTextBox @bind-Value="NewReport.ReportName" MaxLength="100"
+                                            Placeholder="e.g., Post-Op Assessment" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                                <RadzenColumn Size="12" SizeMD="6">
+                                    <RadzenFormField Text="Document Type" Style="width: 100%;">
+                                        <RadzenDropDown @bind-Value="NewReport.ReportType"
+                                            Data="@(new[] { "Lab Test", "Radiology", "Diagnosis", "Discharge Summary", "Other" })" />
+                                    </RadzenFormField>
+                                </RadzenColumn>
+                            </RadzenRow>
 
-                            <div class="mb-3">
-                                <label class="form-label">Observations / Conclusion</label>
-                                <InputTextArea @bind-Value="NewReport.Observations" class="form-control" rows="3"
-                                    placeholder="Summary of findings..." />
-                            </div>
+                            <RadzenFormField Text="Clinical Observations & Findings" Style="width: 100%;">
+                                <RadzenTextArea @bind-Value="NewReport.Observations" Rows="4"
+                                    Placeholder="Provide a clinical summary of results..." />
+                            </RadzenFormField>
 
-                            <div class="mb-4">
-                                <label class="form-label">Attach File (PDF, Image) <span
-                                        class="text-danger">*</span></label>
-                                <InputFile OnChange="HandleFileSelected" class="form-control"
-                                    accept=".pdf,.png,.jpg,.jpeg" />
-                                @if (!string.IsNullOrEmpty(UploadedFileName))
-                                {
-                                    <div class="mt-2 text-success small">
-                                        <i class="bi bi-check-circle me-1"></i> Selected: @UploadedFileName
-                                    </div>
-                                }
-                            </div>
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenText Text="Attach Clinical Document (PDF/JPG/PNG)" TextStyle="TextStyle.Caption"
+                                    Class="rz-m-0" />
+                                <RadzenStack Class="rz-p-4 rz-border-radius-2 rz-background-color-base-100"
+                                    Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                    <InputFile OnChange="HandleFileSelected" class="custom-file-input"
+                                        accept=".pdf,.png,.jpg,.jpeg" style="width: 100%;" id="report-upload" />
+                                </RadzenStack>
+                                <ValidationMessage For="@(() => NewReport.ReportName)" />
+                            </RadzenStack>
 
-                            <div class="d-flex justify-content-end gap-2">
-                                <button type="button" class="btn btn-secondary" @onclick="GoBack">Cancel</button>
-                                <button type="submit" class="btn btn-primary"
-                                    disabled="@(IsUploading || string.IsNullOrEmpty(UploadedFilePath))">
-                                    @if (IsUploading)
-                                    {
-                                        <span class="spinner-border spinner-border-sm me-2" role="status"
-                                            aria-hidden="true"></span>
-                                        <span>Uploading...</span>
-                                    }
-                                    else
-                                    {
-                                        <span><i class="bi bi-cloud-upload me-2"></i>Upload Report</span>
-                                    }
-                                </button>
-                            </div>
-                        </EditForm>
-                    </div>
-                </div>
-            </div>
-        </div>
+                            @if (IsUploading)
+                            {
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+                                    <RadzenText Text="Securing document transmission..." TextStyle="TextStyle.Overline"
+                                        TextAlign="TextAlign.Center" />
+                                </RadzenStack>
+                            }
+                            else if (!string.IsNullOrEmpty(UploadedFileName))
+                            {
+                                <RadzenAlert AlertStyle="AlertStyle.Success" Variant="Variant.Flat" Shade="Shade.Lighter"
+                                    AllowClose="false" Size="AlertSize.Small">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                        Gap="0.5rem">
+                                        <RadzenIcon Icon="check_circle" />
+                                        <RadzenText Text="@($"Ready: {UploadedFileName}")" TextStyle="TextStyle.Caption"
+                                            Class="rz-m-0 rz-color-success-dark" />
+                                    </RadzenStack>
+                                </RadzenAlert>
+                            }
+
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem"
+                                Class="rz-mt-4">
+                                <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Light" Click="@GoBack" />
+                                <RadzenButton Text="Authorize & Archive" Icon="cloud_upload"
+                                    ButtonStyle="ButtonStyle.Primary" ButtonType="ButtonType.Submit"
+                                    Disabled="@(IsUploading || string.IsNullOrEmpty(UploadedFilePath))" Class="rz-px-8" />
+                            </RadzenStack>
+                        </RadzenStack>
+                    </EditForm>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
     }
-</div>
+</RadzenStack>
+
+<style>
+    .custom-file-input::file-selector-button {
+        background: var(--rz-primary);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 1rem;
+        transition: background 0.2s;
+    }
+
+    .custom-file-input::file-selector-button:hover {
+        background: var(--rz-primary-dark);
+    }
+</style>
 
 @code {
     [Parameter]

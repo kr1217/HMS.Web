@@ -1,24 +1,70 @@
 ﻿@page "/"
+@layout SimpleLayout
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
 @using HMS.Web.Data
 @using HMS.Web.DAL
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveServer
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject UserManager<ApplicationUser> UserManager
+@using Radzen.Blazor
 
-<PageTitle>Home</PageTitle>
-
-<h1>Hello, world!</h1>
-
-<p>Welcome to Hospital Management System.</p>
+<PageTitle>HMS | Welcome</PageTitle>
 
 <AuthorizeView>
     <Authorized>
-        <p>Redirecting to Dashboard...</p>
+        <RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Style="height: 80vh;">
+            <RadzenProgressBarCircular Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+            <RadzenText Text="Unifying your healthcare experience..." TextStyle="TextStyle.H6" Class="rz-mt-4" />
+        </RadzenStack>
     </Authorized>
     <NotAuthorized>
-        <p>Please <a href="Account/Login">Login</a> to access the Patient Portal.</p>
+        <RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center"
+            Style="background: linear-gradient(135deg, #021B79 0%, #0575E6 100%); min-height: 90vh; border-radius: 20px; padding: 2rem;">
+
+            <RadzenStack AlignItems="AlignItems.Center" Gap="2" Class="rz-mb-10 animate__animated animate__fadeInDown">
+                <RadzenIcon Icon="local_hospital" Style="font-size: 5rem; color: #fff;" />
+                <RadzenText Text="Antigravity Hospital" TextStyle="TextStyle.DisplayH2"
+                    Style="color: #fff; font-weight: 900;" />
+                <RadzenText Text="Next-Generation Hospital Management Systems" TextStyle="TextStyle.H5"
+                    Style="color: rgba(255,255,255,0.8);" />
+            </RadzenStack>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="4" Wrap="FlexWrap.Wrap"
+                JustifyContent="JustifyContent.Center" Class="rz-mt-4">
+                <RadzenCard
+                    Style="width: 320px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius: 15px;"
+                    Class="rz-p-6">
+                    <RadzenStack AlignItems="AlignItems.Center">
+                        <RadzenIcon Icon="person_add" Style="font-size: 3rem; color: #fff;" />
+                        <RadzenText Text="New Patient" TextStyle="TextStyle.H5" Style="color: #fff;" />
+                        <RadzenText Text="Begin your healthcare journey with us today." TextStyle="TextStyle.Body2"
+                            TextAlign="TextAlign.Center" Style="color: rgba(255,255,255,0.7);" />
+                        <RadzenButton Text="Create Account"
+                            Click="@(() => NavigationManager.NavigateTo("Account/Register"))"
+                            ButtonStyle="ButtonStyle.Secondary" Class="rz-mt-6 rz-w-100" />
+                    </RadzenStack>
+                </RadzenCard>
+
+                <RadzenCard
+                    Style="width: 320px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius: 15px;"
+                    Class="rz-p-6">
+                    <RadzenStack AlignItems="AlignItems.Center">
+                        <RadzenIcon Icon="login" Style="font-size: 3rem; color: #fff;" />
+                        <RadzenText Text="Returning User" TextStyle="TextStyle.H5" Style="color: #fff;" />
+                        <RadzenText Text="Access your dashboard, appointments, and reports." TextStyle="TextStyle.Body2"
+                            TextAlign="TextAlign.Center" Style="color: rgba(255,255,255,0.7);" />
+                        <RadzenButton Text="Sign In" Click="@(() => NavigationManager.NavigateTo("Account/Login"))"
+                            ButtonStyle="ButtonStyle.Light" Class="rz-mt-6 rz-w-100" />
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenStack>
+
+            <RadzenText Text="Secure • Reliable • Integrated" TextStyle="TextStyle.Overline"
+                Style="color: rgba(255,255,255,0.5); margin-top: 5rem;" />
+        </RadzenStack>
     </NotAuthorized>
 </AuthorizeView>
 
@@ -33,29 +79,13 @@
             var appUser = await UserManager.GetUserAsync(user);
             if (appUser != null)
             {
-                // Refresh roles from DB to avoid claim-caching issues
                 var roles = await UserManager.GetRolesAsync(appUser);
 
-                if (roles.Contains("Admin"))
-                {
-                    NavigationManager.NavigateTo("admin/dashboard", true);
-                }
-                else if (roles.Contains("Teller"))
-                {
-                    NavigationManager.NavigateTo("teller/dashboard", true);
-                }
-                else if (roles.Contains("Doctor"))
-                {
-                    NavigationManager.NavigateTo("Doctor/Dashboard", true); // Force load
-                }
-                else if (roles.Contains("Patient"))
-                {
-                    NavigationManager.NavigateTo("patient/dashboard", true); // Force load
-                }
-                else
-                {
-                    NavigationManager.NavigateTo("patient/dashboard", true);
-                }
+                if (roles.Contains("Admin")) NavigationManager.NavigateTo("admin/dashboard", true);
+                else if (roles.Contains("Teller")) NavigationManager.NavigateTo("teller/dashboard", true);
+                else if (roles.Contains("Doctor")) NavigationManager.NavigateTo("Doctor/Dashboard", true);
+                else if (roles.Contains("Patient")) NavigationManager.NavigateTo("patient/dashboard", true);
+                else NavigationManager.NavigateTo("patient/dashboard", true);
             }
         }
     }

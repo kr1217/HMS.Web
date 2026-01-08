@@ -1,139 +1,76 @@
 ﻿@implements IDisposable
 @inject NavigationManager NavigationManager
+@using Radzen.Blazor
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">HMS.Web</a>
-    </div>
-</div>
+<RadzenPanelMenu>
+    <AuthorizeView Roles="Patient">
+        <Authorized>
+            <RadzenPanelMenuItem Text="Main" Icon="home" Expanded="true">
+                <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="patient/dashboard" />
+                <RadzenPanelMenuItem Text="OPD Token" Icon="qr_code" Path="patient/token" />
+            </RadzenPanelMenuItem>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+            <RadzenPanelMenuItem Text="Clinical" Icon="medical_services">
+                <RadzenPanelMenuItem Text="Appointments" Icon="calendar_today" Path="patient/appointments" />
+                <RadzenPanelMenuItem Text="Prescriptions" Icon="description" Path="patient/prescriptions" />
+                <RadzenPanelMenuItem Text="Reports" Icon="assignment" Path="patient/reports" />
+                <RadzenPanelMenuItem Text="Operations" Icon="medical_services" Path="patient/operations" />
+            </RadzenPanelMenuItem>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        @using Radzen.Blazor
-        <AuthorizeView Roles="Patient">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="patient/dashboard">
-                        <RadzenIcon Icon="dashboard" Style="margin-right: 10px;" /> Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="patient/appointments">
-                        <RadzenIcon Icon="calendar_today" Style="margin-right: 10px;" /> Appointments
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="patient/reports">
-                        <RadzenIcon Icon="assignment" Style="margin-right: 10px;" /> Reports
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="patient/prescriptions">
-                        <RadzenIcon Icon="description" Style="margin-right: 10px;" /> Prescriptions
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="patient/consultation">
-                        <RadzenIcon Icon="video_call" Style="margin-right: 10px;" /> Consultation
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="patient/bills">
-                        <RadzenIcon Icon="payment" Style="margin-right: 10px;" /> Bills
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="patient/token">
-                        <RadzenIcon Icon="qr_code" Style="margin-right: 10px;" /> OPD Token
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="patient/operations">
-                        <RadzenIcon Icon="medical_services" Style="margin-right: 10px;" /> Operations
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="patient/support">
-                        <RadzenIcon Icon="help_outline" Style="margin-right: 10px;" /> Support
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
+            <RadzenPanelMenuItem Text="Financial" Icon="payments">
+                <RadzenPanelMenuItem Text="My Bills" Icon="payment" Path="patient/bills" />
+            </RadzenPanelMenuItem>
 
-        <AuthorizeView Roles="Doctor">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="doctor/dashboard">
-                        <RadzenIcon Icon="dashboard" Style="margin-right: 10px;" /> Doctor Dashboard
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
+            <RadzenPanelMenuItem Text="Services" Icon="room_service">
+                <RadzenPanelMenuItem Text="Consultation" Icon="video_call" Path="patient/consultation" />
+                <RadzenPanelMenuItem Text="Support" Icon="help_outline" Path="patient/support" />
+            </RadzenPanelMenuItem>
+        </Authorized>
+    </AuthorizeView>
 
-        <AuthorizeView Roles="Admin">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/dashboard">
-                        <RadzenIcon Icon="admin_panel_settings" Style="margin-right: 10px;" /> Admin Console
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
+    <AuthorizeView Roles="Doctor">
+        <Authorized>
+            <RadzenPanelMenuItem Text="Doctor" Icon="medical_services" Expanded="true">
+                <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="doctor/dashboard" />
+                <RadzenPanelMenuItem Text="Patient Records" Icon="people" Path="doctor/patients" />
+            </RadzenPanelMenuItem>
+        </Authorized>
+    </AuthorizeView>
 
-        <AuthorizeView Roles="Teller">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="teller/dashboard">
-                        <RadzenIcon Icon="account_balance_wallet" Style="margin-right: 10px;" /> Teller Desk
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
+    <AuthorizeView Roles="Admin">
+        <Authorized>
+            <RadzenPanelMenuItem Text="Admin" Icon="admin_panel_settings" Expanded="true">
+                <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="admin/dashboard" />
+                <RadzenPanelMenuItem Text="Seed Database" Icon="storage" Path="admin/seed-database" />
+            </RadzenPanelMenuItem>
+        </Authorized>
+    </AuthorizeView>
 
-        <AuthorizeView Roles="OTStaff">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="ot-staff/dashboard">
-                        <RadzenIcon Icon="medical_services" Style="margin-right: 10px;" /> OT Dashboard
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
+    <AuthorizeView Roles="Teller">
+        <Authorized>
+            <RadzenPanelMenuItem Text="Financial Bureau" Icon="account_balance_wallet" Expanded="true">
+                <RadzenPanelMenuItem Text="Teller Desk" Icon="desk" Path="teller/dashboard" />
+            </RadzenPanelMenuItem>
+        </Authorized>
+    </AuthorizeView>
 
-        <AuthorizeView>
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Manage">
-                        <RadzenIcon Icon="person" Style="margin-right: 10px;" /> @context.User.Identity?.Name
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <form action="Account/Logout" method="post">
-                        <AntiforgeryToken />
-                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                        <button type="submit" class="nav-link">
-                            <RadzenIcon Icon="logout" Style="margin-right: 10px;" /> Logout
-                        </button>
-                    </form>
-                </div>
-            </Authorized>
-            <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Register">
-                        <RadzenIcon Icon="person_add" Style="margin-right: 10px;" /> Register
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Login">
-                        <RadzenIcon Icon="login" Style="margin-right: 10px;" /> Login
-                    </NavLink>
-                </div>
-            </NotAuthorized>
-        </AuthorizeView>
-    </nav>
-</div>
+    <AuthorizeView Roles="OTStaff">
+        <Authorized>
+            <RadzenPanelMenuItem Text="Surgical Unit" Icon="medical_services" Expanded="true">
+                <RadzenPanelMenuItem Text="OT Dashboard" Icon="dashboard" Path="ot-staff/dashboard" />
+            </RadzenPanelMenuItem>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView>
+        <NotAuthorized>
+            <RadzenPanelMenuItem Text="Welcome" Icon="handshake" Expanded="true">
+                <RadzenPanelMenuItem Text="Login" Icon="login" Path="Account/Login" />
+                <RadzenPanelMenuItem Text="Register" Icon="person_add" Path="Account/Register" />
+            </RadzenPanelMenuItem>
+        </NotAuthorized>
+    </AuthorizeView>
+</RadzenPanelMenu>
 
 @code {
     private string? currentUrl;

@@ -2,139 +2,186 @@
 @layout HMS.Web.Components.Layout.EmptyLayout
 @using HMS.Web.Models
 @using HMS.Web.DAL
+@inject AuthenticationStateProvider AuthStateProvider
 @inject FinanceRepository FinanceRepo
 @inject BillingRepository BillingRepo
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 
 <PageTitle>Invoice #@BillId</PageTitle>
 
 @if (bill == null)
 {
-    <p>Loading Invoice...</p>
+    <RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Style="height: 100vh;">
+        <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 200px;" />
+        <RadzenText Text="Generating clinical invoice..." TextStyle="TextStyle.Caption" Class="rz-mt-4" />
+    </RadzenStack>
 }
 else
 {
-    <div class="invoice-box">
-        <div class="header">
-            <div class="row align-items-center">
-                <div class="col-8">
-                    <h2>🏥 HMS Hospital</h2>
-                    <p class="mb-0">123 Health Ave, Medical City</p>
-                    <p class="mb-0">Phone: (555) 123-4567</p>
-                </div>
-                <div class="col-4 text-end">
-                    <h1 class="text-secondary">INVOICE</h1>
-                    <h5>#@BillId</h5>
-                    <small>Date: @bill.BillDate.ToString("MMM dd, yyyy")</small>
-                </div>
-            </div>
-        </div>
+    <RadzenCard Class="rz-shadow-4 rz-p-8 invoice-print-container"
+        Style="max-width: 850px; margin: 2rem auto; border-radius: 12px; background: white;">
+        <RadzenStack Gap="2rem">
+            <!-- Header Section -->
+            <RadzenRow AlignItems="AlignItems.Center">
+                <RadzenColumn Size="12" SizeMD="8">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                        <RadzenIcon Icon="local_hospital" Style="font-size: 3rem; color: var(--rz-primary);" />
+                        <RadzenStack Gap="0">
+                            <RadzenText Text="Antigravity Hospital" TextStyle="TextStyle.H4"
+                                Class="rz-m-0 rz-font-weight-bold rz-color-primary" />
+                            <RadzenText Text="123 Health Ave, Medical City | (555) 123-4567" TextStyle="TextStyle.Caption"
+                                Class="rz-color-text-secondary" />
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4" Class="rz-text-align-center rz-text-align-md-right">
+                    <RadzenText Text="INVOICE" TextStyle="TextStyle.H3"
+                        Class="rz-m-0 rz-color-text-tertiary rz-font-weight-black" />
+                    <RadzenText Text="@($"#{BillId}")" TextStyle="TextStyle.H6" Class="rz-m-0" />
+                    <RadzenText Text="@($"Date: {bill.BillDate:MMM dd, yyyy}")" TextStyle="TextStyle.Caption"
+                        Class="rz-color-text-secondary" />
+                </RadzenColumn>
+            </RadzenRow>
 
-        <hr />
+            <RadzenStack Style="height: 2px; background: var(--rz-primary-light);" />
 
-        <div class="row mb-4">
-            <div class="col-6">
-                <h5 class="text-muted">Bill To:</h5>
-                <h5>@bill.PatientName</h5>
-                <!-- Add address if available via Patient object logic -->
-            </div>
-            <div class="col-6 text-end">
-                <h5 class="text-muted">Status:</h5>
-                <h4 class="@(bill.Status == "Paid" ? "text-success" : "text-danger")">@bill.Status.ToUpper()</h4>
-                @if (bill.AdmissionId != null)
-                {
-                    <small>Admission Ref: #@bill.AdmissionId</small>
-                }
-            </div>
-        </div>
+            <!-- Billing Info Section -->
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="BILL TO" TextStyle="TextStyle.Caption"
+                            Class="rz-color-text-secondary rz-font-weight-bold" />
+                        <RadzenText Text="@bill.PatientName" TextStyle="TextStyle.H6" Class="rz-m-0 rz-font-weight-bold" />
+                        @if (bill.AdmissionId != null)
+                        {
+                            <RadzenBadge Text="@($"Admission Ref: #{bill.AdmissionId}")" BadgeStyle="BadgeStyle.Light"
+                                Shade="Shade.Lighter" />
+                        }
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6" Class="rz-text-align-center rz-text-align-md-right">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="PAYMENT STATUS" TextStyle="TextStyle.Caption"
+                            Class="rz-color-text-secondary rz-font-weight-bold" />
+                        <RadzenBadge Text="@bill.Status.ToUpper()" IsPill="true"
+                            BadgeStyle="@(bill.Status == "Paid" ? BadgeStyle.Success : BadgeStyle.Danger)"
+                            Style="font-size: 1.2rem; padding: 0.5rem 1.5rem;" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
 
-        <table class="table table-striped">
-            <thead class="bg-light">
-                <tr>
-                    <th>Description</th>
-                    <th>Category</th>
-                    <th class="text-end">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in bill.Items)
-                {
-                    <tr>
-                        <td>@item.Description</td>
-                        <td><span class="badge bg-secondary">@item.Category</span></td>
-                        <td class="text-end">@item.Amount.ToString("C")</td>
-                    </tr>
-                }
-            </tbody>
-            <tfoot>
-                <tr>
-                    <th colspan="2" class="text-end">Total</th>
-                    <th class="text-end">@bill.TotalAmount.ToString("C")</th>
-                </tr>
-                <tr>
-                    <td colspan="2" class="text-end">Paid Amount</td>
-                    <td class="text-end text-success">(@bill.PaidAmount.ToString("C"))</td>
-                </tr>
-                <tr class="fs-5">
-                    <th colspan="2" class="text-end">Balance Due</th>
-                    <th class="text-end text-danger">@bill.DueAmount.ToString("C")</th>
-                </tr>
-            </tfoot>
-        </table>
+            <!-- Table Section -->
+            @if (IsAdmin)
+            {
+                <RadzenDataGrid Data="@bill.Items" TItem="BillItem" GridLines="DataGridGridLines.Horizontal"
+                    Class="rz-border-none">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="BillItem" Property="Description" Title="Service Description" />
+                        <RadzenDataGridColumn TItem="BillItem" Property="Category" Title="Category" Width="150px">
+                            <Template Context="item">
+                                <RadzenBadge Text="@item.Category" BadgeStyle="BadgeStyle.Secondary" Shade="Shade.Lighter" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="BillItem" Title="Subtotal" Width="120px" TextAlign="TextAlign.Right">
+                            <Template Context="item">
+                                <RadzenText Text="@item.Amount.ToString("C")" TextStyle="TextStyle.Body2" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            }
+            else
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+                    Icon="info">
+                    <RadzenStack Gap="1rem">
+                        <RadzenText Text="Total Clinical Service Fees" TextStyle="TextStyle.H6" Class="rz-m-0" />
+                        <RadzenText Text="@bill.TotalAmount.ToString("C")" TextStyle="TextStyle.DisplayH4"
+                            Class="rz-m-0 rz-font-weight-bold" />
+                    </RadzenStack>
+                </RadzenAlert>
+                <RadzenText Text="Note: Itemized clinical data is restricted for internal hospital audit only."
+                    TextStyle="TextStyle.Caption" Class="rz-color-text-secondary rz-text-align-center" />
+            }
 
-        <div class="mt-5 text-center text-muted small">
-            <p>Thank you for choosing HMS Hospital. For queries, contact billing@hms.com.</p>
-        </div>
+            <!-- Summary Section -->
+            <RadzenStack AlignItems="AlignItems.End" Gap="1rem" Class="rz-mt-4">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="4rem">
+                    <RadzenText Text="Gross Total" TextStyle="TextStyle.Subtitle2" Class="rz-color-text-secondary" />
+                    <RadzenText Text="@bill.TotalAmount.ToString("C")" TextStyle="TextStyle.Subtitle2"
+                        Class="rz-font-weight-bold" />
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="4rem">
+                    <RadzenText Text="Paid Amount" TextStyle="TextStyle.Subtitle2" Class="rz-color-text-secondary" />
+                    <RadzenText Text="@(bill.PaidAmount > 0 ? $"({bill.PaidAmount:C})" : "C$0.00")"
+                        TextStyle="TextStyle.Subtitle2" Class="rz-color-success rz-font-weight-bold" />
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="4rem" Class="rz-pt-4 rz-border-top"
+                    Style="border-top: 2px solid var(--rz-primary);">
+                    <RadzenText Text="NET BALANCE DUE" TextStyle="TextStyle.H6" Class="rz-font-weight-bold" />
+                    <RadzenText Text="@bill.DueAmount.ToString("C")" TextStyle="TextStyle.H6"
+                        Class="rz-color-danger rz-font-weight-black" />
+                </RadzenStack>
+            </RadzenStack>
 
-        <div class="no-print mt-4 text-center">
-            <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
-            <a href="/" class="btn btn-secondary ms-2">Back to Home</a>
-        </div>
-    </div>
+            <!-- Footer Footer -->
+            <RadzenStack AlignItems="AlignItems.Center" Class="rz-mt-12 rz-pt-8 rz-border-top">
+                <RadzenText Text="Thank you for choosing Antigravity Hospital." TextStyle="TextStyle.Body2"
+                    Class="rz-color-text-secondary rz-m-0" />
+                <RadzenText Text="For financial queries, please contact billing@antigravityhms.com"
+                    TextStyle="TextStyle.Caption" Class="rz-color-text-disabled" />
+            </RadzenStack>
+
+            <!-- Actions -->
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem"
+                Class="rz-mt-8 no-print">
+                <RadzenButton Text="Print / Save PDF" Icon="print" ButtonStyle="ButtonStyle.Primary"
+                    Click="@(() => JSRuntime.InvokeVoidAsync("window.print"))" />
+                <RadzenButton Text="Back to Dashboard" Icon="home" ButtonStyle="ButtonStyle.Light"
+                    Click="@(() => Navigation.NavigateTo("/"))" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenCard>
 }
 
 <style>
-    .invoice-box {
-        max-width: 800px;
-        margin: auto;
-        padding: 30px;
-        border: 1px solid #eee;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
-        background: white;
-        font-family: 'Helvetica Neue', 'Helvetica', Helvetica, Arial, sans-serif;
+    body {
+        background-color: #f4f7fb;
     }
 
     @@media print {
-        .invoice-box {
-            border: none;
-            box-shadow: none;
+        body {
+            background-color: white;
             padding: 0;
             margin: 0;
-            max-width: 100%;
+        }
+
+        .invoice-print-container {
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            padding: 0 !important;
         }
 
         .no-print {
-            display: none;
+            display: none !important;
         }
-
-        body {
-            background-color: white;
-            -webkit-print-color-adjust: exact;
-        }
-    }
-
-    body {
-        background-color: #f5f5f5;
-        padding: 20px;
     }
 </style>
 
 @code {
     [Parameter] public int BillId { get; set; }
     Bill? bill;
+    bool IsAdmin = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        IsAdmin = user.IsInRole("Admin");
+
         bill = FinanceRepo.GetBillById(BillId);
         if (bill != null)
         {

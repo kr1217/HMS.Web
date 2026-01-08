@@ -10,70 +10,98 @@
 @inject NotificationService NotificationService
 
 <RadzenTemplateForm TItem="Admission" Data="@model" Submit="@OnSubmit">
-    @if (!string.IsNullOrEmpty(RecommendedWardName))
-    {
-        <div class="alert alert-info py-2 mb-3 animate__animated animate__fadeIn">
-            <i class="bi bi-hospital me-2"></i><strong>Specialty Recovery:</strong>
-            Patient just came from surgery. <strong>@RecommendedWardName</strong> is recommended.
-        </div>
-    }
-    <div class="row">
-        <div class="col-md-12 mb-3">
-            <RadzenLabel Text="Select Patient" Component="PatientId" />
-            <RadzenDropDown Name="PatientId" Data="@patients" TextProperty="FullName" ValueProperty="PatientId"
-                @bind-Value="model.PatientId" Style="width: 100%;" AllowFiltering="true"
-                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
-            <RadzenRequiredValidator Component="PatientId" Text="Patient is required" Popup="true" />
-        </div>
+    <RadzenStack Gap="1.5rem" Class="rz-p-2">
+        @if (!string.IsNullOrEmpty(RecommendedWardName))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+                Icon="medical_information">
+                <RadzenStack Gap="0.25rem">
+                    <RadzenText Text="Post-Procedural Recovery Protocol" TextStyle="TextStyle.Subtitle2"
+                        Class="rz-font-weight-bold" />
+                    <RadzenText
+                        Text="@($"Patient has been transferred from surgical orchestrations. Recommended ward: {RecommendedWardName}")"
+                        TextStyle="TextStyle.Caption" />
+                </RadzenStack>
+            </RadzenAlert>
+        }
 
-        <div class="col-md-6 mb-3">
-            <RadzenLabel Text="Ward" Component="WardId" />
-            <RadzenDropDown Name="WardId" Data="@wards" TextProperty="WardName" ValueProperty="WardId"
-                @bind-Value="selectedWardId" Style="width: 100%;" Change="@(args => OnWardChange())">
-                <Template Context="ward">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>@ward.WardName</span>
-                        @if (!string.IsNullOrEmpty(SpecialtyKeyword) && ward.WardName.Contains(SpecialtyKeyword,
-                        StringComparison.OrdinalIgnoreCase))
-                        {
-                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Specialty" IsPill="true" class="rz-ml-2" />
-                        }
-                    </div>
-                </Template>
-            </RadzenDropDown>
-        </div>
+        <RadzenCard Class="rz-shadow-2">
+            <RadzenStack Gap="1.5rem">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenLabel Text="Subject Admission" Component="PatientId" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenDropDown Name="PatientId" Data="@patients" TextProperty="FullName" ValueProperty="PatientId"
+                        @bind-Value="model.PatientId" Style="width: 100%;" AllowFiltering="true"
+                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        Placeholder="Search patient identity..." />
+                    <RadzenRequiredValidator Component="PatientId" Text="Clinical subject is mandatory" />
+                </RadzenStack>
 
-        <div class="col-md-6 mb-3">
-            <RadzenLabel Text="Room" Component="RoomId" />
-            <RadzenDropDown Name="RoomId" Data="@filteredRooms" TextProperty="RoomNumber" ValueProperty="RoomId"
-                @bind-Value="selectedRoomId" Style="width: 100%;" Change="@(args => OnRoomChange())"
-                Disabled="@(selectedWardId == 0)" />
-        </div>
+                <RadzenRow Gap="1.5rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Clinical Ward" Component="WardId" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenDropDown Name="WardId" Data="@wards" TextProperty="WardName" ValueProperty="WardId"
+                                @bind-Value="selectedWardId" Style="width: 100%;" Change="@(args => OnWardChange())"
+                                Placeholder="Select clinical area...">
+                                <Template Context="ward">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                        JustifyContent="JustifyContent.SpaceBetween">
+                                        <RadzenText Text="@ward.WardName" TextStyle="TextStyle.Body2" Class="rz-m-0" />
+                                        @if (!string.IsNullOrEmpty(SpecialtyKeyword) &&
+                                        ward.WardName.Contains(SpecialtyKeyword, StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Specialty Opt" IsPill="true"
+                                                Shade="Shade.Lighter" />
+                                        }
+                                    </RadzenStack>
+                                </Template>
+                            </RadzenDropDown>
+                        </RadzenStack>
+                    </RadzenColumn>
 
-        <div class="col-md-12 mb-3">
-            <RadzenLabel Text="Available Bed" Component="BedId" />
-            <RadzenDropDown Name="BedId" Data="@filteredBeds" ValueProperty="BedId" @bind-Value="model.BedId"
-                Style="width: 100%;" Disabled="@(selectedRoomId == 0)">
-                <Template Context="bed">
-                    @bed.BedNumber (@bed.Status)
-                </Template>
-            </RadzenDropDown>
-            <RadzenRequiredValidator Component="BedId" Text="Bed is required" DefaultValue="0" Popup="true" />
-        </div>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Facility Room" Component="RoomId" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenDropDown Name="RoomId" Data="@filteredRooms" TextProperty="RoomNumber"
+                                ValueProperty="RoomId" @bind-Value="selectedRoomId" Style="width: 100%;"
+                                Change="@(args => OnRoomChange())" Disabled="@(selectedWardId == 0)"
+                                Placeholder="Select room..." />
+                        </RadzenStack>
+                    </RadzenColumn>
+                </RadzenRow>
 
-        <div class="col-md-12 mb-3">
-            <RadzenLabel Text="Admission Notes" />
-            <RadzenTextArea @bind-Value="model.Notes" Rows="3" Style="width: 100%;" />
-        </div>
-    </div>
+                <RadzenStack Gap="0.5rem">
+                    <RadzenLabel Text="Inventory Bed Assignment" Component="BedId" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenDropDown Name="BedId" Data="@filteredBeds" ValueProperty="BedId" @bind-Value="model.BedId"
+                        Style="width: 100%;" Disabled="@(selectedRoomId == 0)" Placeholder="Assign serial bed...">
+                        <Template Context="bed">
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem"
+                                AlignItems="AlignItems.Center">
+                                <RadzenIcon Icon="bed" Size="16px" />
+                                <RadzenText Text="@($"{bed.BedNumber} ({bed.Status})")" TextStyle="TextStyle.Body2"
+                                    Class="rz-m-0" />
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDropDown>
+                    <RadzenRequiredValidator Component="BedId" Text="Bed assignment is mandatory for inventory audit"
+                        DefaultValue="0" />
+                </RadzenStack>
 
-    <div class="row">
-        <div class="col-md-12 text-end">
-            <RadzenButton ButtonType="ButtonType.Submit" Text="Admit Patient" ButtonStyle="ButtonStyle.Success" />
-            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))"
-                Class="ms-2" />
-        </div>
-    </div>
+                <RadzenStack Gap="0.5rem">
+                    <RadzenLabel Text="Clinical Admission Observations" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenTextArea @bind-Value="model.Notes" Rows="3" Class="rz-w-100"
+                        Placeholder="Document preliminary clinical observations or ward prerequisites..." />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem"
+            Class="rz-mt-4">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Authorize Admission" ButtonStyle="ButtonStyle.Success"
+                Icon="check_circle" />
+            <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+        </RadzenStack>
+    </RadzenStack>
 </RadzenTemplateForm>
 
 @code {
@@ -84,9 +112,7 @@
     Admission model = new Admission();
     List<Patient> patients = new();
     List<Ward> wards = new();
-    List<Room> allRooms = new();
     List<Room> filteredRooms = new();
-    List<Bed> allBeds = new();
     List<Bed> filteredBeds = new();
 
     int selectedWardId = 0;
@@ -96,14 +122,29 @@
 
     protected override void OnInitialized()
     {
-        patients = PatientRepo.GetAllPatients();
+        // OPTIMIZATION: Only load what we need
+        if (PatientId.HasValue)
+        {
+            var patient = PatientRepo.GetPatientById(PatientId.Value);
+            if (patient != null)
+            {
+                patients = new List<Patient> { patient };
+                model.PatientId = PatientId.Value;
+            }
+        }
+        else
+        {
+            // Only load patients if drop-down is needed
+            // To prevent lag, we only load the top 100 or something if it's too much.
+            // But since this is a search dropdown, Radzen already handles filtering if configured.
+            patients = PatientRepo.GetAllPatients();
+        }
+
+        // Only load available wards (usually a small list)
         wards = FacilityRepo.GetWards();
-        allRooms = FacilityRepo.GetRooms();
-        allBeds = FacilityRepo.GetBeds();
 
         if (PatientId.HasValue)
         {
-            model.PatientId = PatientId.Value;
             DetectSpecialtyNeeds();
         }
     }
@@ -112,30 +153,39 @@
     {
         // Find latest completed operation for this patient to suggest correct ward
         var latestOp = OperationRepo.GetOperationsByStatus("Completed")
-            .Where(o => o.PatientId == model.PatientId)
-            .OrderByDescending(o => o.OperationId)
-            .FirstOrDefault();
+        .Where(o => o.PatientId == model.PatientId)
+        .OrderByDescending(o => o.OperationId)
+        .FirstOrDefault();
 
         if (latestOp != null)
         {
             var doctor = DoctorRepo.GetDoctorById(latestOp.DoctorId);
             SpecialtyKeyword = doctor?.DepartmentName;
-            
+
             if (string.IsNullOrEmpty(SpecialtyKeyword))
             {
-                 SpecialtyKeyword = doctor?.Specialization?.Split(' ')[0];
+                SpecialtyKeyword = doctor?.Specialization?.Split(' ')[0];
             }
 
             if (!string.IsNullOrEmpty(SpecialtyKeyword))
             {
                 var bestWard = wards.FirstOrDefault(w => w.WardName.Contains(SpecialtyKeyword, StringComparison.OrdinalIgnoreCase));
-                
+
                 if (bestWard != null)
                 {
-                    // Check if this specific specialty ward has available beds
-                    var hasBeds = allBeds.Any(b => b.Status == "Available" && 
-                                  allRooms.Any(r => r.RoomId == b.RoomId && r.WardId == bestWard.WardId));
-                    
+                    // Check if ward has available beds (optimized query)
+                    var wardRooms = FacilityRepo.GetRoomsByWard(bestWard.WardId);
+                    bool hasBeds = false;
+
+                    foreach (var room in wardRooms)
+                    {
+                        if (FacilityRepo.GetAvailableBedsByRoom(room.RoomId).Any())
+                        {
+                            hasBeds = true;
+                            break;
+                        }
+                    }
+
                     if (hasBeds)
                     {
                         RecommendedWardName = bestWard.WardName;
@@ -143,19 +193,15 @@
                         wards = new List<Ward> { bestWard };
                         selectedWardId = bestWard.WardId;
                         OnWardChange();
-                        
-                        NotificationService.Notify(NotificationSeverity.Info, "Ward Locked", $"Patient must be admitted to {bestWard.WardName} following surgery.");
                     }
                     else
                     {
-                        // Fallback: Specialty ward is full, show all wards but alert the user
                         RecommendedWardName = $"{bestWard.WardName} (FULL) - Using General Fallback";
-                        
-                        // Sort so specialty ward (even if full) is top, then general wards
+
                         wards = wards.OrderByDescending(w => w.WardName.Contains(SpecialtyKeyword, StringComparison.OrdinalIgnoreCase))
-                                     .ThenByDescending(w => w.WardName.Contains("General", StringComparison.OrdinalIgnoreCase))
-                                     .ToList();
-                                     
+                        .ThenByDescending(w => w.WardName.Contains("General", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
                         var generalWard = wards.FirstOrDefault(w => w.WardName.Contains("General", StringComparison.OrdinalIgnoreCase));
                         if (generalWard != null)
                         {
@@ -170,7 +216,8 @@
 
     void OnWardChange()
     {
-        filteredRooms = allRooms.Where(r => r.WardId == selectedWardId).ToList();
+        // PERFORMANCE OPTIMIZATION: Load rooms only for selected ward
+        filteredRooms = FacilityRepo.GetRoomsByWard(selectedWardId);
         selectedRoomId = 0;
         filteredBeds.Clear();
         model.BedId = 0;
@@ -178,8 +225,8 @@
 
     void OnRoomChange()
     {
-        // Filter for Available beds in the selected room
-        filteredBeds = allBeds.Where(b => b.RoomId == selectedRoomId && b.Status == "Available").ToList();
+        // PERFORMANCE OPTIMIZATION: Load beds only for selected room
+        filteredBeds = FacilityRepo.GetAvailableBedsByRoom(selectedRoomId);
         model.BedId = 0;
     }
 
@@ -201,11 +248,10 @@
             }
             else
             {
-                // Fallback: If no OperationId was passed, find the latest untransferred completed operation for this patient
                 var latestOp = OperationRepo.GetOperationsReadyForTransfer()
-                    .OrderByDescending(o => o.OperationId)
-                    .FirstOrDefault(o => o.PatientId == args.PatientId);
-                
+                .OrderByDescending(o => o.OperationId)
+                .FirstOrDefault(o => o.PatientId == args.PatientId);
+
                 if (latestOp != null)
                 {
                     OperationRepo.MarkOperationAsTransferred(latestOp.OperationId);

@@ -1,121 +1,158 @@
 @using HMS.Web.Models
 @using HMS.Web.DAL
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @inject NotificationRepository NotificationRepo
+@inject DoctorRepository DoctorRepo
+@inject PatientRepository PatientRepo
+@inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
 @implements IDisposable
-@rendermode InteractiveServer
 
-<div class="dropdown me-3">
-    <button class="btn btn-link position-relative p-0 text-dark" type="button" @onclick="ToggleDropdown">
-        <i class="bi bi-bell fs-5"></i>
-        @if (UnreadCount > 0)
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Class="rz-mr-4"
+    Style="position: relative;">
+    <RadzenButton Icon="notifications" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Click="@ToggleDropdown"
+        Class="rz-p-2" Style="position: relative;">
+        @if (unreadCount > 0)
         {
-            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-                style="font-size: 0.6rem;">
-                @UnreadCount
-            </span>
+            <RadzenBadge Text="@unreadCount.ToString()" BadgeStyle="BadgeStyle.Danger" IsPill="true"
+                Style="position: absolute; top: 0; right: 0; transform: translate(50%, -50%);" />
         }
-    </button>
+    </RadzenButton>
 
     @if (ShowDropdown)
     {
-        <div class="dropdown-menu dropdown-menu-end show shadow p-0"
-            style="width: 300px; max-height: 400px; overflow-y: auto; right: 0; left: auto;">
-            <div class="p-2 border-bottom d-flex justify-content-between align-items-center bg-light">
-                <h6 class="mb-0">Notifications</h6>
-                <div class="small">
-                    <button class="btn btn-sm btn-link text-decoration-none p-0 me-2" @onclick="GoToPending">Post-Op
-                        List</button>
-                    @if (Notifications.Any())
+        <RadzenCard Class="rz-shadow-4 rz-p-0"
+            Style="position: absolute; top: 100%; right: 0; width: 320px; max-height: 450px; z-index: 1000; overflow: hidden; border-radius: 12px; margin-top: 8px;">
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
+                AlignItems="AlignItems.Center" Class="rz-p-4 rz-background-color-base-100 rz-border-bottom">
+                <RadzenText Text="Notifications" TextStyle="TextStyle.Subtitle1" Class="rz-m-0 rz-font-weight-bold" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                    @if (TargetRole == "Admin")
                     {
-                        <button class="btn btn-sm btn-link text-decoration-none p-0" @onclick="MarkAllRead">Mark all
-                            read</button>
+                        <RadzenButton Text="Post-Op" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Base"
+                            Variant="Variant.Text" Click="@GoToPending" Class="rz-p-0" />
                     }
-                </div>
-            </div>
+                    @if (Notifications.Any(n => !n.IsRead))
+                    {
+                        <RadzenButton Text="Mark all read" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Base"
+                            Variant="Variant.Text" Click="@MarkAllRead" Class="rz-p-0" />
+                    }
+                </RadzenStack>
+            </RadzenStack>
 
-            @if (!Notifications.Any())
-            {
-                <div class="p-3 text-center text-muted">No notifications</div>
-            }
-            else
-            {
-                @foreach (var notif in Notifications)
+            <RadzenStack Gap="0" Style="overflow-y: auto; max-height: 380px;">
+                @if (!Notifications.Any())
                 {
-                    <div class="p-3 border-bottom @(notif.IsRead ? "" : "bg-light-blue")"
-                        style="@(notif.IsRead ? "" : "border-left: 3px solid #0d6efd;")">
-                        <div class="d-flex justify-content-between">
-                            <strong>@notif.Title</strong>
-                            <small class="text-muted">@GetTimeAgo(notif.CreatedDate)</small>
-                        </div>
-                        <div class="small">@notif.Message</div>
-                    </div>
+                    <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-8">
+                        <RadzenIcon Icon="notifications_off" Style="font-size: 2rem; color: var(--rz-text-disabled-color);" />
+                        <RadzenText Text="No notifications" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                    </RadzenStack>
                 }
-            }
-        </div>
+                else
+                {
+                    @foreach (var notif in Notifications)
+                    {
+                        <RadzenStack Gap="0.5rem" Class="@(notif.IsRead ? "rz-p-4" : "rz-p-4 rz-background-color-info-lighter")"
+                            Style="@(notif.IsRead ? "" : "border-left: 4px solid var(--rz-info);")">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
+                                AlignItems="AlignItems.Center">
+                                <RadzenText Text="@notif.Title" TextStyle="TextStyle.Subtitle2"
+                                    Class="rz-m-0 rz-font-weight-bold" />
+                                <RadzenText Text="@GetTimeAgo(notif.CreatedDate)" TextStyle="TextStyle.Caption"
+                                    Class="rz-color-text-secondary" />
+                            </RadzenStack>
+                            <RadzenText Text="@notif.Message" TextStyle="TextStyle.Caption" Class="rz-m-0 text-wrap" />
+                        </RadzenStack>
+                        <hr class="rz-m-0" />
+                    }
+                }
+            </RadzenStack>
+        </RadzenCard>
     }
-</div>
-
-<style>
-    .bg-light-blue {
-        background-color: #f0f7ff;
-    }
-
-    .btn-link:hover {
-        cursor: pointer;
-        opacity: 0.8;
-    }
-</style>
+</RadzenStack>
 
 @code {
     [Parameter] public string? TargetRole { get; set; }
 
     private List<Notification> Notifications = new();
-    private int UnreadCount => Notifications.Count(n => !n.IsRead);
+    private int unreadCount = 0;
     private bool ShowDropdown = false;
     private System.Threading.Timer? timer;
+    private int? currentDoctorId;
+    private int? currentPatientId;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        LoadNotifications();
-        timer = new System.Threading.Timer(_ => InvokeAsync(async () =>
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity?.IsAuthenticated ?? false)
         {
-            LoadNotifications(); await
-    InvokeAsync(StateHasChanged);
-        }), null, 10000, 10000);
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (user.IsInRole("Doctor"))
+            {
+                var doc = DoctorRepo.GetDoctorByUserId(userId!);
+                currentDoctorId = doc?.DoctorId;
+            }
+            else if (user.IsInRole("Patient"))
+            {
+                var pat = PatientRepo.GetPatientByUserId(userId!);
+                currentPatientId = pat?.PatientId;
+            }
+        }
+
+        RefreshData();
+
+        timer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+    {
+    RefreshData();
+    StateHasChanged();
+            });
+        }, null, 20000, 20000);
+    }
+
+    private void RefreshData()
+    {
+        if (ShowDropdown) LoadNotifications();
+        LoadUnreadCount();
+    }
+
+    private void LoadUnreadCount()
+    {
+        if (currentDoctorId.HasValue) unreadCount = NotificationRepo.GetDoctorUnreadCount(currentDoctorId.Value);
+        else if (currentPatientId.HasValue) unreadCount = NotificationRepo.GetPatientUnreadCount(currentPatientId.Value);
+        else if (TargetRole == "Admin") unreadCount = NotificationRepo.GetAdminUnreadCount();
+        else if (!string.IsNullOrEmpty(TargetRole)) unreadCount = NotificationRepo.GetRoleUnreadCount(TargetRole);
     }
 
     private void LoadNotifications()
     {
-        if (string.IsNullOrEmpty(TargetRole))
-        {
-            Notifications = NotificationRepo.GetAdminNotifications();
-        }
-        else
-        {
-            Notifications = NotificationRepo.GetNotificationsByRole(TargetRole);
-        }
+        if (currentDoctorId.HasValue) Notifications = NotificationRepo.GetNotificationsByDoctorId(currentDoctorId.Value);
+        else if (currentPatientId.HasValue) Notifications =
+        NotificationRepo.GetNotificationsByPatientId(currentPatientId.Value);
+        else if (TargetRole == "Admin") Notifications = NotificationRepo.GetAdminNotifications();
+        else if (!string.IsNullOrEmpty(TargetRole)) Notifications = NotificationRepo.GetNotificationsByRole(TargetRole);
     }
 
-    private void ToggleDropdown() => ShowDropdown = !ShowDropdown;
-
-    private void GoToPending()
+    private void ToggleDropdown()
     {
-        ShowDropdown = false;
-        Navigation.NavigateTo("admin/pending-transfers");
+        ShowDropdown = !ShowDropdown;
+        if (ShowDropdown) LoadNotifications();
     }
+
+    private void GoToPending() => Navigation.NavigateTo("admin/pending-transfers");
 
     private void MarkAllRead()
     {
-        if (string.IsNullOrEmpty(TargetRole))
-        {
-            NotificationRepo.MarkAdminNotificationsAsRead();
-        }
-        else
-        {
-            NotificationRepo.MarkRoleNotificationsAsRead(TargetRole);
-        }
-        LoadNotifications();
+        if (currentDoctorId.HasValue) NotificationRepo.MarkNotificationsAsRead(currentDoctorId, null);
+        else if (currentPatientId.HasValue) NotificationRepo.MarkNotificationsAsRead(null, currentPatientId);
+        else if (TargetRole == "Admin") NotificationRepo.MarkAdminNotificationsAsRead();
+        else if (!string.IsNullOrEmpty(TargetRole)) NotificationRepo.MarkRoleNotificationsAsRead(TargetRole);
+
+        unreadCount = 0;
+        if (ShowDropdown) LoadNotifications();
         ShowDropdown = false;
     }
 

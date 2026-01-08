@@ -8,230 +8,179 @@
 
 <PageTitle>Shift Reports | Admin</PageTitle>
 
-<div class="row mb-3">
-    <div class="col-md-6">
-        <h3 class="text-primary">Shift Reports</h3>
-        <p class="text-muted">View detailed shift reports with revenue reconciliation and variance analysis.</p>
-    </div>
-    <div class="col-md-6 text-end">
-        <RadzenButton Icon="refresh" Text="Refresh" ButtonStyle="ButtonStyle.Light" Click="@LoadShifts" />
-    </div>
-</div>
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Financial Reconciliation & Audit" TextStyle="TextStyle.H4"
+                Class="rz-m-0 rz-color-primary" />
+            <RadzenText Text="Comprehensive oversight of institutional shifts, revenue streams, and cash variances."
+                TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+        </RadzenStack>
+        <RadzenButton Icon="refresh" Text="Sync Data" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Flat"
+            Click="@LoadShifts" />
+    </RadzenStack>
 
-<RadzenTabs RenderMode="TabRenderMode.Client">
-    <Tabs>
-        <RadzenTabsItem Text="All Shifts">
-            <RadzenCard Class="mt-3">
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <RadzenDropDown Data="@Roles" @bind-Value="SelectedRole" Change="@LoadShifts" Class="w-100"
-                            Placeholder="Filter by Role" />
-                    </div>
-                </div>
-                <RadzenDataGrid
-                    Data="@(SelectedRole == "All" ? allShifts : allShifts.Where(s => s.TellerName != null && GetRoleFromShift(s) == SelectedRole))"
-                    TItem="UserShift" AllowFiltering="true" AllowPaging="true" PageSize="20" AllowSorting="true">
-                    <Columns>
-                        <RadzenDataGridColumn TItem="UserShift" Property="ShiftId" Title="Shift ID" Width="80px" />
-                        <RadzenDataGridColumn TItem="UserShift" Property="EmployeeId" Title="Emp ID" Width="80px" />
-                        <RadzenDataGridColumn TItem="UserShift" Property="TellerName" Title="Staff Name"
-                            Width="150px" />
+    <RadzenTabs RenderMode="TabRenderMode.Client">
+        <Tabs>
+            <RadzenTabsItem Text="Institutional Overview" Icon="analytics">
+                <RadzenStack Gap="2rem" Class="rz-pt-4">
+                    <!-- Dashboard Cards -->
+                    <RadzenRow Gap="1.5rem">
+                        <RadzenColumn Size="12" SizeMD="3">
+                            <RadzenCard Class="rz-p-4 rz-background-color-primary-lighter rz-shadow-2"
+                                Style="border-left: 4px solid var(--rz-primary);">
+                                <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="event_repeat"
+                                        Style="font-size: 2rem; color: var(--rz-primary);" />
+                                    <RadzenText Text="Total Cycles" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                                    <RadzenText Text="@allShifts.Count.ToString()" TextStyle="TextStyle.H4"
+                                        Class="rz-m-0 rz-color-primary rz-font-weight-bold" />
+                                </RadzenStack>
+                            </RadzenCard>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="3">
+                            <RadzenCard Class="rz-p-4 rz-background-color-success-lighter rz-shadow-2"
+                                Style="border-left: 4px solid var(--rz-success);">
+                                <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="task_alt" Style="font-size: 2rem; color: var(--rz-success);" />
+                                    <RadzenText Text="Authenticated Closures" TextStyle="TextStyle.Caption"
+                                        Class="rz-m-0" />
+                                    <RadzenText Text="@closedShifts.Count.ToString()" TextStyle="TextStyle.H4"
+                                        Class="rz-m-0 rz-color-success-dark rz-font-weight-bold" />
+                                </RadzenStack>
+                            </RadzenCard>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="3">
+                            <RadzenCard Class="rz-p-4 rz-background-color-info-lighter rz-shadow-2"
+                                Style="border-left: 4px solid var(--rz-info);">
+                                <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="payments" Style="font-size: 2rem; color: var(--rz-info);" />
+                                    <RadzenText Text="Aggregated Revenue" TextStyle="TextStyle.Caption"
+                                        Class="rz-m-0" />
+                                    <RadzenText Text="@totalRevenue.ToString("C")" TextStyle="TextStyle.H4"
+                                        Class="rz-m-0 rz-color-info-dark rz-font-weight-bold" />
+                                </RadzenStack>
+                            </RadzenCard>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="3">
+                            <RadzenCard Class="rz-p-4 rz-background-color-warning-lighter rz-shadow-2"
+                                Style="border-left: 4px solid var(--rz-warning);">
+                                <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                    <RadzenIcon Icon="difference" Style="font-size: 2rem; color: var(--rz-warning);" />
+                                    <RadzenText Text="Net Variance" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                                    <RadzenText Text="@totalVariance.ToString("C")" TextStyle="TextStyle.H4"
+                                        Class="rz-m-0 rz-color-warning-dark rz-font-weight-bold" />
+                                </RadzenStack>
+                            </RadzenCard>
+                        </RadzenColumn>
+                    </RadzenRow>
 
-
-                        <RadzenDataGridColumn TItem="UserShift" Property="StartTime" Title="Start Time" Width="180px">
-                            <Template Context="shift">
-                                @shift.StartTime.ToString("MMM dd, yyyy hh:mm tt")
-                            </Template>
-                        </RadzenDataGridColumn>
-
-                        <RadzenDataGridColumn TItem="UserShift" Property="EndTime" Title="End Time" Width="180px">
-                            <Template Context="shift">
-                                @(shift.EndTime?.ToString("MMM dd, yyyy hh:mm tt") ?? "In Progress")
-                            </Template>
-                        </RadzenDataGridColumn>
-
-                        <RadzenDataGridColumn TItem="UserShift" Property="Status" Title="Status" Width="100px">
-                            <Template Context="shift">
-                                <RadzenBadge
-                                    BadgeStyle="@(shift.Status == "Open" ? BadgeStyle.Success : BadgeStyle.Secondary)"
-                                    Text="@shift.Status" />
-                            </Template>
-                        </RadzenDataGridColumn>
-
-                        <RadzenDataGridColumn TItem="UserShift" Property="StartingCash" Title="Starting Cash"
-                            Width="120px">
-                            <Template Context="shift">
-                                @shift.StartingCash.ToString("C")
-                            </Template>
-                        </RadzenDataGridColumn>
-
-                        <RadzenDataGridColumn TItem="UserShift" Property="EndingCash" Title="Expected Cash"
-                            Width="130px">
-                            <Template Context="shift">
-                                @(shift.EndingCash?.ToString("C") ?? "N/A")
-                            </Template>
-                        </RadzenDataGridColumn>
-
-                        <RadzenDataGridColumn TItem="UserShift" Property="ActualCash" Title="Actual Cash" Width="120px">
-                            <Template Context="shift">
-                                @(shift.ActualCash?.ToString("C") ?? "N/A")
-                            </Template>
-                        </RadzenDataGridColumn>
-
-                        <RadzenDataGridColumn TItem="UserShift" Title="Variance" Width="120px" Sortable="false">
-                            <Template Context="shift">
-                                @if (shift.EndingCash.HasValue && shift.ActualCash.HasValue)
-                                {
-                                    var variance = shift.ActualCash.Value - shift.EndingCash.Value;
-                                    <span
-                                        class="@(variance == 0 ? "text-success" : variance > 0 ? "text-info" : "text-danger")">
-                                        @variance.ToString("C")
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">N/A</span>
-                                }
-                            </Template>
-                        </RadzenDataGridColumn>
-
-                        <RadzenDataGridColumn TItem="UserShift" Title="Actions" Sortable="false" Filterable="false"
-                            Width="100px">
-                            <Template Context="shift">
-                                <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
-                                    Click="@(() => ViewShiftDetails(shift.ShiftId))" />
-                            </Template>
-                        </RadzenDataGridColumn>
-                    </Columns>
-                </RadzenDataGrid>
-            </RadzenCard>
-        </RadzenTabsItem>
-
-        <RadzenTabsItem Text="Closed Shifts">
-            <RadzenCard Class="mt-3">
-                <RadzenDataGrid Data="@closedShifts" TItem="UserShift" AllowFiltering="true" AllowPaging="true"
-                    PageSize="20" AllowSorting="true">
-                    <Columns>
-                        <RadzenDataGridColumn TItem="UserShift" Property="ShiftId" Title="Shift ID" Width="80px" />
-                        <RadzenDataGridColumn TItem="UserShift" Property="EmployeeId" Title="Emp ID" Width="80px" />
-                        <RadzenDataGridColumn TItem="UserShift" Property="TellerName" Title="Teller" Width="150px" />
-                        <RadzenDataGridColumn TItem="UserShift" Property="StartTime" Title="Date" Width="150px">
-                            <Template Context="shift">
-                                @shift.StartTime.ToString("MMM dd, yyyy")
-                            </Template>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="UserShift" Title="Duration" Width="100px">
-                            <Template Context="shift">
-                                @if (shift.EndTime.HasValue)
-                                {
-                                    var duration = shift.EndTime.Value - shift.StartTime;
-                                    <span>@duration.Hours h @duration.Minutes m</span>
-                                }
-                            </Template>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="UserShift" Title="Revenue" Width="120px">
-                            <Template Context="shift">
-                                @((shift.EndingCash ?? 0) - shift.StartingCash).ToString("C")
-                            </Template>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="UserShift" Title="Variance" Width="120px">
-                            <Template Context="shift">
-                                @if (shift.EndingCash.HasValue && shift.ActualCash.HasValue)
-                                {
-                                    var variance = shift.ActualCash.Value - shift.EndingCash.Value;
-                                    <RadzenBadge
-                                        BadgeStyle="@(variance == 0 ? BadgeStyle.Success : variance > 0 ? BadgeStyle.Info : BadgeStyle.Danger)"
-                                        Text="@variance.ToString("C")" />
-                                }
-                            </Template>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="UserShift" Property="Notes" Title="Notes" />
-                        <RadzenDataGridColumn TItem="UserShift" Title="Actions" Sortable="false" Width="100px">
-                            <Template Context="shift">
-                                <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
-                                    Click="@(() => ViewShiftDetails(shift.ShiftId))" />
-                            </Template>
-                        </RadzenDataGridColumn>
-                    </Columns>
-                </RadzenDataGrid>
-            </RadzenCard>
-        </RadzenTabsItem>
-
-        <RadzenTabsItem Text="Summary">
-            <RadzenCard Class="mt-3">
-                <div class="row">
-                    <div class="col-md-3">
-                        <RadzenCard Class="bg-primary text-white">
-                            <h6>Total Shifts</h6>
-                            <h2>@allShifts.Count</h2>
-                        </RadzenCard>
-                    </div>
-                    <div class="col-md-3">
-                        <RadzenCard Class="bg-success text-white">
-                            <h6>Closed Shifts</h6>
-                            <h2>@closedShifts.Count</h2>
-                        </RadzenCard>
-                    </div>
-                    <div class="col-md-3">
-                        <RadzenCard Class="bg-info text-white">
-                            <h6>Total Revenue</h6>
-                            <h2>@totalRevenue.ToString("C")</h2>
-                        </RadzenCard>
-                    </div>
-                    <div class="col-md-3">
-                        <RadzenCard Class="bg-warning text-white">
-                            <h6>Total Variance</h6>
-                            <h2>@totalVariance.ToString("C")</h2>
-                        </RadzenCard>
-                    </div>
-                </div>
-
-                <div class="row mt-4">
-                    <div class="col-md-12">
-                        <h5>Shifts with Variance</h5>
-                        <RadzenDataGrid Data="@shiftsWithVariance" TItem="UserShift" AllowPaging="true" PageSize="10">
+                    <!-- Anomaly Detection -->
+                    <RadzenCard Class="rz-p-6 rz-shadow-3">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                            JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+                            <RadzenText Text="Detected Discrepancies (High Variance)" TextStyle="TextStyle.H6"
+                                Class="rz-m-0 rz-color-error" />
+                            <RadzenBadge Text="@($"{shiftsWithVariance.Count} incidents")"
+                                BadgeStyle="BadgeStyle.Danger" IsPill="true" />
+                        </RadzenStack>
+                        <RadzenDataGrid Data="@shiftsWithVariance" TItem="UserShift" AllowPaging="true" PageSize="5"
+                            Responsive="true">
                             <Columns>
-                                <RadzenDataGridColumn TItem="UserShift" Property="ShiftId" Title="Shift ID"
+                                <RadzenDataGridColumn TItem="UserShift" Property="ShiftId" Title="Audit #"
                                     Width="80px" />
-                                <RadzenDataGridColumn TItem="UserShift" Property="EmployeeId" Title="Emp ID"
-                                    Width="80px" />
-                                <RadzenDataGridColumn TItem="UserShift" Property="TellerName" Title="Teller"
-                                    Width="150px" />
-                                <RadzenDataGridColumn TItem="UserShift" Property="StartTime" Title="Date" Width="150px">
-                                    <Template Context="shift">
-                                        @shift.StartTime.ToString("MMM dd, yyyy")
-                                    </Template>
+                                <RadzenDataGridColumn TItem="UserShift" Property="TellerName" Title="Custodian"
+                                    Width="180px" />
+                                <RadzenDataGridColumn TItem="UserShift" Title="Logged Date" Width="150px">
+                                    <Template Context="shift">@shift.StartTime.ToString("MMM dd, yyyy")</Template>
                                 </RadzenDataGridColumn>
                                 <RadzenDataGridColumn TItem="UserShift" Title="Expected" Width="120px">
-                                    <Template Context="shift">
-                                        @shift.EndingCash?.ToString("C")
-                                    </Template>
+                                    <Template Context="shift">@shift.EndingCash?.ToString("C")</Template>
                                 </RadzenDataGridColumn>
                                 <RadzenDataGridColumn TItem="UserShift" Title="Actual" Width="120px">
-                                    <Template Context="shift">
-                                        @shift.ActualCash?.ToString("C")
-                                    </Template>
+                                    <Template Context="shift">@shift.ActualCash?.ToString("C")</Template>
                                 </RadzenDataGridColumn>
                                 <RadzenDataGridColumn TItem="UserShift" Title="Variance" Width="120px">
                                     <Template Context="shift">
                                         @if (shift.EndingCash.HasValue && shift.ActualCash.HasValue)
                                         {
                                             var variance = shift.ActualCash.Value - shift.EndingCash.Value;
-                                            <strong class="@(variance > 0 ? "text-info" : "text-danger")">
-                                                @variance.ToString("C")
-                                            </strong>
+                                            <RadzenText Text="@variance.ToString("C")" TextStyle="TextStyle.Subtitle2"
+                                                Class="@(variance > 0 ? "rz-color-info" : "rz-color-danger")" />
                                         }
                                     </Template>
                                 </RadzenDataGridColumn>
-                                <RadzenDataGridColumn TItem="UserShift" Property="Notes" Title="Notes" />
                             </Columns>
                         </RadzenDataGrid>
-                    </div>
-                </div>
-            </RadzenCard>
-        </RadzenTabsItem>
-    </Tabs>
-</RadzenTabs>
+                    </RadzenCard>
+                </RadzenStack>
+            </RadzenTabsItem>
+
+            <RadzenTabsItem Text="Live Ledger" Icon="list">
+                <RadzenCard Class="rz-p-0 rz-mt-4" Style="overflow: hidden;">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                        Class="rz-p-4 rz-background-color-base-100">
+                        <RadzenText Text="Filter by Classification:" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                        <RadzenDropDown Data="@Roles" @bind-Value="SelectedRole" Change="@LoadShifts"
+                            Style="width: 200px;" />
+                    </RadzenStack>
+                    <RadzenDataGrid
+                        Data="@(SelectedRole == "All" ? allShifts : allShifts.Where(s => s.TellerName != null && GetRoleFromShift(s) == SelectedRole))"
+                        TItem="UserShift" AllowFiltering="true" AllowPaging="true" PageSize="15" AllowSorting="true"
+                        FilterMode="FilterMode.Simple">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="UserShift" Property="ShiftId" Title="ID" Width="70px" />
+                            <RadzenDataGridColumn TItem="UserShift" Property="TellerName" Title="Staff Identity"
+                                Width="200px" />
+                            <RadzenDataGridColumn TItem="UserShift" Title="Timeline" Width="300px">
+                                <Template Context="shift">
+                                    <RadzenStack Gap="0.25rem">
+                                        <RadzenText Text="@($"Started: {shift.StartTime:MMM dd, HH:mm}")"
+                                            TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                                        <RadzenText
+                                            Text="@($"Ended: {(shift.EndTime.HasValue ? shift.EndTime.Value.ToString("MMM dd, HH:mm") : "Ongoing")}")"
+                                            TextStyle="TextStyle.Caption" Class="rz-m-0 rz-color-text-secondary" />
+                                    </RadzenStack>
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="UserShift" Property="Status" Title="Status" Width="100px"
+                                TextAlign="TextAlign.Center">
+                                <Template Context="shift">
+                                    <RadzenBadge Text="@shift.Status"
+                                        BadgeStyle="@(shift.Status == "Open" ? BadgeStyle.Success : BadgeStyle.Light)"
+                                        IsPill="true" />
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="UserShift" Title="Revenue Metrics" Width="150px">
+                                <Template Context="shift">
+                                    <RadzenStack Gap="0">
+                                        <RadzenText Text="@($"Net: {((shift.EndingCash ?? 0) - shift.StartingCash):C}")"
+                                            TextStyle="TextStyle.Subtitle2" Class="rz-m-0" />
+                                        @if (shift.EndingCash.HasValue && shift.ActualCash.HasValue &&
+                                        shift.ActualCash.Value != shift.EndingCash.Value)
+                                        {
+                                            var v = shift.ActualCash.Value - shift.EndingCash.Value;
+                                            <RadzenText Text="@($"Var: {v:C}")" TextStyle="TextStyle.Overline"
+                                                Class="@(v > 0 ? "rz-color-info" : "rz-color-danger")" />
+                                        }
+                                    </RadzenStack>
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="UserShift" Title="Audit" Width="80px"
+                                TextAlign="TextAlign.Center" Sortable="false" Filterable="false">
+                                <Template Context="shift">
+                                    <RadzenButton Icon="receipt_long" ButtonStyle="ButtonStyle.Light"
+                                        Size="ButtonSize.Small" Click="@(() => ViewShiftDetails(shift.ShiftId))" />
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+                </RadzenCard>
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+</RadzenStack>
 
 @code {
     List<UserShift> allShifts = new();

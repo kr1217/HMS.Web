@@ -11,97 +11,124 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<div class="container mt-4">
-    <h3>Appointments</h3>
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="Appointment Center" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="Schedule clinical consultations and manage your upcoming healthcare timeline."
+            TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+    </RadzenStack>
 
     @if (IsLoading)
     {
-        <p>Loading...</p>
+        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 200px;" />
+            <RadzenText Text="Synchronizing with hospital registry..." TextStyle="TextStyle.Caption" />
+        </RadzenStack>
     }
     else if (CurrentPatient == null)
     {
-        <div class="alert alert-warning">
-            Please <a href="patient/dashboard">complete your profile</a> first.
-        </div>
+        <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+            Icon="info">
+            Please
+            <RadzenLink Text="complete your profile" Path="patient/dashboard" /> first to access appointment services.
+        </RadzenAlert>
     }
     else
     {
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-header">Book New Appointment</div>
-                    <div class="card-body">
-                        <EditForm Model="NewAppointment" OnValidSubmit="BookAppointment" FormName="BookApptForm">
-                            <DataAnnotationsValidator />
+        <RadzenRow Gap="2rem">
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenCard Class="rz-shadow-3 rz-p-6">
+                    <RadzenText Text="Book New Appointment" TextStyle="TextStyle.H6" Class="rz-mb-4" />
+                    <EditForm Model="NewAppointment" OnValidSubmit="BookAppointment" FormName="BookApptForm">
+                        <DataAnnotationsValidator />
+                        <RadzenStack Gap="1.5rem">
+                            <RadzenFormField Text="Consulting Specialist" Style="width: 100%;">
+                                <RadzenDropDown @bind-Value="NewAppointment.DoctorId" Data="@Doctors"
+                                    TextProperty="FullName" ValueProperty="DoctorId" Placeholder="Choose a doctor...">
+                                    <Template Context="doc">
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                            JustifyContent="JustifyContent.SpaceBetween" Class="rz-w-100">
+                                            <RadzenText Text="@($"{doc.FullName} ({doc.DepartmentName})")"
+                                                TextStyle="TextStyle.Body2" />
+                                            <RadzenBadge Text="@doc.ConsultationFee.ToString("C")"
+                                                BadgeStyle="BadgeStyle.Info" Shade="Shade.Lighter" />
+                                        </RadzenStack>
+                                    </Template>
+                                </RadzenDropDown>
+                            </RadzenFormField>
 
-                            <div class="mb-3">
-                                <label class="form-label">Select Doctor</label>
-                                <InputSelect @bind-Value="NewAppointment.DoctorId" class="form-control">
-                                    <option value="0">-- Select Doctor --</option>
-                                    @foreach (var doc in Doctors)
-                                    {
-                                        <option value="@doc.DoctorId">@doc.FullName (@doc.DepartmentName) -
-                                            @doc.ConsultationFee.ToString("C")</option>
-                                    }
-                                </InputSelect>
-                            </div>
+                            <RadzenFormField Text="Preferred Date & Time" Style="width: 100%;">
+                                <RadzenDatePicker @bind-Value="NewAppointment.AppointmentDate" ShowTime="true"
+                                    DateFormat="MMM dd, yyyy HH:mm" />
+                            </RadzenFormField>
 
-                            <div class="mb-3">
-                                <label class="form-label">Date</label>
-                                <InputDate @bind-Value="NewAppointment.AppointmentDate" class="form-control"
-                                    Type="InputDateType.DateTimeLocal" />
-                            </div>
+                            <RadzenFormField Text="Consultation Mode" Style="width: 100%;">
+                                <RadzenDropDown @bind-Value="NewAppointment.AppointmentMode"
+                                    Data="@(new[] { "Physical", "Online" })" />
+                            </RadzenFormField>
 
-                            <div class="mb-3">
-                                <label class="form-label">Mode</label>
-                                <InputSelect @bind-Value="NewAppointment.AppointmentMode" class="form-control">
-                                    <option value="Physical">Physical Visit</option>
-                                    <option value="Online">Online Consultation</option>
-                                </InputSelect>
-                            </div>
+                            <RadzenFormField Text="Reason for Visit" Style="width: 100%;">
+                                <RadzenTextArea @bind-Value="NewAppointment.Reason"
+                                    Placeholder="Briefly describe your health concern..." />
+                            </RadzenFormField>
 
-                            <div class="mb-3">
-                                <label class="form-label">Reason</label>
-                                <InputTextArea @bind-Value="NewAppointment.Reason" class="form-control" />
-                            </div>
+                            <RadzenButton Text="Initialize Booking" Icon="calendar_today" ButtonType="ButtonType.Submit"
+                                ButtonStyle="ButtonStyle.Primary" Class="rz-w-100 rz-mt-2" />
+                        </RadzenStack>
+                    </EditForm>
+                </RadzenCard>
+            </RadzenColumn>
 
-                            <button type="submit" class="btn btn-primary">Book Appointment</button>
-                        </EditForm>
-                    </div>
-                </div>
-            </div>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenCard Class="rz-shadow-2 rz-p-0" Style="overflow: hidden; border-radius: 12px;">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                        Class="rz-p-4 rz-background-color-base-100">
+                        <RadzenIcon Icon="event_note" Style="color: var(--rz-primary);" />
+                        <RadzenText Text="Your Appointment Registry" TextStyle="TextStyle.Subtitle1"
+                            Class="rz-m-0 rz-font-weight-bold" />
+                    </RadzenStack>
 
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">My Appointments</div>
-                    <div class="card-body">
+                    <RadzenStack Gap="0" Class="rz-p-4">
                         @if (AppointmentList.Count == 0)
                         {
-                            <p>No appointments found.</p>
+                            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter"
+                                AllowClose="false" Icon="info_outline">
+                                No archived or upcoming appointments found.
+                            </RadzenAlert>
                         }
                         else
                         {
-                            <ul class="list-group">
-                                @foreach (var appt in AppointmentList)
+                            <RadzenStack Gap="1rem">
+                                @foreach (var appt in AppointmentList.OrderByDescending(a => a.AppointmentDate))
                                 {
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <strong>@appt.DoctorName</strong> (@appt.DepartmentName)<br />
-                                            <small class="text-muted">@appt.AppointmentDate.ToString("g") -
-                                                @appt.AppointmentMode</small><br />
-                                            <span>@appt.Reason</span>
-                                        </div>
-                                        <span class="badge @GetStatusBadge(appt.Status)">@appt.Status</span>
-                                    </li>
+                                    <RadzenCard Class="rz-p-4 rz-variant-flat rz-background-color-base-100"
+                                        Style="border-left: 4px solid var(--rz-primary-light);">
+                                        <RadzenStack Orientation="Orientation.Horizontal"
+                                            JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                            <RadzenStack Gap="0.25rem">
+                                                <RadzenText Text="@appt.DoctorName" TextStyle="TextStyle.Subtitle2"
+                                                    Class="rz-m-0" />
+                                                <RadzenText
+                                                    Text="@($"{appt.AppointmentDate:MMM dd, yyyy HH:mm} - {appt.AppointmentMode}")"
+                                                    TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                                                @if (!string.IsNullOrEmpty(appt.Reason))
+                                                {
+                                                    <RadzenText Text="@appt.Reason" TextStyle="TextStyle.Body2" Class="rz-mt-1" />
+                                                }
+                                            </RadzenStack>
+                                            <RadzenBadge Text="@appt.Status" BadgeStyle="@GetStatusBadge(appt.Status)" IsPill="true"
+                                                Shade="Shade.Lighter" />
+                                        </RadzenStack>
+                                    </RadzenCard>
                                 }
-                            </ul>
+                            </RadzenStack>
                         }
-                    </div>
-                </div>
-            </div>
-        </div>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
     }
-</div>
+</RadzenStack>
 
 @code {
     private bool IsLoading = true;
@@ -147,6 +174,7 @@
         NotificationRepo.CreateNotification(new Notification
             {
                 DoctorId = NewAppointment.DoctorId,
+                TargetRole = "Doctor",
                 Title = "New Appointment Request",
                 Message = $"You have a new appointment request from {CurrentPatient.FullName} for {NewAppointment.AppointmentDate:f}.",
                 CreatedDate = DateTime.Now,
@@ -158,16 +186,16 @@
         NewAppointment = new Appointment { AppointmentDate = DateTime.Now.AddDays(1), AppointmentMode = "Physical" }; // Reset
     }
 
-    private string GetStatusBadge(string status)
+    private BadgeStyle GetStatusBadge(string status)
     {
         return status switch
         {
-            "Confirmed" => "bg-success",
-            "Approved" => "bg-success",
-            "Pending" => "bg-warning",
-            "Cancelled" => "bg-danger",
-            "Rejected" => "bg-danger",
-            _ => "bg-secondary"
+            "Confirmed" => BadgeStyle.Success,
+            "Approved" => BadgeStyle.Success,
+            "Pending" => BadgeStyle.Warning,
+            "Cancelled" => BadgeStyle.Danger,
+            "Rejected" => BadgeStyle.Danger,
+            _ => BadgeStyle.Secondary
         };
     }
 }

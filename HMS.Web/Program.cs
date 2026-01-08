@@ -95,21 +95,39 @@ app.MapRazorComponents<App>()
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
 
-// Initialize Database
-HMS.Web.Data.DbInitializer.Initialize(app.Services);
-
-// Seed User Accounts (Run once to create test accounts)
-// Comment out after first run to avoid duplicate attempts
-using (var scope = app.Services.CreateScope())
+// Automatic database seeding on first run
+var seedFlagPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".seeded");
+if (!File.Exists(seedFlagPath))
 {
-    try
+    using (var scope = app.Services.CreateScope())
     {
-        await HMS.Web.SeedUsers.UserAccountSeeder.SeedUserAccounts(scope.ServiceProvider);
+        var services = scope.ServiceProvider;
+        try
+        {
+            var dbHelper = services.GetRequiredService<HMS.Web.DAL.DatabaseHelper>();
+            var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+
+            var seeder = new HMS.Web.Services.DatabaseSeeder(dbHelper, userManager, roleManager);
+
+            Console.WriteLine("=== FIRST RUN DETECTED: Starting automatic database seeding ===");
+            await seeder.SeedAllData();
+
+            // Create flag file to prevent re-seeding
+            File.WriteAllText(seedFlagPath, DateTime.Now.ToString());
+            Console.WriteLine("=== Database seeding completed. Flag file created. ===");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"=== ERROR during automatic seeding: {ex.Message} ===");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+            // Don't create flag file if seeding failed
+        }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"User seeding skipped or failed: {ex.Message}");
-    }
+}
+else
+{
+    Console.WriteLine("=== Database already seeded (flag file exists). Skipping automatic seeding. ===");
 }
 
 app.Run();

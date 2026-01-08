@@ -9,57 +9,66 @@
 @attribute [Authorize]
 @rendermode InteractiveServer
 
-<div class="container mt-4">
-    <h3>Medical Reports</h3>
+<RadzenStack Class="rz-p-4 rz-p-md-6" Gap="2rem">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="Medical Reports" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="Secure access to your laboratory results, diagnostic scans, and clinical summaries." TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+    </RadzenStack>
 
     @if (IsLoading)
     {
-        <p>Loading...</p>
+        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 200px;" />
+            <RadzenText Text="Synchronizing records..." TextStyle="TextStyle.Caption" />
+        </RadzenStack>
     }
     else if (CurrentPatient == null)
     {
-        <div class="alert alert-warning">
-            Please <a href="patient/dashboard">complete your profile</a> first.
-        </div>
+        <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="info">
+            Please <RadzenLink Text="complete your profile" Path="patient/dashboard" /> first to view your medical reports.
+        </RadzenAlert>
     }
     else
     {
         @if (ReportList.Count == 0)
         {
-            <div class="alert alert-info">No reports found.</div>
+            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="folder_open">
+                No diagnostic reports have been uploaded to your profile yet.
+            </RadzenAlert>
         }
         else
         {
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Report Name</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var report in ReportList)
-                    {
-                        <tr>
-                            <td>@report.ReportDate.ToShortDateString()</td>
-                            <td>@report.ReportName</td>
-                            <td>@report.ReportType</td>
-                            <td>@report.Status</td>
-                            <td>
-                                <a href="@report.FilePath" target="_blank" class="btn btn-sm btn-primary">
-                                    <i class="bi bi-download me-1"></i> Download
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+            <RadzenCard Class="rz-p-0 rz-shadow-4" Style="overflow: hidden; border-radius: 12px;">
+                <RadzenDataGrid Data="@ReportList" TItem="Report" AllowPaging="true" PageSize="10" AllowSorting="true" Class="rz-border-none">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="Report" Property="ReportDate" Title="Date" Width="150px">
+                            <Template Context="report">
+                                <RadzenText Text="@report.ReportDate.ToString("MMM dd, yyyy")" TextStyle="TextStyle.Body2" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="Report" Property="ReportName" Title="Report Specification" />
+                        <RadzenDataGridColumn TItem="Report" Property="ReportType" Title="Category" Width="150px">
+                            <Template Context="report">
+                                <RadzenBadge Text="@report.ReportType" IsPill="true" BadgeStyle="BadgeStyle.Info" Shade="Shade.Lighter" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="Report" Property="Status" Title="Status" Width="120px">
+                            <Template Context="report">
+                                <RadzenBadge Text="@report.Status" IsPill="true" BadgeStyle="BadgeStyle.Success" Shade="Shade.Lighter" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="Report" Title="Action" Width="150px" TextAlign="TextAlign.Right">
+                            <Template Context="report">
+                                <RadzenButton Icon="download" Text="Get File" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" Variant="Variant.Flat" 
+                                              Click="@(() => DownloadReport(report))" Path="@report.FilePath" Target="_blank" Component="a" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </RadzenCard>
         }
     }
-</div>
+</RadzenStack>
 
 @code {
     private bool IsLoading = true;

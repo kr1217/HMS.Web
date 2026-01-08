@@ -1,0 +1,42 @@
+@using Radzen.Blazor
+@using Microsoft.AspNetCore.Components.Authorization
+@using HMS.Web.Components.Shared
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveServer
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<RadzenHeader>
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween" Class="rz-px-4 rz-py-2" Gap="0">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="2">
+            <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
+            <RadzenImage Path="favicon.png" Style="width: 32px; height: 32px;" />
+            <RadzenText Text="Antigravity Hospital" TextStyle="TextStyle.H6"
+                Class="rz-m-0 rz-display-none rz-display-sm-block" />
+        </RadzenStack>
+
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="3">
+            <NotificationBell />
+            <RadzenProfileMenu>
+                <Template>
+                    <RadzenIcon Icon="account_circle" />
+                </Template>
+                <ChildContent>
+                    <RadzenProfileMenuItem Text="Profile" Icon="person" Path="Account/Manage" />
+                    <RadzenProfileMenuItem Text="Logout" Icon="logout" Path="Account/Logout" />
+                </ChildContent>
+            </RadzenProfileMenu>
+        </RadzenStack>
+    </RadzenStack>
+</RadzenHeader>
+
+<RadzenSidebar @bind-Expanded="@sidebarExpanded">
+    <NavMenu />
+</RadzenSidebar>
+
+<RadzenComponents />
+
+@code {
+    bool sidebarExpanded = true;
+}

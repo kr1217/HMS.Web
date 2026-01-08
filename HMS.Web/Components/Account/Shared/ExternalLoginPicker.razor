@@ -7,26 +7,31 @@
 
 @if (externalLogins.Length == 0)
 {
-    <div>
-        <p>
-            There are no external authentication services configured. See this <a href="https://go.microsoft.com/fwlink/?LinkID=532715">article
-            about setting up this ASP.NET application to support logging in via external services</a>.
-        </p>
-    </div>
+    <RadzenStack Gap="1rem" Class="rz-p-4 rz-text-align-center">
+        <RadzenText Text="No external institutional authentication services are currently orchestrated."
+            TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+        <RadzenLink Path="https://go.microsoft.com/fwlink/?LinkID=532715" Text="Clinical Federation Documentation"
+            Target="_blank" Icon="info" />
+    </RadzenStack>
 }
 else
 {
     <form class="form-horizontal" action="Account/PerformExternalLogin" method="post">
-        <div>
+        <RadzenStack Gap="1.5rem" Class="rz-p-4">
             <AntiforgeryToken />
             <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
-            <p>
+            <RadzenText Text="Or authorize via clinical federation provider:" TextStyle="TextStyle.Caption"
+                Class="rz-color-text-secondary rz-mb-2" />
+            <RadzenStack Orientation="Orientation.Horizontal" Wrap="FlexWrap.Wrap" Gap="1rem"
+                JustifyContent="JustifyContent.Center">
                 @foreach (var provider in externalLogins)
                 {
-                    <button type="submit" class="btn btn-primary" name="provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">@provider.DisplayName</button>
+                    <RadzenButton ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Flat"
+                        Name="provider" Value="@provider.Name" Text="@provider.DisplayName" Icon="lock_open"
+                        title="@($"Log in using your {provider.DisplayName} institutional account")" />
                 }
-            </p>
-        </div>
+            </RadzenStack>
+        </RadzenStack>
     </form>
 }
 

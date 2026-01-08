@@ -1,24 +1,18 @@
 @inherits LayoutComponentBase
+@using Radzen.Blazor
 
-<div class="page admin-theme">
-    <div class="sidebar">
-        <AdminNavMenu />
-    </div>
+<RadzenComponents />
 
-    <main>
-        <div class="top-row px-4 d-flex justify-content-between align-items-center">
-            <h5 class="my-auto">🏥 Hospital Control Center</h5>
-            <div class="d-flex align-items-center">
-                <HMS.Web.Components.Shared.NotificationBell />
-                <HMS.Web.Components.Shared.ShiftWidget />
-            </div>
-        </div>
 
-        <article class="content px-4">
+<RadzenLayout Style="grid-template-areas: 'rz-header rz-header' 'rz-sidebar rz-body';">
+    <AdminLayoutUI />
+
+    <RadzenBody>
+        <RadzenStack Class="rz-p-4">
             @Body
-        </article>
-    </main>
-</div>
+        </RadzenStack>
+    </RadzenBody>
+</RadzenLayout>
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
@@ -26,4 +20,6 @@
     <span class="dismiss">🗙</span>
 </div>
 
-<HMS.Web.Components.Shared.RadzenInfrastructure />
+@code {
+    // No code needed here as AdminLayoutUI handles the sidebar state
+}

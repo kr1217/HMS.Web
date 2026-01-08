@@ -8,116 +8,124 @@
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 
-<div class="container-fluid">
-    <div class="alert alert-light border">
-        <h6><i class="bi bi-info-circle me-2"></i>Doctor's Recommendation</h6>
-        <div class="small">
-            <strong>Op:</strong> @Operation.PackageName <br />
-            <strong>Notes:</strong> @Operation.Notes <br />
-            <strong>Medicines:</strong> @Operation.RecommendedMedicines <br />
-            <strong>Equipment:</strong> @Operation.RecommendedEquipment
-        </div>
-    </div>
+<RadzenStack Gap="1.5rem" Class="rz-p-2">
+    <!-- Clinical Context Overview -->
+    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="clinical_notes">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Clinical Recommendation Overview" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenText Text="@($"Procedure: {Operation.PackageName}")" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                    <RadzenText Text="@($"Consultation Findings: {Operation.Notes}")" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenText Text="@($"Medication Protocol: {Operation.RecommendedMedicines}")" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                    <RadzenText Text="@($"Resource Requirements: {Operation.RecommendedEquipment}")" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenStack>
+    </RadzenAlert>
 
-    <EditForm Model="CurrentAdmission" OnValidSubmit="ConfirmAdmission">
-        <div class="row">
-            <!-- Cost Estimations -->
-            <div class="col-md-12 mb-3">
-                <h6 class="text-secondary border-bottom pb-2">Approved Cost Estimates</h6>
-                <div class="row">
-                    <div class="col-4">
-                        <label class="form-label small">Operation Cost</label>
-                        <InputNumber @bind-Value="AgreedOpCost" class="form-control" />
-                    </div>
-                    <div class="col-4">
-                        <label class="form-label small">Est. Medicine Cost</label>
-                        <InputNumber @bind-Value="AgreedMedCost" class="form-control" />
-                    </div>
-                    <div class="col-4">
-                        <label class="form-label small">Est. Equipment Cost</label>
-                        <InputNumber @bind-Value="AgreedEqCost" class="form-control" />
-                    </div>
-                </div>
-                <div class="form-text text-muted">These costs will be used as a base for final billing.</div>
-            </div>
+    <RadzenTemplateForm TItem="Admission" Data="@CurrentAdmission" Submit="ConfirmAdmission">
+        <RadzenStack Gap="1.5rem">
+            <!-- Approved Estimations -->
+            <RadzenCard Class="rz-shadow-2">
+                <RadzenText Text="Agreed Clinical Estimations" TextStyle="TextStyle.Subtitle2" Class="rz-color-primary rz-border-bottom rz-pb-2 rz-mb-4" />
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenLabel Text="Surgical Base Cost" TextStyle="TextStyle.Caption" />
+                            <RadzenNumeric @bind-Value="AgreedOpCost" Class="rz-w-100" Format="C" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenLabel Text="Medicine Allocation" TextStyle="TextStyle.Caption" />
+                            <RadzenNumeric @bind-Value="AgreedMedCost" Class="rz-w-100" Format="C" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4">
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenLabel Text="Infrastructure/Eq" TextStyle="TextStyle.Caption" />
+                            <RadzenNumeric @bind-Value="AgreedEqCost" Class="rz-w-100" Format="C" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                </RadzenRow>
+                <RadzenText Text="These estimations serve as the fiscal baseline for finalized billing audits." TextStyle="TextStyle.Overline" Class="rz-color-text-secondary rz-mt-2" />
+            </RadzenCard>
 
-            <!-- Advance Payment Gate -->
-            <div class="col-md-12 mb-3">
-                <h6 class="text-secondary border-bottom pb-2">Advance Payment Gate (Deposit)</h6>
-                <div class="row align-items-center">
-                    <div class="col-md-6">
-                        <label class="form-label small">Deposit Amount to Bill</label>
-                        <InputNumber @bind-Value="DepositAmount" class="form-control" />
-                    </div>
-                     <div class="col-md-6 pt-4">
-                         <div class="text-muted small">
-                             <i class="bi bi-info-circle"></i> A bill will be generated for the Teller.
-                             OT Slot will be reserved pending payment.
-                         </div>
-                    </div>
-                </div>
-            </div>
+            <!-- Finance Workflow -->
+            <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="account_balance">
+                <RadzenStack Gap="0.25rem">
+                    <RadzenText Text="Fiscal Advance Required" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+                    <RadzenText Text="A financial deposit request will be dispatched to the Teller. Procedural finalization depends on fiscal clearance." TextStyle="TextStyle.Caption" />
+                </RadzenStack>
+            </RadzenAlert>
 
-            <!-- Operation Theater Selection -->
-            <div class="col-md-12 mb-3">
-                 <h6 class="text-secondary border-bottom pb-2">Resource Allocation</h6>
-                 <div class="row mb-2">
-                    <div class="col-6">
-                        <label class="form-label small">Surgery Date & Time</label>
-                        <RadzenDatePicker @bind-Value="ScheduledTime" ShowTime="true" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt" Change="@(args => OnTheaterChange())" Class="w-100" />
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label small">Est. Duration (mins)</label>
-                        <RadzenNumeric TValue="int" @bind-Value="DurationMinutes" Min="15" Step="15" Change="@(args => OnTheaterChange())" Class="w-100" />
-                    </div>
-                 </div>
-                 <div class="mb-3">
-                    <label class="form-label">Select Operation Theater</label>
+            <!-- Resource Orchestration -->
+            <RadzenCard Class="rz-shadow-3">
+                <RadzenText Text="Resource & Theater Orchestration" TextStyle="TextStyle.Subtitle2" Class="rz-color-primary rz-border-bottom rz-pb-2 rz-mb-4" />
+                <RadzenRow Gap="1.5rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Orchestrated Start Time" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenDatePicker @bind-Value="ScheduledTime" ShowTime="true" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt" 
+                                            Change="@(args => OnTheaterChange())" Class="rz-w-100" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Estimated Duration (Minutes)" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenNumeric TValue="int" @bind-Value="DurationMinutes" Min="15" Step="15" 
+                                         Change="@(args => OnTheaterChange())" Class="rz-w-100" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <RadzenStack Gap="0.5rem" Class="rz-mt-4">
+                    <RadzenLabel Text="Operation Theater Designation" TextStyle="TextStyle.Subtitle2" />
                     <RadzenDropDown Data="@Theaters" TextProperty="TheaterName" ValueProperty="TheaterId"
-                        @bind-Value="SelectedTheaterId" Change="@OnTheaterChange" Class="w-100" Placeholder="Select OT..." />
+                                    @bind-Value="SelectedTheaterId" Change="@OnTheaterChange" Class="rz-w-100" 
+                                    Placeholder="Select sterile theater..." />
+                    
                     @if (ConflictCount > 0)
                     {
-                        <div class="text-warning small mt-1">
-                            <i class="bi bi-exclamation-triangle"></i> Warning: Overlap detected! 
-                            The theater is occupied during this time window.
-                        </div>
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="rz-color-warning">
+                            <RadzenIcon Icon="warning" Size="16px" />
+                            <RadzenText Text="Operational Overlap: Theater is occupied during this window." TextStyle="TextStyle.Caption" />
+                        </RadzenStack>
                     }
                     else if (SelectedTheaterId != null)
                     {
-                         <div class="text-success small mt-1">
-                            <i class="bi bi-check-circle"></i> Slot Available
-                        </div>
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="rz-color-success">
+                            <RadzenIcon Icon="check_circle" Size="16px" />
+                            <RadzenText Text="Resources Available" TextStyle="TextStyle.Caption" />
+                        </RadzenStack>
                     }
-                </div>
-            </div>
+                </RadzenStack>
+            </RadzenCard>
 
-            <!-- Admission Details -->
-            <div class="col-md-12">
-                <h6 class="text-secondary border-bottom pb-2">Admission Details</h6>
-                 <div class="alert alert-info small">
-                    <i class="bi bi-info-circle"></i> Ward and Bed assignment will be handled after the operation (Post-Op Transfer).
-                </div>
-            </div>
-        </div>
+            <RadzenAlert AlertStyle="AlertStyle.Light" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="bed">
+                Specific clinical ward and bed assignment will be orchestrated post-procedural transfer.
+            </RadzenAlert>
 
-        <div class="d-flex justify-content-end gap-2 mt-4">
-             @if (ConflictCount > 0)
-            {
-                <RadzenButton Text="Add to Waitlist" ButtonStyle="ButtonStyle.Warning" Icon="schedule" Click="@AddToWaitlist" />
-            }
-            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
-            <RadzenButton ButtonType="ButtonType.Submit" Text="Schedule & Request Deposit" ButtonStyle="ButtonStyle.Success"
-                Icon="check_circle" disabled="@(ConflictCount > 0 && !AllowForceSchedule)" />
-             @if (ConflictCount > 0)
-            {
-                 <div class="d-flex align-items-center ms-2">
-                    <RadzenCheckBox @bind-Value="AllowForceSchedule" Name="Force" />
-                    <label class="small ms-1 text-muted">Overbook</label>
-                </div>
-            }
-        </div>
-    </EditForm>
-</div>
+            <!-- Actions -->
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-6">
+                @if (ConflictCount > 0)
+                {
+                    <RadzenButton Text="Waitlist Procedure" ButtonStyle="ButtonStyle.Warning" Icon="hourglass_empty" Click="@AddToWaitlist" />
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-ms-2">
+                        <RadzenCheckBox @bind-Value="AllowForceSchedule" Name="Force" />
+                        <RadzenLabel Text="Overbook Theater" Component="Force" TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
+                }
+                <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Confirm & Disburse Request" ButtonStyle="ButtonStyle.Success"
+                            Icon="check_circle" Disabled="@(ConflictCount > 0 && !AllowForceSchedule)" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenTemplateForm>
+</RadzenStack>
 
 @code {
     [Parameter] public PatientOperation Operation { get; set; }
@@ -160,22 +168,6 @@
         ScheduledTime = Operation.ScheduledDate > DateTime.MinValue ? Operation.ScheduledDate : DateTime.Now.Date.AddHours(9); // Default 9 AM
     }
 
-    void OnWardChange()
-    {
-        var allBeds = FacilityRepo.GetBeds();
-        string selectedWardName = Wards.FirstOrDefault(w => w.WardId == SelectedWardId)?.WardName ?? "";
-
-        if (!string.IsNullOrEmpty(selectedWardName))
-        {
-            AvailableBeds = allBeds.Where(b => b.Status == "Available" &&
-            (string.IsNullOrEmpty(b.WardName) || b.WardName == selectedWardName)).ToList();
-        }
-        else
-        {
-            AvailableBeds = allBeds.Where(b => b.Status == "Available").ToList();
-        }
-    }
-
     void OnTheaterChange()
     {
         ConflictCount = 0;
@@ -191,7 +183,7 @@
 
             foreach(var op in dayOps)
             {
-                // Skip self if editing (though usually we are creating a new schedule here)
+                // Skip self if editing
                 if (op.OperationId == Operation.OperationId) continue;
 
                 var opStart = op.ScheduledDate;
@@ -217,42 +209,27 @@
     {
         if (SelectedTheaterId == null)
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Theater Required", "Please select an Operation Theater.");
+            NotificationService.Notify(NotificationSeverity.Warning, "Theater Required", "Please specify a surgical theater.");
             return;
         }
 
-        string newStatus = "Scheduled";
-
-        if (DepositAmount > 0)
+        string newStatus = "Advance Payment Requested"; 
+        
+        var tellerNotif = new Notification
         {
-            // Create UNPAID Bill
-            var bill = new Bill
-            {
-                PatientId = Operation.PatientId,
-                TotalAmount = DepositAmount,
-                PaidAmount = 0,
-                DueAmount = DepositAmount,
-                Status = "Unpaid",
-                BillDate = DateTime.Now,
-                CreatedBy = "Admin",
-                Items = new List<BillItem> { 
-                    new BillItem { Description = $"Advance Deposit for {Operation.PackageName}", Amount = DepositAmount, Category = "Deposit" } 
-                }
-            };
-            
-            BillingRepo.CreateBill(bill);
-            newStatus = "Pending Deposit"; // Set status to pending
-            
-            NotificationService.Notify(NotificationSeverity.Info, "Bill Generated", "Deposit bill sent to Teller.");
-        }
-
-        // We do NOT call FacilityRepo.AdmitPatient(CurrentAdmission) here anymore.
-        // Bed assignment is decoupled.
+            TargetRole = "Teller",
+            Title = "Advance Payment Required",
+            Message = $"Patient {Operation.PatientName} is scheduled for {Operation.PackageName}. Please collect advance payment.",
+            CreatedDate = DateTime.Now,
+            IsRead = false
+        };
+        NotificationRepo.CreateNotification(tellerNotif);
+        
+        NotificationService.Notify(NotificationSeverity.Info, "Notification Dispatched", "Financial orchestration initiated with Teller.");
 
         OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, newStatus, AgreedOpCost, AgreedMedCost,
         AgreedEqCost, SelectedTheaterId, ScheduledTime, DurationMinutes);
 
-        // ... (Notifications) ...
         var doctorNotif = new Notification
         {
             DoctorId = Operation.DoctorId,

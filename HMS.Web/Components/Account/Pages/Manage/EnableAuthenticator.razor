@@ -12,58 +12,106 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<EnableAuthenticator> Logger
 
-<PageTitle>Configure authenticator app</PageTitle>
+<PageTitle>Authenticator Orchestration | Configuration</PageTitle>
 
-@if (recoveryCodes is not null)
-{
-    <ShowRecoveryCodes RecoveryCodes="recoveryCodes.ToArray()" StatusMessage="@message" />
-}
-else
-{
-    <StatusMessage Message="@message" />
-    <h3>Configure authenticator app</h3>
-    <div>
-        <p>To use an authenticator app go through the following steps:</p>
-        <ol class="list">
-            <li>
-                <p>
-                    Download a two-factor authenticator app like Microsoft Authenticator for
-                    <a href="https://go.microsoft.com/fwlink/?Linkid=825072">Android</a> and
-                    <a href="https://go.microsoft.com/fwlink/?Linkid=825073">iOS</a> or
-                    Google Authenticator for
-                    <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en">Android</a> and
-                    <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8">iOS</a>.
-                </p>
-            </li>
-            <li>
-                <p>Scan the QR Code or enter this key <kbd>@sharedKey</kbd> into your two factor authenticator app. Spaces and casing do not matter.</p>
-                <div class="alert alert-info">Learn how to <a href="https://go.microsoft.com/fwlink/?Linkid=852423">enable QR code generation</a>.</div>
-                <div></div>
-                <div data-url="@authenticatorUri"></div>
-            </li>
-            <li>
-                <p>
-                    Once you have scanned the QR code or input the key above, your two factor authentication app will provide you
-                    with a unique code. Enter the code in the confirmation box below.
-                </p>
-                <div class="row">
-                    <div class="col-xl-6">
-                        <EditForm Model="Input" FormName="send-code" OnValidSubmit="OnValidSubmitAsync" method="post">
-                            <DataAnnotationsValidator />
-                            <div class="form-floating mb-3">
-                                <InputText @bind-Value="Input.Code" id="Input.Code" class="form-control" autocomplete="off" placeholder="Enter the code" />
-                                <label for="Input.Code" class="control-label form-label">Verification Code</label>
-                                <ValidationMessage For="() => Input.Code" class="text-danger" />
-                            </div>
-                            <button type="submit" class="w-100 btn btn-lg btn-primary">Verify</button>
-                            <ValidationSummary class="text-danger" role="alert" />
-                        </EditForm>
-                    </div>
-                </div>
-            </li>
-        </ol>
-    </div>
-}
+<RadzenStack Gap="1.5rem">
+    <RadzenText Text="Authenticator App Configuration" TextStyle="TextStyle.H5" Class="rz-m-0 rz-color-primary" />
+
+    @if (recoveryCodes is not null)
+    {
+        <ShowRecoveryCodes RecoveryCodes="recoveryCodes.ToArray()" StatusMessage="@message" />
+    }
+    else
+    {
+        <StatusMessage Message="@message" />
+        
+        <RadzenCard Class="rz-shadow-3 rz-p-6" Style="border-radius: 12px;">
+            <RadzenStack Gap="2rem">
+                <RadzenText Text="Follow these steps to synchronize your authenticator terminal:" TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+
+                <RadzenStack Gap="1.5rem">
+                    <!-- Step 1 -->
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Gap="1rem">
+                        <RadzenBadge Text="1" BadgeStyle="BadgeStyle.Primary" IsPill="true" Style="font-size: 1.25rem; padding: 0.5rem 1rem;" />
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenText Text="Download Authenticator Application" TextStyle="TextStyle.Subtitle1" Class="rz-font-weight-bold" />
+                            <RadzenText TextStyle="TextStyle.Body2">
+                                Install a trusted two-factor authenticator like Microsoft Authenticator for
+                                <RadzenLink Path="https://go.microsoft.com/fwlink/?Linkid=825072" Text="Android" Target="_blank" /> or
+                                <RadzenLink Path="https://go.microsoft.com/fwlink/?Linkid=825073" Text="iOS" Target="_blank" />.
+                                Alternatively, use Google Authenticator for
+                                <RadzenLink Path="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en" Text="Android" Target="_blank" /> or
+                                <RadzenLink Path="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8" Text="iOS" Target="_blank" />.
+                            </RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+
+                    <!-- Step 2 -->
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Gap="1rem">
+                        <RadzenBadge Text="2" BadgeStyle="BadgeStyle.Primary" IsPill="true" Style="font-size: 1.25rem; padding: 0.5rem 1rem;" />
+                        <RadzenStack Gap="1rem" Class="rz-w-100">
+                            <RadzenText Text="Synchronize Terminal" TextStyle="TextStyle.Subtitle1" Class="rz-font-weight-bold" />
+                            <RadzenText TextStyle="TextStyle.Body2">
+                                Scan the QR Code below or manually input this key into your authenticator app:
+                            </RadzenText>
+                            
+                            <RadzenCard Variant="Variant.Flat" Class="rz-background-color-info-lighter rz-p-3 rz-text-align-center">
+                                <RadzenText Text="@sharedKey" TextStyle="TextStyle.H5" Class="rz-m-0 rz-font-family-monospace Rz-color-info-dark" />
+                            </RadzenCard>
+
+                             <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Text" Shade="Shade.Lighter" AllowClose="false" Icon="qr_code_scanner">
+                                <RadzenText Text="Visual Synchronization Protocol (QR Code)" TextStyle="TextStyle.Subtitle2" />
+                            </RadzenAlert>
+                            
+                            <div data-url="@authenticatorUri" style="width: 200px; height: 200px; margin: 0 auto; background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid var(--rz-border-color);"></div>
+                        </RadzenStack>
+                    </RadzenStack>
+
+                    <!-- Step 3 -->
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Gap="1rem">
+                        <RadzenBadge Text="3" BadgeStyle="BadgeStyle.Primary" IsPill="true" Style="font-size: 1.25rem; padding: 0.5rem 1rem;" />
+                        <RadzenStack Gap="1rem" Class="rz-w-100">
+                            <RadzenText Text="Verify Synchronization" TextStyle="TextStyle.Subtitle1" Class="rz-font-weight-bold" />
+                            <RadzenText TextStyle="TextStyle.Body2">
+                                Enter the unique verification code generated by your app to finalize the orchestration.
+                            </RadzenText>
+
+                            <EditForm Model="Input" FormName="send-code" OnValidSubmit="OnValidSubmitAsync" method="post">
+                                <DataAnnotationsValidator />
+                                <ValidationSummary class="rz-color-danger" role="alert" />
+                                <RadzenStack Gap="1rem">
+                                    <RadzenStack Gap="0.5rem">
+                                        <RadzenLabel Text="Verification Token" Component="Input.Code" TextStyle="TextStyle.Subtitle2" />
+                                        <RadzenTextBox @bind-Value="Input.Code" Name="Input.Code" Class="rz-w-100" 
+                                                       Style="height: 3rem; border-radius: 8px; font-family: monospace; font-size: 1.2rem; letter-spacing: 2px;" 
+                                                       autocomplete="off" placeholder="000 000" />
+                                        <ValidationMessage For="() => Input.Code" Class="rz-color-danger" Style="font-size: 0.75rem;" />
+                                    </RadzenStack>
+                                    
+                                    <RadzenButton ButtonType="ButtonType.Submit" Text="Verify & Activate" 
+                                                  ButtonStyle="ButtonStyle.Primary" Icon="verified_user" 
+                                                  Class="rz-w-100" Style="height: 3rem; border-radius: 8px; font-weight: bold;" />
+                                </RadzenStack>
+                            </EditForm>
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+    }
+</RadzenStack>
+
+<script type="text/javascript" src="@Assets["/lib/qrcode.js/qrcode.js"]"></script>
+<script type="text/javascript">
+    window.addEventListener('load', (event) => {
+        const uri = document.querySelector('[data-url]').getAttribute('data-url');
+        new QRCode(document.querySelector('[data-url]'), {
+            text: uri,
+            width: 150,
+            height: 150
+        });
+    });
+</script>
 
 @code {
     private const string AuthenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
@@ -168,7 +216,7 @@ else
         return string.Format(
             CultureInfo.InvariantCulture,
             AuthenticatorUriFormat,
-            UrlEncoder.Encode("Microsoft.AspNetCore.Identity.UI"),
+            UrlEncoder.Encode("Antigravity Hospital"),
             UrlEncoder.Encode(email),
             unformattedKey);
     }

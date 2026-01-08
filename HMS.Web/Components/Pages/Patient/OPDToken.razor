@@ -7,43 +7,87 @@
 @inject PatientRepository PatientRepo
 @inject AuthenticationStateProvider AuthStateProvider
 
-<div class="container text-center mt-5">
-    <div class="card shadow" style="max-width: 400px; margin: 0 auto;">
-        <div class="card-header bg-success text-white">
-            <h4>Digital OPD Token</h4>
-        </div>
-        <div class="card-body">
+<PageTitle>Digital OPD Token | Antigravity</PageTitle>
+
+<RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Style="min-height: 80vh; padding: 2rem;">
+    <RadzenCard Class="rz-shadow-5 rz-p-0" Style="width: 100%; max-width: 400px; border-radius: 24px; overflow: hidden; background: white;">
+        <RadzenStack Gap="0" Class="rz-background-color-success rz-p-6 rz-text-align-center">
+            <RadzenIcon Icon="qr_code_2" Style="font-size: 3rem; color: white;" />
+            <RadzenText Text="Antigravity OPD Token" TextStyle="TextStyle.H5" Class="rz-m-0" Style="color: white; letter-spacing: 1px;" />
+            <RadzenText Text="VIRTUAL CLINICAL IDENTITY" TextStyle="TextStyle.Overline" Style="color: rgba(255,255,255,0.8);" />
+        </RadzenStack>
+
+        <RadzenStack Gap="2rem" Class="rz-p-8 rz-text-align-center">
             @if (todayAppointment == null)
             {
-                <p>No appointment scheduled for today.</p>
-                <a href="/patient/appointments" class="btn btn-primary">Book Now</a>
+                <RadzenStack Gap="1.5rem" AlignItems="AlignItems.Center">
+                    <RadzenIcon Icon="calendar_today" Style="font-size: 4rem; color: var(--rz-text-disabled-color);" />
+                    <RadzenText Text="No clinical orchestrations planned for today." TextStyle="TextStyle.Subtitle1" Class="rz-color-text-secondary" />
+                    <RadzenButton Text="Orchestrate Booking" Icon="add_circle" ButtonStyle="ButtonStyle.Primary" Click="@(() => NavigationManager.NavigateTo("/patient/appointments"))" />
+                </RadzenStack>
             }
             else
             {
-                <h5 class="card-title">Token #@todayAppointment.AppointmentId</h5>
-                <h2 class="display-4 text-primary">@((todayAppointment.AppointmentId % 50) + 1)</h2> 
-                <!-- Mocking Queue Number logic -->
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="@($"Token Registry #{todayAppointment.AppointmentId}")" TextStyle="TextStyle.Caption" Class="rz-color-text-disabled" />
+                    <RadzenText Text="@(((todayAppointment.AppointmentId % 50) + 1).ToString("00"))" 
+                                TextStyle="TextStyle.DisplayH2" 
+                                Class="rz-m-0 rz-color-primary rz-font-weight-black" 
+                                Style="line-height: 1; margin-top: 0.5rem !important;" />
+                    <RadzenText Text="QUEUE POSITION" TextStyle="TextStyle.Overline" Class="rz-color-primary" />
+                </RadzenStack>
                 
-                <p class="card-text mt-3">
-                    <strong>Doctor:</strong> @todayAppointment.DoctorName<br/>
-                    <strong>Dep:</strong> @todayAppointment.DepartmentName<br/>
-                    <strong>Time:</strong> @todayAppointment.AppointmentDate.ToShortTimeString()
-                </p>
+                <RadzenCard Variant="Variant.Flat" Class="rz-background-color-base-100 rz-p-4" Style="border: 1px solid var(--rz-border-color-light); border-radius: 12px;">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenRow>
+                            <RadzenColumn Size="4" Class="rz-text-align-left">
+                                <RadzenText Text="PHYSICIAN" TextStyle="TextStyle.Caption" Class="rz-color-text-disabled" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="8" Class="rz-text-align-right">
+                                <RadzenText Text="@todayAppointment.DoctorName" TextStyle="TextStyle.Body2" Class="rz-font-weight-bold" />
+                            </RadzenColumn>
+                        </RadzenRow>
+                        <RadzenRow>
+                            <RadzenColumn Size="4" Class="rz-text-align-left">
+                                <RadzenText Text="CLINIC" TextStyle="TextStyle.Caption" Class="rz-color-text-disabled" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="8" Class="rz-text-align-right">
+                                <RadzenText Text="@todayAppointment.DepartmentName" TextStyle="TextStyle.Body2" />
+                            </RadzenColumn>
+                        </RadzenRow>
+                        <RadzenRow>
+                            <RadzenColumn Size="4" Class="rz-text-align-left">
+                                <RadzenText Text="SCHEDULED" TextStyle="TextStyle.Caption" Class="rz-color-text-disabled" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="8" Class="rz-text-align-right">
+                                <RadzenText Text="@todayAppointment.AppointmentDate.ToShortTimeString()" TextStyle="TextStyle.Body2" Class="rz-color-success" />
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenStack>
+                </RadzenCard>
 
-                <div class="qr-code-placeholder bg-light p-3 my-3 border">
-                    [ QR CODE SCANNER ]
-                    <br/>
-                    <small>Scan at reception</small>
-                </div>
+                <RadzenStack Gap="1rem" Class="rz-p-6 rz-border-radius-2" Style="background: #f8f9fa; border: 2px dashed #dee2e6;">
+                    <RadzenIcon Icon="qr_code" Style="font-size: 5rem; color: #343a40;" />
+                    <RadzenText Text="VALIDATION PENDING" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary rz-font-weight-bold" />
+                    <RadzenText Text="Present this terminal at the clinical reception for synchronization." TextStyle="TextStyle.Overline" />
+                </RadzenStack>
                 
-                <button class="btn btn-success btn-block">Check In</button>
+                <RadzenButton Text="Initiate Clinical Check-In" 
+                              Icon="check_circle" 
+                              ButtonStyle="ButtonStyle.Success" 
+                              Size="ButtonSize.Large"
+                              Class="rz-w-100 rz-mt-4" 
+                              Style="height: 3.5rem; border-radius: 12px; font-weight: bold;" />
             }
-        </div>
-        <div class="card-footer text-muted">
-            Avoid the queue. Show this screen.
-        </div>
-    </div>
-</div>
+        </RadzenStack>
+        
+        <RadzenStack Gap="0" Class="rz-background-color-base-200 rz-p-4 rz-text-align-center">
+            <RadzenText Text="Circumvent traditional queues. Present digital credentials upon arrival." 
+                        TextStyle="TextStyle.Caption" 
+                        Class="rz-color-text-secondary" />
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>
 
 @code {
     private Appointment? todayAppointment;
@@ -52,12 +96,14 @@
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationStateTask { get; set; }
 
+    @inject NavigationManager NavigationManager
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateTask;
         var user = authState.User;
 
-        if (user.Identity.IsAuthenticated)
+        if (user.Identity?.IsAuthenticated == true)
         {
             var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId != null)
@@ -66,7 +112,6 @@
                 if (patient != null)
                 {
                     var allAppts = AppointmentRepo.GetAppointmentsByPatientId(patient.PatientId);
-                    // Find one for today
                     todayAppointment = allAppts.FirstOrDefault(a => a.AppointmentDate.Date == DateTime.Today);
                 }
             }

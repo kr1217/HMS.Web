@@ -1,31 +1,78 @@
 ﻿<script type="module" src="@Assets["Components/Layout/ReconnectModal.razor.js"]"></script>
 
-<dialog id="components-reconnect-modal" data-nosnippet>
-    <div class="components-reconnect-container">
-        <div class="components-rejoining-animation" aria-hidden="true">
-            <div></div>
-            <div></div>
-        </div>
-        <p class="components-reconnect-first-attempt-visible">
-            Rejoining the server...
-        </p>
-        <p class="components-reconnect-repeated-attempt-visible">
-            Rejoin failed... trying again in <span id="components-seconds-to-next-attempt"></span> seconds.
-        </p>
-        <p class="components-reconnect-failed-visible">
-            Failed to rejoin.<br />Please retry or reload the page.
-        </p>
-        <button id="components-reconnect-button" class="components-reconnect-failed-visible">
-            Retry
-        </button>
-        <p class="components-pause-visible">
-            The session has been paused by the server.
-        </p>
-        <button id="components-resume-button" class="components-pause-visible">
-            Resume
-        </button>
-        <p class="components-resume-failed-visible">
-            Failed to resume the session.<br />Please reload the page.
-        </p>
-    </div>
+<dialog id="components-reconnect-modal" data-nosnippet style="border: none; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); padding: 0;">
+    <RadzenStack Gap="1.5rem" Class="rz-p-8 rz-text-align-center" AlignItems="AlignItems.Center" Style="background: white; min-width: 320px;">
+        <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 100px; height: 4px;" />
+        
+        <RadzenStack Gap="0.5rem" Class="components-reconnect-first-attempt-visible">
+            <RadzenIcon Icon="sync" Style="font-size: 2rem; color: var(--rz-primary);" />
+            <RadzenText Text="Synchronizing with Clinical Server..." TextStyle="TextStyle.Subtitle1" Class="rz-m-0" />
+        </RadzenStack>
+
+        <RadzenStack Gap="0.5rem" Class="components-reconnect-repeated-attempt-visible">
+            <RadzenIcon Icon="sync_problem" Style="font-size: 2rem; color: var(--rz-warning);" />
+            <RadzenText Text="Rejoin deferred... retrying in shortly." TextStyle="TextStyle.Subtitle1" Class="rz-m-0" />
+            <RadzenText TextStyle="TextStyle.Caption" Class="rz-color-text-secondary">
+                Retry in <span id="components-seconds-to-next-attempt" class="rz-font-weight-bold"></span>s
+            </RadzenText>
+        </RadzenStack>
+
+        <RadzenStack Gap="1rem" Class="components-reconnect-failed-visible" AlignItems="AlignItems.Center">
+            <RadzenIcon Icon="error_outline" Style="font-size: 2rem; color: var(--rz-danger);" />
+            <RadzenText Text="Connectivity Interrupted" TextStyle="TextStyle.Subtitle1" Class="rz-m-0 rz-color-danger" />
+            <RadzenText Text="The connection to the hospital orchestration engine has failed." TextStyle="TextStyle.Caption" />
+            <RadzenButton id="components-reconnect-button" Text="Initiate Reconnect" Icon="refresh" ButtonStyle="ButtonStyle.Primary" />
+        </RadzenStack>
+
+        <RadzenStack Gap="1rem" Class="components-pause-visible" AlignItems="AlignItems.Center">
+            <RadzenIcon Icon="pause_circle" Style="font-size: 2rem; color: var(--rz-info);" />
+            <RadzenText Text="Clinical Session Paused" TextStyle="TextStyle.Subtitle1" Class="rz-m-0" />
+            <RadzenButton id="components-resume-button" Text="Resume Orchestration" Icon="play_arrow" ButtonStyle="ButtonStyle.Info" />
+        </RadzenStack>
+
+        <RadzenStack Gap="0.5rem" Class="components-resume-failed-visible">
+            <RadzenIcon Icon="dangerous" Style="font-size: 2rem; color: var(--rz-danger);" />
+            <RadzenText Text="Session Invalidated" TextStyle="TextStyle.Subtitle1" Class="rz-m-0 rz-color-danger" />
+            <RadzenText Text="Please perform a manual reload to re-orchestrate the clinical environment." TextStyle="TextStyle.Caption" />
+        </RadzenStack>
+    </RadzenStack>
 </dialog>
+
+<style>
+    #components-reconnect-modal::backdrop {
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(4px);
+    }
+
+    #components-reconnect-modal .components-reconnect-first-attempt-visible,
+    #components-reconnect-modal .components-reconnect-repeated-attempt-visible,
+    #components-reconnect-modal .components-reconnect-failed-visible,
+    #components-reconnect-modal .components-pause-visible,
+    #components-reconnect-modal .components-resume-failed-visible {
+        display: none;
+    }
+
+    #components-reconnect-modal.components-reconnect-show .components-reconnect-first-attempt-visible {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    #components-reconnect-modal.components-reconnect-repeated .components-reconnect-repeated-attempt-visible {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    #components-reconnect-modal.components-reconnect-failed .components-reconnect-failed-visible {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    #components-reconnect-modal.components-reconnect-rejected .components-resume-failed-visible {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+</style>

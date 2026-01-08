@@ -16,33 +16,47 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<ExternalLogin> Logger
 
-<PageTitle>Register</PageTitle>
+<PageTitle>Clinical Federation | Enrollment</PageTitle>
 
-<StatusMessage Message="@message" />
-<h1>Register</h1>
-<h2>Associate your @ProviderDisplayName account.</h2>
-<hr />
+<RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Style="min-height: 100vh; padding: 2rem; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+    <RadzenCard Class="rz-shadow-4 rz-p-8 rz-p-md-12" Style="width: 100%; max-width: 600px; border-radius: 20px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);">
+        <RadzenStack Gap="2rem">
+            <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenIcon Icon="hub" Style="font-size: 4rem; color: var(--rz-primary);" />
+                <RadzenText Text="Antigravity Hospital" TextStyle="TextStyle.H4" Class="rz-m-0 rz-font-weight-black rz-color-primary" />
+                <RadzenText Text="Clinical Federation Enrollment" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+            </RadzenStack>
 
-<div  class="alert alert-info">
-    You've successfully authenticated with <strong>@ProviderDisplayName</strong>.
-    Please enter an email address for this site below and click the Register button to finish
-    logging in.
-</div>
+            <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="check_circle">
+                <RadzenText Text="Federation Successful" TextStyle="TextStyle.Subtitle2" Class="rz-font-weight-bold" />
+                <RadzenText Text="@($"You have successfully authenticated with {ProviderDisplayName}. Please associate an institutional email to complete your enrollment.")" TextStyle="TextStyle.Caption" />
+            </RadzenAlert>
 
-<div class="row">
-    <div class="col-md-4">
-        <EditForm Model="Input" OnValidSubmit="OnValidSubmitAsync" FormName="confirmation" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="email" placeholder="Please enter your email." />
-                <label for="Input.Email" class="form-label">Email</label>
-                <ValidationMessage For="() => Input.Email" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
-        </EditForm>
-    </div>
-</div>
+            <StatusMessage Message="@message" />
+
+            <EditForm Model="Input" OnValidSubmit="OnValidSubmitAsync" FormName="confirmation" method="post">
+                <DataAnnotationsValidator />
+                <RadzenStack Gap="1.5rem">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenLabel Text="Institutional Email Identifier" Component="Input.Email" TextStyle="TextStyle.Subtitle2" />
+                        <RadzenTextBox @bind-Value="Input.Email" Name="Input.Email" Class="rz-w-100" 
+                                       Style="height: 3rem; border-radius: 8px;" 
+                                       autocomplete="email" placeholder="Enter institutional email..." />
+                        <ValidationMessage For="() => Input.Email" Class="rz-color-danger" Style="font-size: 0.75rem;" />
+                    </RadzenStack>
+
+                    <RadzenButton ButtonType="ButtonType.Submit" Text="Complete Enrollment" 
+                                  ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" Icon="assignment_turned_in"
+                                  Class="rz-w-100 rz-mt-4" Style="height: 3.5rem; border-radius: 12px; font-weight: bold;" />
+
+                    <RadzenStack AlignItems="AlignItems.Center" Class="rz-mt-4">
+                        <RadzenLink Path="Account/Login" Text="Return to Authorization Gateway" Icon="arrow_back" TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
+                </RadzenStack>
+            </EditForm>
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>
 
 @code {
     public const string LoginCallbackAction = "LoginCallback";

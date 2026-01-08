@@ -11,64 +11,84 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Log in</PageTitle>
+<PageTitle>Clinical Gateway | Authorization</PageTitle>
 
-<h1>Log in</h1>
-<div class="row">
-    <div class="col-lg-6">
-        <section>
-            <StatusMessage Message="@errorMessage" />
-            <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
-                <DataAnnotationsValidator />
-                <h2>Use a local account to log in.</h2>
-                <hr />
-                <ValidationSummary class="text-danger" role="alert" />
-                <div class="form-floating mb-3">
-                    <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control"
-                        autocomplete="username webauthn" aria-required="true" placeholder="name@example.com" />
-                    <label for="Input.Email" class="form-label">Email</label>
-                    <ValidationMessage For="() => Input.Email" class="text-danger" />
-                </div>
-                <div class="form-floating mb-3">
-                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control"
-                        autocomplete="current-password" aria-required="true" placeholder="password" />
-                    <label for="Input.Password" class="form-label">Password</label>
-                    <ValidationMessage For="() => Input.Password" class="text-danger" />
-                </div>
-                <div class="checkbox mb-3">
-                    <label class="form-label">
-                        <InputCheckbox @bind-Value="Input.RememberMe" class="darker-border-checkbox form-check-input" />
-                        Remember me
-                    </label>
-                </div>
-                <div>
-                    <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
-                </div>
-                <hr />
-                <div class="d-flex flex-column">
-                    <span class="text-secondary mx-auto mt-2">OR</span>
+<RadzenCard Class="rz-shadow-4 rz-p-8 rz-p-md-12"
+    Style="width: 100%; max-width: 500px; border-radius: 20px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);">
+    <RadzenStack Gap="2rem">
+        <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+            <RadzenIcon Icon="health_and_safety" Style="font-size: 4rem; color: var(--rz-primary);" />
+            <RadzenText Text="Antigravity Hospital" TextStyle="TextStyle.H4"
+                Class="rz-m-0 rz-font-weight-black rz-color-primary" />
+            <RadzenText Text="Clinical Orchestration Gateway" TextStyle="TextStyle.Caption"
+                Class="rz-color-text-secondary" />
+        </RadzenStack>
+
+        <StatusMessage Message="@errorMessage" />
+
+        <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
+            <DataAnnotationsValidator />
+            <RadzenStack Gap="1.5rem">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenLabel Text="Institutional Email" Component="Input.Email" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenTextBox @bind-Value="Input.Email" Name="Input.Email" Class="rz-w-100"
+                        Style="height: 3rem; border-radius: 8px;" autocomplete="username webauthn"
+                        aria-required="true" />
+                    <ValidationMessage For="() => Input.Email" Class="rz-color-danger rz-text-align-left"
+                        Style="font-size: 0.75rem;" />
+                </RadzenStack>
+
+                <RadzenStack Gap="0.5rem">
+                    <RadzenLabel Text="Security Key" Component="Input.Password" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenPassword Name="Input.Password" @bind-Value="Input.Password" Class="rz-w-100"
+                        Style="height: 3rem; border-radius: 8px;" AutoComplete="true" aria-required="true" />
+                    <ValidationMessage For="() => Input.Password" Class="rz-color-danger rz-text-align-left"
+                        Style="font-size: 0.75rem;" />
+                </RadzenStack>
+
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenCheckBox @bind-Value="Input.RememberMe" Name="RememberMe" />
+                    <RadzenLabel Text="Maintain terminal session" Component="RememberMe" TextStyle="TextStyle.Body2" />
+                </RadzenStack>
+
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Authorize Access" ButtonStyle="ButtonStyle.Primary"
+                    Size="ButtonSize.Large" Icon="vpn_key" Class="rz-w-100 rz-mt-4"
+                    Style="height: 3.5rem; border-radius: 12px; font-weight: bold; font-size: 1.1rem;" />
+
+                <RadzenStack AlignItems="AlignItems.Center" Class="rz-mt-4">
+                    <RadzenText Text="SECURE ORCHESTRATION" TextStyle="TextStyle.Overline"
+                        Class="rz-color-text-disabled" />
                     <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email"
-                        class="btn btn-link mx-auto">Log in with a passkey</PasskeySubmit>
-                </div>
-                <hr />
-                <div>
-                    <p>
-                        <a href="Account/ForgotPassword">Forgot your password?</a>
-                    </p>
-                    <p>
-                        <a
-                            href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">Register
-                            as a new user</a>
-                    </p>
-                    <p>
-                        <a href="Account/ResendEmailConfirmation">Resend email confirmation</a>
-                    </p>
-                </div>
-            </EditForm>
-        </section>
-    </div>
+                        class="rz-button rz-button-md rz-variant-text rz-light rz-text-align-center rz-w-100">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                            JustifyContent="JustifyContent.Center" Gap="0.5rem">
+                            <RadzenIcon Icon="fingerprint" />
+                            <span style="font-size: 0.9rem;">Authorize via Biometric Passkey</span>
+                        </RadzenStack>
+                    </PasskeySubmit>
+                </RadzenStack>
 
-</div>
+                <RadzenStack Gap="1rem" Class="rz-mt-8 rz-pt-6 rz-border-top">
+                    <RadzenRow>
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenLink Path="Account/ForgotPassword" Text="Recover Key" Icon="lock_reset"
+                                TextStyle="TextStyle.Caption" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="6" Class="rz-text-align-md-right">
+                            <RadzenLink
+                                Path="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))"
+                                Text="New Personnel Registration" Icon="person_add" TextStyle="TextStyle.Caption" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenStack AlignItems="AlignItems.Center">
+                        <RadzenLink Path="Account/ResendEmailConfirmation" Text="Resend Confirmation Token" Icon="email"
+                            TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenStack>
+        </EditForm>
+    </RadzenStack>
+</RadzenCard>
 
 @code {
     private string? errorMessage;
@@ -127,16 +147,35 @@
         if (result.Succeeded)
         {
             Logger.LogInformation("User logged in.");
-            if (string.IsNullOrEmpty(ReturnUrl) || ReturnUrl == "/")
+
+            // Always redirect based on user role, ignoring cached ReturnUrl from previous sessions
+            var user = await UserManager.FindByEmailAsync(Input.Email);
+            if (user != null)
             {
-                var user = await UserManager.FindByEmailAsync(Input.Email);
-                if (user != null)
+                // Check if ReturnUrl is a dashboard page from a different role
+                var isDashboardUrl = !string.IsNullOrEmpty(ReturnUrl) &&
+                (ReturnUrl.Contains("/dashboard", StringComparison.OrdinalIgnoreCase) ||
+                ReturnUrl.Contains("/admin", StringComparison.OrdinalIgnoreCase) ||
+                ReturnUrl.Contains("/doctor", StringComparison.OrdinalIgnoreCase) ||
+                ReturnUrl.Contains("/patient", StringComparison.OrdinalIgnoreCase) ||
+                ReturnUrl.Contains("/teller", StringComparison.OrdinalIgnoreCase) ||
+                ReturnUrl.Contains("/ot-staff", StringComparison.OrdinalIgnoreCase));
+
+                // If ReturnUrl is empty, "/", or points to a dashboard, use role-based routing
+                if (string.IsNullOrEmpty(ReturnUrl) || ReturnUrl == "/" || isDashboardUrl)
                 {
-                    if (await UserManager.IsInRoleAsync(user, "Admin")) ReturnUrl = "admin/dashboard";
-                    else if (await UserManager.IsInRoleAsync(user, "Doctor")) ReturnUrl = "doctor/dashboard";
-                    else if (await UserManager.IsInRoleAsync(user, "Patient")) ReturnUrl = "patient/dashboard";
-                    else if (await UserManager.IsInRoleAsync(user, "Teller")) ReturnUrl = "teller/dashboard";
-                    else if (await UserManager.IsInRoleAsync(user, "OTStaff")) ReturnUrl = "ot-staff/dashboard";
+                    if (await UserManager.IsInRoleAsync(user, "Admin"))
+                        ReturnUrl = "admin/dashboard";
+                    else if (await UserManager.IsInRoleAsync(user, "Doctor"))
+                        ReturnUrl = "doctor/dashboard";
+                    else if (await UserManager.IsInRoleAsync(user, "Patient"))
+                        ReturnUrl = "patient/dashboard";
+                    else if (await UserManager.IsInRoleAsync(user, "Teller"))
+                        ReturnUrl = "teller/dashboard";
+                    else if (await UserManager.IsInRoleAsync(user, "OTStaff"))
+                        ReturnUrl = "ot-staff/dashboard";
+                    else
+                        ReturnUrl = "/"; // Fallback to home
                 }
             }
             RedirectManager.RedirectTo(ReturnUrl);
@@ -154,7 +193,7 @@
         }
         else
         {
-            errorMessage = "Error: Invalid login attempt.";
+            errorMessage = "Error: Invalid login credentials orchestrated.";
         }
     }
 

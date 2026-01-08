@@ -8,26 +8,34 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<ResetAuthenticator> Logger
 
-<PageTitle>Reset authenticator key</PageTitle>
+<PageTitle>Security Orchestration | Reset Authenticator</PageTitle>
 
-<StatusMessage />
-<h3>Reset authenticator key</h3>
-<div class="alert alert-warning" role="alert">
-    <p>
-        <span class="glyphicon glyphicon-warning-sign"></span>
-        <strong>If you reset your authenticator key your authenticator app will not work until you reconfigure it.</strong>
-    </p>
-    <p>
-        This process disables 2FA until you verify your authenticator app.
-        If you do not complete your authenticator app configuration you may lose access to your account.
-    </p>
-</div>
-<div>
-    <form @formname="reset-authenticator" @onsubmit="OnSubmitAsync" method="post">
-        <AntiforgeryToken />
-        <button class="btn btn-danger" type="submit">Reset authenticator key</button>
-    </form>
-</div>
+<RadzenStack Gap="1.5rem">
+    <RadzenText Text="Reset Authenticator Protocol" TextStyle="TextStyle.H5" Class="rz-m-0 rz-color-primary" />
+    <StatusMessage />
+
+    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false"
+        Icon="lock_reset">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Critical Re-synchronization Notice" TextStyle="TextStyle.Subtitle2"
+                Class="rz-font-weight-bold" />
+            <RadzenText
+                Text="Resetting the authenticator key will immediately sever the link with your current device. You must re-configure your authenticator app to restore access."
+                TextStyle="TextStyle.Body2" />
+            <RadzenText
+                Text="This action temporarily disables 2FA safeguards. Failure to complete re-configuration may result in account inaccessibility."
+                TextStyle="TextStyle.Caption" Class="rz-mt-2" />
+        </RadzenStack>
+    </RadzenAlert>
+
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Class="rz-mt-4">
+        <form @formname="reset-authenticator" @onsubmit="OnSubmitAsync" method="post">
+            <AntiforgeryToken />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Confirm Key Reset" Icon="published_with_changes"
+                ButtonStyle="ButtonStyle.Danger" Variant="Variant.Filled" />
+        </form>
+    </RadzenStack>
+</RadzenStack>
 
 @code {
     [CascadingParameter]
@@ -50,8 +58,8 @@
         await SignInManager.RefreshSignInAsync(user);
 
         RedirectManager.RedirectToWithStatus(
-            "Account/Manage/EnableAuthenticator",
-            "Your authenticator app key has been reset, you will need to configure your authenticator app using the new key.",
-            HttpContext);
+        "Account/Manage/EnableAuthenticator",
+        "Your authenticator protocol has been reset. Immediate re-configuration is required to restore safeguards.",
+        HttpContext);
     }
 }

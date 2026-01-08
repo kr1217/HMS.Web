@@ -6,71 +6,77 @@
 @inject NotificationRepository NotificationRepo
 @inject PatientRepository PatientRepo
 @inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
 
-<div class="notification-panel" style="min-width: 250px;">
-    <div class="dropdown">
-        <button class="btn btn-link dropdown-toggle text-dark text-decoration-none" type="button"
-            id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-            <RadzenIcon Icon="notifications" />
-            @if (notifications != null && notifications.Any(n => !n.IsRead))
-            {
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                    @notifications.Count(n => !n.IsRead)
-                </span>
-            }
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="notificationDropdown"
-            style="width: 300px; max-height: 400px; overflow-y: auto;">
-            <li>
-                <h6 class="dropdown-header">Notifications</h6>
-            </li>
-            @if (notifications == null)
-            {
-                <li>
-                    <p class="dropdown-item text-muted">Loading...</p>
-                </li>
-            }
-            else if (!notifications.Any())
-            {
-                <li>
-                    <p class="dropdown-item text-muted">No new notifications.</p>
-                </li>
-            }
-            else
-            {
-                @foreach (var note in notifications)
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Style="position: relative;">
+    <RadzenButton Icon="notifications" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" 
+                  Click="@ToggleDropdown" Class="rz-p-2" Style="position: relative;">
+        @if (notifications != null && notifications.Any(n => !n.IsRead))
+        {
+            <RadzenBadge Text="@notifications.Count(n => !n.IsRead).ToString()" BadgeStyle="BadgeStyle.Danger" IsPill="true" 
+                         Style="position: absolute; top: 0; right: 0; transform: translate(50%, -50%);" />
+        }
+    </RadzenButton>
+
+    @if (ShowDropdown)
+    {
+        <RadzenCard Class="rz-shadow-4 rz-p-0" 
+                    Style="position: absolute; top: 100%; right: 0; width: 300px; max-height: 400px; z-index: 1000; overflow: hidden; border-radius: 12px; margin-top: 8px;">
+            <RadzenStack Class="rz-p-4 rz-background-color-base-100 rz-border-bottom">
+                <RadzenText Text="Notifications" TextStyle="TextStyle.Subtitle1" Class="rz-m-0 rz-font-weight-bold" />
+            </RadzenStack>
+
+            <RadzenStack Gap="0" Style="overflow-y: auto; max-height: 340px;">
+                @if (notifications == null)
                 {
-                    <li>
-                        @{
-                            string link = "patient/appointments";
-                            if (note.Title.Contains("Prescription", StringComparison.OrdinalIgnoreCase))
-                            {
-                                link = "patient/prescriptions";
-                            }
-                            else if (note.Title.Contains("Bill", StringComparison.OrdinalIgnoreCase))
-                            {
-                                link = "patient/bills";
-                            }
-                        }
-                        <a href="@link" class="dropdown-item @(note.IsRead ? "" : "bg-light")">
-                            <div class="d-flex justify-content-between">
-                                <strong>@note.Title</strong>
-                                <small class="text-muted">@note.CreatedDate.ToShortDateString()</small>
-                            </div>
-                            <p class="mb-0 small text-wrap">@note.Message</p>
-                        </a>
-                    </li>
-                    <li>
-                        <hr class="dropdown-divider">
-                    </li>
+                    <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-8">
+                        <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 100px;" />
+                        <RadzenText Text="Loading..." TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
                 }
-            }
-        </ul>
-    </div>
-</div>
+                else if (!notifications.Any())
+                {
+                    <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-8">
+                        <RadzenText Text="No new notifications" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                    </RadzenStack>
+                }
+                else
+                {
+                    @foreach (var note in notifications)
+                    {
+                        string link = "patient/appointments";
+                        if (note.Title.Contains("Prescription", StringComparison.OrdinalIgnoreCase))
+                        {
+                            link = "patient/prescriptions";
+                        }
+                        else if (note.Title.Contains("Bill", StringComparison.OrdinalIgnoreCase))
+                        {
+                            link = "patient/bills";
+                        }
+
+                        <RadzenLink Path="@link" Class="rz-text-decoration-none">
+                            <RadzenStack Gap="0.25rem" Class="@(note.IsRead ? "rz-p-4" : "rz-p-4 rz-background-color-info-lighter")"
+                                         Style="@(note.IsRead ? "" : "border-left: 4px solid var(--rz-info);")">
+                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                    <RadzenText Text="@note.Title" TextStyle="TextStyle.Subtitle2" Class="rz-m-0 rz-font-weight-bold rz-color-text" />
+                                    <RadzenText Text="@note.CreatedDate.ToShortDateString()" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                                </RadzenStack>
+                                <RadzenText Text="@note.Message" TextStyle="TextStyle.Caption" Class="rz-m-0 rz-color-text-secondary text-wrap" />
+                            </RadzenStack>
+                        </RadzenLink>
+                        <RadzenStack Style="height: 1px; background: var(--rz-border-color-light);" />
+                    }
+                }
+            </RadzenStack>
+        </RadzenCard>
+    }
+</RadzenStack>
 
 @code {
     private List<Notification>? notifications;
+    private bool ShowDropdown = false;
+
+    private void ToggleDropdown() => ShowDropdown = !ShowDropdown;
 
     [CascadingParameter]
     private Task<AuthenticationState>? AuthenticationStateTask { get; set; }

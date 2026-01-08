@@ -1,0 +1,134 @@
+@page "/doctor/patients"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Doctor")]
+@inject PatientRepository PatientRepo
+@inject NavigationManager Navigation
+@using HMS.Web.Models
+@using HMS.Web.DAL
+
+<PageTitle>Patient Records | Clinical Portal</PageTitle>
+
+<RadzenStack Gap="1.5rem" Class="rz-p-4 rz-p-md-6">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="Patient Registry & Records" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="Search and review clinical histories of all registered patients." TextStyle="TextStyle.Body1"
+            Class="rz-color-text-secondary" />
+    </RadzenStack>
+
+    <RadzenCard Class="rz-shadow-4" Style="border-radius: 12px; border: 1px solid var(--rz-border-color-lighter);">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1.5rem"
+            Class="rz-mb-6 rz-p-2">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem"
+                Style="flex-grow: 1;">
+                <RadzenIcon Icon="search" Style="font-size: 1.5rem; color: var(--rz-primary);" />
+                <RadzenTextBox Placeholder="Search by Identity (Name, Contact, or Document Number)..."
+                    @bind-Value="searchTerm" @oninput="@OnSearchInput" Style="width: 100%; border-radius: 8px;" />
+            </RadzenStack>
+            <RadzenButton Icon="sync" Text="Clear & Refresh" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat"
+                Click="@ResetGrid" />
+        </RadzenStack>
+
+        <RadzenDataGrid @ref="grid" TItem="Patient" Data="@patients" Count="@count" LoadData="@LoadData"
+            IsLoading="@isLoading" AllowFiltering="true" AllowPaging="true" PageSize="15" AllowSorting="true"
+            FilterMode="FilterMode.Simple" RowSelect="@OnPatientSelect" GridLines="DataGridGridLines.None"
+            Class="rz-border-none">
+            <EmptyTemplate>
+                <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+                    <RadzenIcon Icon="no_accounts" Style="font-size: 5rem; color: var(--rz-text-disabled-color);" />
+                    <RadzenText Text="Patient Registry is completely empty." TextStyle="TextStyle.H6"
+                        Class="rz-color-text-secondary rz-m-0" />
+                    <RadzenText Text="If you expect records here, try adjusting your search filters above."
+                        TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+                </RadzenStack>
+            </EmptyTemplate>
+            <Columns>
+                <RadzenDataGridColumn TItem="Patient" Property="PatientId" Title="Reg. ID" Width="100px"
+                    TextAlign="TextAlign.Center">
+                    <Template Context="p">
+                        <RadzenText Text="@($"#PAT-{p.PatientId}")" TextStyle="TextStyle.Overline" Class="rz-m-0" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Patient" Property="FullName" Title="Patient Designation">
+                    <Template Context="p">
+                        <RadzenText Text="@p.FullName" TextStyle="TextStyle.Subtitle2"
+                            Class="rz-m-0 rz-color-primary" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Patient" Property="Gender" Title="Gen." Width="80px" />
+                <RadzenDataGridColumn TItem="Patient" Property="BloodGroup" Title="Blood" Width="80px" />
+                <RadzenDataGridColumn TItem="Patient" Property="ContactNumber" Title="Contact Channel" Width="180px" />
+                <RadzenDataGridColumn TItem="Patient" Title="Clinical History" Sortable="false" Filterable="false"
+                    TextAlign="TextAlign.Right" Width="180px">
+                    <Template Context="patient">
+                        <RadzenButton Text="Access Profile" Icon="account_box" ButtonStyle="ButtonStyle.Primary"
+                            Variant="Variant.Flat" Size="ButtonSize.Small"
+                            Click="@(() => ViewPatientDetails(patient))" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+</RadzenStack>
+
+<RadzenComponents />
+
+@code {
+    RadzenDataGrid<Patient> grid = default!;
+    IEnumerable<Patient> patients = new List<Patient>();
+    int count;
+    bool isLoading = false;
+    string searchTerm = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && grid != null)
+        {
+            await grid.Reload();
+            StateHasChanged();
+        }
+    }
+
+    async Task LoadData(LoadDataArgs args)
+    {
+        isLoading = true;
+
+        var skip = args.Skip ?? 0;
+        var top = args.Top ?? 15;
+        var orderBy = args.OrderBy;
+        if (string.IsNullOrEmpty(orderBy)) orderBy = "FullName";
+
+        patients = PatientRepo.GetPatientsPaged(skip, top, orderBy, searchTerm);
+        count = PatientRepo.GetPatientsCount(searchTerm);
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    void OnSearchInput(ChangeEventArgs args)
+    {
+        searchTerm = args.Value?.ToString() ?? "";
+        grid.Reload();
+    }
+
+    async Task ResetGrid()
+    {
+        searchTerm = "";
+        await grid.Reload();
+    }
+
+    void OnPatientSelect(Patient patient)
+    {
+        if (patient != null)
+        {
+            Navigation.NavigateTo($"/doctor/patient-profile/{patient.PatientId}");
+        }
+    }
+
+    void ViewPatientDetails(Patient patient)
+    {
+        if (patient != null)
+        {
+            Navigation.NavigateTo($"/doctor/patient-profile/{patient.PatientId}");
+        }
+    }
+}

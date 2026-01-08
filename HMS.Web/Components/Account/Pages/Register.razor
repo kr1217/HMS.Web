@@ -16,54 +16,94 @@
 @inject IdentityRedirectManager RedirectManager
 @inject RoleManager<IdentityRole> RoleManager
 
-<PageTitle>Register</PageTitle>
+<PageTitle>Clinical Gateway | Enrollment</PageTitle>
 
-<h1>Register</h1>
+<RadzenCard Class="rz-shadow-6 rz-p-8 rz-p-md-12" Style="width: 100%; max-width: 900px; border-radius: 24px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);">
+    <RadzenStack Gap="2rem">
+        <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+            <RadzenIcon Icon="app_registration" Style="font-size: 4rem; color: var(--rz-primary);" />
+            <RadzenText Text="Antigravity Hospital" TextStyle="TextStyle.H4" Class="rz-m-0 rz-font-weight-black rz-color-primary" />
+            <RadzenText Text="Clinical & Personnel Enrollment Portal" TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-mt-2">
+                <RadzenIcon Icon="verified_user" Style="font-size: 1rem; color: var(--rz-success);" />
+                <RadzenText Text="Secure Registration Gateway" TextStyle="TextStyle.Overline" Class="rz-m-0" />
+            </RadzenStack>
+        </RadzenStack>
 
-<div class="row">
-    <div class="col-lg-6">
         <StatusMessage Message="@Message" />
-        <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
-            <DataAnnotationsValidator />
-            <h2>Create a new account.</h2>
-            <hr />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                <label for="Input.Email">Email</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.Password">Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.ConfirmPassword">Confirm Password</label>
-                <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputSelect @bind-Value="Input.Role" id="Input.Role" class="form-control">
-                    <option value="Patient">Patient</option>
-                    <option value="Doctor">Doctor</option>
-                    <option value="Teller">Teller</option>
-                    <option value="OTStaff">Operation Staff</option>
-                </InputSelect>
-                <label for="Input.Role">Register as</label>
-                <ValidationMessage For="() => Input.Role" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
-        </EditForm>
-    </div>
-    <div class="col-lg-4 col-lg-offset-2">
-        <section>
-            <h3>Use another service to register.</h3>
-            <hr />
-            <ExternalLoginPicker />
-        </section>
-    </div>
-</div>
+
+        <RadzenRow Gap="3rem">
+            <!-- Registration Form -->
+            <RadzenColumn Size="12" SizeMD="7">
+                <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
+                    <DataAnnotationsValidator />
+                    <RadzenStack Gap="1.5rem">
+                        <RadzenText Text="Create Identity" TextStyle="TextStyle.H6" Class="rz-color-primary rz-border-bottom rz-pb-2" />
+                        
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Institutional Email" Component="Input.Email" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenTextBox @bind-Value="Input.Email" Name="Input.Email" Class="rz-w-100" 
+                                           Style="height: 3rem; border-radius: 8px;" 
+                                           autocomplete="username" aria-required="true" Placeholder="name@antigravity.hospital" />
+                            <ValidationMessage For="() => Input.Email" Class="rz-color-danger rz-text-align-left" Style="font-size: 0.75rem;" />
+                        </RadzenStack>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenLabel Text="Security Key" Component="Input.Password" TextStyle="TextStyle.Subtitle2" />
+                                    <RadzenPassword Name="Input.Password" @bind-Value="Input.Password" 
+                                           Class="rz-w-100" 
+                                           Style="height: 3rem; border-radius: 8px;" 
+                                           AutoComplete="true" aria-required="true" />
+                                    <ValidationMessage For="() => Input.Password" Class="rz-color-danger rz-text-align-left" Style="font-size: 0.75rem;" />
+                                </RadzenStack>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="6">
+                                <RadzenStack Gap="0.5rem">
+                                    <RadzenLabel Text="Validate Key" Component="Input.ConfirmPassword" TextStyle="TextStyle.Subtitle2" />
+                                    <RadzenPassword Name="Input.ConfirmPassword" @bind-Value="Input.ConfirmPassword" 
+                                           Class="rz-w-100" 
+                                           Style="height: 3rem; border-radius: 8px;" 
+                                           AutoComplete="true" aria-required="true" />
+                                    <ValidationMessage For="() => Input.ConfirmPassword" Class="rz-color-danger rz-text-align-left" Style="font-size: 0.75rem;" />
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Employee ID (Staff Only)" Component="Input.EmployeeId" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenTextBox @bind-Value="Input.EmployeeId" Name="Input.EmployeeId" Class="rz-w-100" 
+                                           Style="height: 3rem; border-radius: 8px;" 
+                                           Placeholder="Leave empty for Patients (e.g., DR-001, AS-100, OS-500)" />
+                            <RadzenText Text="Input your issued ID to be automatically assigned your operational role." TextStyle="TextStyle.Caption" Class="rz-color-text-secondary rz-font-italic" />
+                            <ValidationMessage For="() => Input.EmployeeId" Class="rz-color-danger rz-text-align-left" Style="font-size: 0.75rem;" />
+                        </RadzenStack>
+
+                        <RadzenButton ButtonType="ButtonType.Submit" Text="Complete Enrollment" 
+                                      ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" Icon="check_circle"
+                                      Class="rz-w-100 rz-mt-2" Style="height: 3.5rem; border-radius: 12px; font-weight: bold; background: linear-gradient(to right, var(--rz-primary), var(--rz-primary-dark));" />
+                    </RadzenStack>
+                </EditForm>
+            </RadzenColumn>
+
+            <!-- External Login -->
+            <RadzenColumn Size="12" SizeMD="5">
+                <RadzenStack Gap="1.5rem" Class="rz-h-100 rz-p-4 rz-background-color-base-100 rz-border-radius-2" Style="border: 1px solid var(--rz-border-color-light); background-color: #f8f9fa;">
+                    <RadzenText Text="Federated Access" TextStyle="TextStyle.H6" Class="rz-color-primary rz-border-bottom rz-pb-2" />
+                    <RadzenText Text="Authenticate using your institutional credentials." TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                    <ExternalLoginPicker />
+                    
+                    <RadzenStack AlignItems="AlignItems.Center" Class="rz-mt-auto">
+                        <RadzenText Text="ENROLLED PERSONNEL" TextStyle="TextStyle.Overline" Class="rz-color-text-disabled" />
+                        <RadzenButton Text="Access Terminal" Click="@(() => NavigationManager.NavigateTo("Account/Login"))" 
+                                      Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Primary" Icon="login" Class="rz-w-100" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenStack>
+</RadzenCard>
 
 @code {
     private IEnumerable<IdentityError>? identityErrors;
@@ -83,11 +123,33 @@
 
     public async Task RegisterUser(EditContext editContext)
     {
+        // 1. Determine Role from Employee ID
+        string roleName = "Patient"; // Default
+        string? empId = Input.EmployeeId?.Trim().ToUpper();
+
+        if (!string.IsNullOrWhiteSpace(empId))
+        {
+            if (empId.StartsWith("DR-")) roleName = "Doctor";
+            else if (empId.StartsWith("AS-")) roleName = "Admin";
+            else if (empId.StartsWith("OS-")) roleName = "OTStaff";
+            else if (empId.StartsWith("FB-")) roleName = "Teller";
+            else
+            {
+                // Invalid Employee ID format provided
+                identityErrors = new List<IdentityError> { new IdentityError { Description = "Invalid Employee ID format. Use DR-xxx, AS-xxx, or OS-xxx." } };
+                return;
+            }
+        }
+
         var user = CreateUser();
 
         await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
         var emailStore = GetEmailStore();
         await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+        
+        // Note: We are not storing EmployeeId in DB yet as per current schema, 
+        // using it only for authorized role assignment validation.
+        
         var result = await UserManager.CreateAsync(user, Input.Password);
 
         if (!result.Succeeded)
@@ -97,15 +159,14 @@
         }
 
         // Ensure roles exist
-        string roleName = Input.Role;
-        if (!await RoleManager.RoleExistsAsync("Patient")) await RoleManager.CreateAsync(new IdentityRole("Patient"));
-        if (!await RoleManager.RoleExistsAsync("Doctor")) await RoleManager.CreateAsync(new IdentityRole("Doctor"));
-        if (!await RoleManager.RoleExistsAsync("Teller")) await RoleManager.CreateAsync(new IdentityRole("Teller"));
-        if (!await RoleManager.RoleExistsAsync("OTStaff")) await RoleManager.CreateAsync(new IdentityRole("OTStaff"));
+        if (!await RoleManager.RoleExistsAsync(roleName)) 
+        {
+            await RoleManager.CreateAsync(new IdentityRole(roleName));
+        }
 
         await UserManager.AddToRoleAsync(user, roleName);
 
-        Logger.LogInformation("User created a new account with password and assigned role {Role}.", roleName);
+        Logger.LogInformation("User created a new account with password and assigned role {Role} based on EmpID {EmpID}.", roleName, empId ?? "None");
 
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
@@ -124,8 +185,10 @@
         }
         else
         {
-            await SignInManager.SignInAsync(user, isPersistent: false);
-            RedirectManager.RedirectTo(ReturnUrl);
+            try {
+                await SignInManager.SignInAsync(user, isPersistent: false);
+                RedirectManager.RedirectTo(ReturnUrl);
+            } catch (Exception) { /* Ignore sign-in errors and redirect */ RedirectManager.RedirectTo(ReturnUrl); }
         }
     }
 
@@ -168,9 +231,10 @@
         [Display(Name = "Confirm password")]
         [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; } = "";
-
-        [Required]
-        [Display(Name = "Register as")]
-        public string Role { get; set; } = "Patient";
+        
+        [Display(Name = "Employee ID")]
+        public string? EmployeeId { get; set; }
     }
 }
+
+

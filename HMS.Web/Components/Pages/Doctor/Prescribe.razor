@@ -16,164 +16,147 @@
 @inject NavigationManager Nav
 @inject NotificationRepository NotificationRepo
 
-<div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="fw-bold mb-0">Write Prescription</h2>
+<RadzenStack Class="rz-p-4" Gap="2rem">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0">
+            <RadzenText Text="Clinical Prescription Management" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
             @if (!string.IsNullOrEmpty(PatientName))
             {
-                <div class="text-muted">For Patient: <span class="fw-bold text-dark">@PatientName</span> (ID: @PatientId)
-                </div>
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                    <RadzenText Text="@($"Patient: {PatientName}")" TextStyle="TextStyle.Subtitle2" Class="rz-m-0" />
+                    <RadzenBadge Text="@($"#PAT-{PatientId}")" BadgeStyle="BadgeStyle.Light" IsPill="true" />
+                </RadzenStack>
             }
-        </div>
-        <button class="btn btn-outline-secondary" @onclick="GoBack">
-            <i class="bi bi-arrow-left me-1"></i> Back
-        </button>
-    </div>
+        </RadzenStack>
+        <RadzenButton Icon="arrow_back" Text="Dashboard" ButtonStyle="ButtonStyle.Light" Click="@GoBack" Variant="Variant.Flat" />
+    </RadzenStack>
 
     @if (CurrentDoctor == null)
     {
-        <div class="alert alert-warning">Loading doctor profile...</div>
+        <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
+            <RadzenProgressBar Mode="ProgressBarMode.Indeterminate" Style="width: 200px;" />
+            <RadzenText Text="Authenticating clinician session..." TextStyle="TextStyle.Caption" />
+        </RadzenStack>
     }
     else
     {
-        <div class="row">
-            <div class="col-lg-8">
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white pt-3 border-bottom-0">
-                        <h5 class="mb-0">Medications</h5>
-                    </div>
-                    <div class="card-body">
-                        <!-- Add Medicine Form -->
-                        <div class="row g-2 align-items-end mb-4 p-3 bg-light rounded">
-                            <div class="col-md-3">
-                                <label class="small text-muted mb-1">Medicine Name</label>
-                                <input @bind="NewMed.Name" class="form-control form-control-sm"
-                                    placeholder="e.g. Panadol" />
-                            </div>
-                            <div class="col-md-2">
-                                <label class="small text-muted mb-1">Dosage</label>
-                                <input @bind="NewMed.Dosage" class="form-control form-control-sm" placeholder="500mg" />
-                            </div>
-                            <div class="col-md-2">
-                                <label class="small text-muted mb-1">Frequency</label>
-                                <input @bind="NewMed.Frequency" class="form-control form-control-sm" placeholder="1-0-1" />
-                            </div>
-                            <div class="col-md-2">
-                                <label class="small text-muted mb-1">Duration</label>
-                                <input @bind="NewMed.Duration" class="form-control form-control-sm" placeholder="5 days" />
-                            </div>
-                            <div class="col-md-2">
-                                <label class="small text-muted mb-1">Instructions</label>
-                                <input @bind="NewMed.Instructions" class="form-control form-control-sm"
-                                    placeholder="After meal" />
-                            </div>
-                            <div class="col-md-1">
-                                <button class="btn btn-primary btn-sm w-100" @onclick="AddMedicine"
-                                    disabled="@string.IsNullOrWhiteSpace(NewMed.Name)">
-                                    <i class="bi bi-plus-lg"></i>
-                                </button>
-                            </div>
-                        </div>
+        <RadzenRow Gap="2rem">
+            <RadzenColumn Size="12" SizeLG="8">
+                <RadzenStack Gap="1.5rem">
+                    <!-- Medications Section -->
+                    <RadzenCard Class="rz-p-4 rz-shadow-2" Style="border-radius: 12px;">
+                        <RadzenText Text="Medication Regimen" TextStyle="TextStyle.H6" Class="rz-mb-4 rz-color-primary" />
+                        
+                        <!-- Add Medicine Row -->
+                        <RadzenRow Gap="1rem" Class="rz-mb-4 rz-p-4 rz-background-color-base-100 rz-border-radius-2">
+                            <RadzenColumn Size="12" SizeMD="3">
+                                <RadzenFormField Text="Medicine Name" Style="width: 100%;">
+                                    <RadzenTextBox @bind-Value="NewMed.Name" MaxLength="100" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="6" SizeMD="2">
+                                <RadzenFormField Text="Dosage" Style="width: 100%;">
+                                    <RadzenTextBox @bind-Value="NewMed.Dosage" Placeholder="500mg" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="6" SizeMD="2">
+                                <RadzenFormField Text="Frequency" Style="width: 100%;">
+                                    <RadzenTextBox @bind-Value="NewMed.Frequency" Placeholder="1-0-1" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="6" SizeMD="2">
+                                <RadzenFormField Text="Duration" Style="width: 100%;">
+                                    <RadzenTextBox @bind-Value="NewMed.Duration" Placeholder="5 days" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="2">
+                                <RadzenFormField Text="Instructions" Style="width: 100%;">
+                                    <RadzenTextBox @bind-Value="NewMed.Instructions" Placeholder="After meal" />
+                                </RadzenFormField>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="1" Class="rz-display-flex rz-align-items-center rz-justify-content-center">
+                                <RadzenButton Icon="add" ButtonStyle="ButtonStyle.Primary" Click="@AddMedicine" Disabled="@string.IsNullOrWhiteSpace(NewMed.Name)" Tooltip="Add to list" />
+                            </RadzenColumn>
+                        </RadzenRow>
 
-                        <!-- Medicines List -->
-                        @if (MedicationsList.Any())
-                        {
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Medicine</th>
-                                            <th>Dosage</th>
-                                            <th>Frequency</th>
-                                            <th>Duration</th>
-                                            <th>Instructions</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var med in MedicationsList)
-                                        {
-                                            <tr>
-                                                <td class="fw-bold">@med.Name</td>
-                                                <td>@med.Dosage</td>
-                                                <td>@med.Frequency</td>
-                                                <td>@med.Duration</td>
-                                                <td>@med.Instructions</td>
-                                                <td>
-                                                    <button class="btn btn-outline-danger btn-sm border-0"
-                                                        @onclick="() => RemoveMedicine(med)">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="text-center text-muted py-3">
-                                <p>No medications added yet.</p>
-                            </div>
-                        }
-                    </div>
-                </div>
+                        <!-- Medications Grid -->
+                        <RadzenDataGrid Data="@MedicationsList" TItem="PrescriptionMedication" Class="rz-border-none" EmptyText="No medications added to this prescription yet.">
+                            <Columns>
+                                <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Name" Title="Medicine" Width="200px">
+                                    <Template Context="med">
+                                        <RadzenText Text="@med.Name" TextStyle="TextStyle.Subtitle2" Class="rz-m-0 rz-color-primary" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Dosage" Title="Dosage" />
+                                <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Frequency" Title="Freq" />
+                                <RadzenDataGridColumn TItem="PrescriptionMedication" Property="Duration" Title="Period" />
+                                <RadzenDataGridColumn TItem="PrescriptionMedication" Title="Instructions">
+                                    <Template Context="med">
+                                        <RadzenText Text="@med.Instructions" TextStyle="TextStyle.Caption" Style="white-space: normal;" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                                <RadzenDataGridColumn TItem="PrescriptionMedication" Title="Action" Width="70px" TextAlign="TextAlign.Center">
+                                    <Template Context="med">
+                                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.ExtraSmall" Variant="Variant.Text" Click="@(() => RemoveMedicine(med))" />
+                                    </Template>
+                                </RadzenDataGridColumn>
+                            </Columns>
+                        </RadzenDataGrid>
+                    </RadzenCard>
 
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white pt-3 border-bottom-0">
-                        <h5 class="mb-0">Additional Details</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Diagnosis / Notes</label>
-                            <textarea @bind="PrescriptionDetails" class="form-control" rows="4"
-                                placeholder="Enter diagnosis, symptoms, or other clinical notes..."></textarea>
-                        </div>
-                    </div>
-                </div>
+                    <!-- Additional Details -->
+                    <RadzenCard Class="rz-p-4 rz-shadow-2" Style="border-radius: 12px;">
+                        <RadzenText Text="Clinical Notes & Diagnosis" TextStyle="TextStyle.H6" Class="rz-mb-4 rz-color-primary" />
+                        <RadzenFormField Text="Observation details / Clinical remarks" Style="width: 100%;">
+                            <RadzenTextArea @bind-Value="PrescriptionDetails" Rows="4" Placeholder="Document symptoms, findings, and clinical advice..." />
+                        </RadzenFormField>
+                    </RadzenCard>
 
-                <div class="d-flex justify-content-end gap-2">
-                    <button class="btn btn-secondary" @onclick="GoBack">Cancel</button>
-                    <button class="btn btn-primary px-4" @onclick="SavePrescription">
-                        <i class="bi bi-save me-2"></i>Save Prescription
-                    </button>
-                </div>
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+                        <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@GoBack" />
+                        <RadzenButton Text="Finalize & Sign" Icon="border_color" ButtonStyle="ButtonStyle.Primary" Click="@SavePrescription" Class="rz-px-8" />
+                    </RadzenStack>
 
-                @if (!string.IsNullOrEmpty(ErrorMessage))
-                {
-                    <div class="alert alert-danger mt-3">@ErrorMessage</div>
-                }
-            </div>
+                    @if (!string.IsNullOrEmpty(ErrorMessage))
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Clase="rz-mt-4">
+                            @ErrorMessage
+                        </RadzenAlert>
+                    }
+                </RadzenStack>
+            </RadzenColumn>
 
-            <!-- Patient History Sidebar -->
-            <div class="col-lg-4">
-                <div class="card border-0 shadow-sm bg-light">
-                    <div class="card-body">
-                        <h6 class="fw-bold mb-3">Recent Appointments</h6>
-                        @if (PatientAppointments.Any())
-                        {
-                            <ul class="list-unstyled">
-                                @foreach (var appt in PatientAppointments.Take(5))
-                                {
-                                    <li class="mb-2 pb-2 border-bottom border-light">
-                                        <div class="fw-bold small">@appt.AppointmentDate.ToShortDateString()</div>
-                                        <div class="small text-muted">@appt.Reason</div>
-                                    </li>
-                                }
-                            </ul>
-                        }
-                        else
-                        {
-                            <small class="text-muted">No history available.</small>
-                        }
-                    </div>
-                </div>
-            </div>
-        </div>
+            <!-- Patient History -->
+            <RadzenColumn Size="12" SizeLG="4">
+                <RadzenCard Class="rz-p-4 rz-background-color-base-100" Style="border-radius: 12px; height: 100%;">
+                    <RadzenText Text="Clinical Timeline" TextStyle="TextStyle.H6" Class="rz-mb-4" />
+                    @if (PatientAppointments.Any())
+                    {
+                        <RadzenStack Gap="1rem">
+                            @foreach (var appt in PatientAppointments.OrderByDescending(a => a.AppointmentDate).Take(10))
+                            {
+                                <RadzenCard Class="rz-p-3 rz-shadow-1" Style="border-radius: 8px;">
+                                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                                        <RadzenText Text="@appt.AppointmentDate.ToString("MMM dd, yyyy")" TextStyle="TextStyle.Caption" Class="rz-m-0" />
+                                        <RadzenBadge Text="@appt.Status" BadgeStyle="@(appt.Status == "Completed" ? BadgeStyle.Success : BadgeStyle.Info)" Shade="Shade.Lighter" />
+                                    </RadzenStack>
+                                    <RadzenText Text="@appt.Reason" TextStyle="TextStyle.Body2" Class="rz-mt-2 rz-color-text-secondary" Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" />
+                                </RadzenCard>
+                            }
+                        </RadzenStack>
+                    }
+                    else
+                    {
+                        <RadzenStack AlignItems="AlignItems.Center" Class="rz-py-12">
+                            <RadzenIcon Icon="event_busy" Style="font-size: 3rem; color: var(--rz-text-disabled-color);" />
+                            <RadzenText Text="No prior appointment history discovered." TextStyle="TextStyle.Caption" Class="rz-text-align-center" />
+                        </RadzenStack>
+                    }
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
     }
-</div>
+</RadzenStack>
 
 @code {
     [Parameter]
