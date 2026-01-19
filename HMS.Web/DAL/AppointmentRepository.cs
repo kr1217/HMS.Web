@@ -28,20 +28,9 @@ namespace HMS.Web.DAL
         /// <summary>
         /// Retrieves all appointments for a specific patient.
         /// </summary>
-        public List<Appointment> GetAppointmentsByDoctorIdPaged(int doctorId, int skip, int take, string? filter = null)
-        {
-            if (doctorId <= 0) return new List<Appointment>();
-            string query = $@"SELECT {AppointmentColumns}, p.FullName as PatientName FROM Appointments a JOIN Patients p ON a.PatientId = p.PatientId WHERE a.DoctorId = @Id AND (p.FullName LIKE @Filter OR a.Status LIKE @Filter) ORDER BY a.AppointmentDate DESC OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
-            var parameters = new[] { new SqlParameter("@Id", doctorId), new SqlParameter("@Skip", skip), new SqlParameter("@Take", take), new SqlParameter("@Filter", $"%{(filter ?? "")}%") };
-            return _db.ExecuteQuery(query, MapAppointment, parameters);
-        }
 
-        public int GetAppointmentsByDoctorIdCount(int doctorId, string? filter = null)
-        {
-            if (doctorId <= 0) return 0;
-            string query = "SELECT COUNT(*) FROM Appointments a JOIN Patients p ON a.PatientId = p.PatientId WHERE a.DoctorId = @Id AND (p.FullName LIKE @Filter OR a.Status LIKE @Filter)";
-            return _db.ExecuteScalar<int>(query, new[] { new SqlParameter("@Id", doctorId), new SqlParameter("@Filter", $"%{(filter ?? "")}%") });
-        }
+
+
 
 
         public async Task<List<Appointment>> GetAppointmentsByDoctorIdPagedAsync(int doctorId, int skip, int take, string? filter = null)
@@ -91,13 +80,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Appointment> GetAppointmentsByPatientId(int patientId)
-        {
-            if (patientId <= 0) return new List<Appointment>();
-            string query = $@"SELECT {AppointmentColumns}, p.FullName as PatientName, d.FullName as DoctorName, dept.DepartmentName FROM Appointments a JOIN Patients p ON a.PatientId = p.PatientId JOIN Doctors d ON a.DoctorId = d.DoctorId LEFT JOIN Departments dept ON d.DepartmentId = dept.DepartmentId WHERE a.PatientId = @Id ORDER BY a.AppointmentDate DESC";
-            var parameters = new[] { new SqlParameter("@Id", patientId) };
-            return _db.ExecuteQuery(query, MapAppointment, parameters);
-        }
+
 
         /// <summary>
         /// Retrieves appointments for a specific doctor.
@@ -123,13 +106,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Appointment> GetAppointmentsByDoctorId(int doctorId)
-        {
-            if (doctorId <= 0) return new List<Appointment>();
-            string query = $@"SELECT {AppointmentColumns}, p.FullName as PatientName, d.FullName as DoctorName, dept.DepartmentName FROM Appointments a JOIN Patients p ON a.PatientId = p.PatientId JOIN Doctors d ON a.DoctorId = d.DoctorId LEFT JOIN Departments dept ON d.DepartmentId = dept.DepartmentId WHERE a.DoctorId = @Id ORDER BY a.AppointmentDate DESC";
-            var parameters = new[] { new SqlParameter("@Id", doctorId) };
-            return _db.ExecuteQuery(query, MapAppointment, parameters);
-        }
+
 
         /// <summary>
         /// Asynchronously creates a new appointment record.
@@ -140,13 +117,25 @@ namespace HMS.Web.DAL
         /// OPTIMIZATION: [Temporal Snapshot] Fetches the doctor's current ConsultationFee and stores it in the Appointment.
         /// WHY: This ensures that if a doctor's fee changes in the future, past appointments still show the rate that was actually charged/quoted.
         /// </summary>
+        /// <summary>
+        /// Asynchronously creates a new appointment record.
+        /// OPTIMIZATION: [Administrative Guardrail] Prevents new appointments if patient is in 'Financial Clearance' state.
+        /// </summary>
         public async Task CreateAppointmentAsync(Appointment appointment)
         {
             try
             {
                 if (appointment == null || appointment.PatientId <= 0 || appointment.DoctorId <= 0) throw new ArgumentException("Invalid appointment data.");
 
-                // Fetch current fee to snapshot it
+                // 1. Guardrail Check
+                const string statusCheckSql = "SELECT TOP 1 Status FROM Admissions WHERE PatientId = @PatientId AND Status = 'Financial Clearance' ORDER BY AdmissionDate DESC";
+                var status = await _db.ExecuteScalarAsync(statusCheckSql, new[] { new SqlParameter("@PatientId", appointment.PatientId) });
+                if (status != null && status.ToString() == "Financial Clearance")
+                {
+                    throw new InvalidOperationException("Cannot schedule new appointments for patients in 'Financial Clearance' status.");
+                }
+
+                // 2. Fetch current fee to snapshot it
                 decimal currentFee = await _db.ExecuteScalarAsync<decimal>("SELECT ConsultationFee FROM Doctors WHERE DoctorId = @Id", new[] { new SqlParameter("@Id", appointment.DoctorId) });
 
                 const string query = "INSERT INTO Appointments (PatientId, DoctorId, AppointmentDate, AppointmentMode, Status, Reason, ConsultationFeeAtBooking) VALUES (@PatientId, @DoctorId, @AppointmentDate, @AppointmentMode, @Status, @Reason, @Fee)";
@@ -167,13 +156,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void CreateAppointment(Appointment a)
-        {
-            if (a == null || a.PatientId <= 0 || a.DoctorId <= 0) throw new ArgumentException("Invalid appointment data.");
-            string query = @"INSERT INTO Appointments (PatientId, DoctorId, AppointmentDate, Status, Reason, AppointmentMode) VALUES (@PatientId, @DoctorId, @Date, @Status, @Reason, @Mode)";
-            var parameters = new[] { new SqlParameter("@PatientId", a.PatientId), new SqlParameter("@DoctorId", a.DoctorId), new SqlParameter("@Date", a.AppointmentDate), new SqlParameter("@Status", a.Status ?? "Pending"), new SqlParameter("@Reason", a.Reason ?? ""), new SqlParameter("@Mode", a.AppointmentMode ?? "Physical") };
-            _db.ExecuteNonQuery(query, parameters);
-        }
+
 
         /// <summary>
         /// Updates the status or details of an existing appointment.
@@ -203,12 +186,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void UpdateAppointmentStatus(int id, string status, string? notes = null, string? rejectionReason = null, DateTime? rescheduledDate = null)
-        {
-            if (id <= 0) throw new ArgumentException("Invalid appointment ID.");
-            string query = @"UPDATE Appointments SET Status = @Status, DoctorNotes = COALESCE(@Notes, DoctorNotes), RejectionReason = @RejectionReason, RescheduledDate = @RescheduledDate WHERE AppointmentId = @Id";
-            _db.ExecuteNonQuery(query, new[] { new SqlParameter("@Status", status), new SqlParameter("@Notes", (object?)notes ?? DBNull.Value), new SqlParameter("@RejectionReason", (object?)rejectionReason ?? DBNull.Value), new SqlParameter("@RescheduledDate", (object?)rescheduledDate ?? DBNull.Value), new SqlParameter("@Id", id) });
-        }
+
 
         /// <summary>
         /// Retrieves a list of available doctors for appointment booking.
@@ -226,18 +204,7 @@ namespace HMS.Web.DAL
             });
         }
 
-        public List<Doctor> GetDoctors()
-        {
-            string query = "SELECT d.*, dept.DepartmentName FROM Doctors d LEFT JOIN Departments dept ON d.DepartmentId = dept.DepartmentId WHERE d.IsActive = 1";
-            return _db.ExecuteQuery(query, reader => new Doctor
-            {
-                DoctorId = reader.GetInt32(reader.GetOrdinal("DoctorId")),
-                FullName = reader["FullName"]?.ToString() ?? "",
-                Specialization = reader["Specialization"]?.ToString() ?? "",
-                DepartmentName = reader.IsDBNull(reader.GetOrdinal("DepartmentName")) ? "" : reader["DepartmentName"].ToString() ?? "",
-                ConsultationFee = reader.GetDecimal(reader.GetOrdinal("ConsultationFee"))
-            });
-        }
+
 
         /// <summary>
         /// Mapping logic from SqlDataReader to Appointment model.

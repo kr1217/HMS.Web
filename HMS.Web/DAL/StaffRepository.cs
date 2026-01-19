@@ -44,11 +44,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Staff> GetAllStaff()
-        {
-            string query = $"SELECT TOP 100 {StaffColumns} FROM Staff ORDER BY FullName";
-            return _db.ExecuteQuery(query, MapStaff);
-        }
+
 
         /// <summary>
         /// Retrieves a paged list of staff members with optional ordering.
@@ -74,13 +70,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Staff> GetStaffPaged(int skip, int take, string filter, string orderBy)
-        {
-            string orderClause = string.IsNullOrEmpty(orderBy) ? "FullName" : orderBy;
-            string query = $@"SELECT {StaffColumns} FROM Staff ORDER BY {orderClause} OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
-            var parameters = new[] { new SqlParameter("@Skip", skip), new SqlParameter("@Take", take) };
-            return _db.ExecuteQuery(query, MapStaff, parameters);
-        }
+
 
         /// <summary>
         /// Gets the total count of staff members.
@@ -91,10 +81,7 @@ namespace HMS.Web.DAL
             return Convert.ToInt32(result ?? 0);
         }
 
-        public int GetStaffCount()
-        {
-            return Convert.ToInt32(_db.ExecuteScalar("SELECT COUNT(*) FROM Staff") ?? 0);
-        }
+
 
         /// <summary>
         /// Retrieves a staff member by their primary key.
@@ -115,13 +102,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public Staff? GetStaffById(int staffId)
-        {
-            if (staffId <= 0) return null;
-            string query = $"SELECT {StaffColumns} FROM Staff WHERE StaffId = @Id";
-            var parameters = new[] { new SqlParameter("@Id", staffId) };
-            return _db.ExecuteQuery(query, MapStaff, parameters).FirstOrDefault();
-        }
+
 
         /// <summary>
         /// Retrieves a staff member by their associated User ID.
@@ -142,13 +123,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public Staff? GetStaffByUserId(string userId)
-        {
-            if (string.IsNullOrEmpty(userId)) return null;
-            string query = $"SELECT {StaffColumns} FROM Staff WHERE UserId = @Id";
-            var parameters = new[] { new SqlParameter("@Id", userId) };
-            return _db.ExecuteQuery(query, MapStaff, parameters).FirstOrDefault();
-        }
+
 
         /// <summary>
         /// Asynchronously creates a new staff record.
@@ -183,13 +158,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void CreateStaff(Staff staff)
-        {
-            if (staff == null || string.IsNullOrEmpty(staff.FullName)) throw new ArgumentException("Staff data and Full Name are required.");
-            string query = @"INSERT INTO Staff (UserId, FullName, Role, Department, Shift, Salary, JoinDate, IsActive, Email, PhoneNumber) VALUES (@UserId, @FullName, @Role, @Department, @Shift, @Salary, @JoinDate, @IsActive, @Email, @PhoneNumber)";
-            var parameters = new[] { new SqlParameter("@UserId", (object?)staff.UserId ?? DBNull.Value), new SqlParameter("@FullName", staff.FullName), new SqlParameter("@Role", staff.Role ?? "Staff"), new SqlParameter("@Department", (object?)staff.Department ?? DBNull.Value), new SqlParameter("@Shift", (object?)staff.Shift ?? DBNull.Value), new SqlParameter("@Salary", staff.Salary), new SqlParameter("@JoinDate", staff.JoinDate == default ? DateTime.Now : staff.JoinDate), new SqlParameter("@IsActive", staff.IsActive), new SqlParameter("@Email", (object?)staff.Email ?? DBNull.Value), new SqlParameter("@PhoneNumber", (object?)staff.PhoneNumber ?? DBNull.Value) };
-            _db.ExecuteNonQuery(query, parameters);
-        }
+
 
         /// <summary>
         /// Asynchronously updates an existing staff record.
@@ -223,13 +192,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void UpdateStaff(Staff staff)
-        {
-            if (staff == null || staff.StaffId <= 0) throw new ArgumentException("Invalid staff record for update.");
-            string query = @"UPDATE Staff SET FullName=@FullName, Role=@Role, Department=@Department, Shift=@Shift, Salary=@Salary, IsActive=@IsActive, Email=@Email, PhoneNumber=@PhoneNumber WHERE StaffId=@StaffId";
-            var parameters = new[] { new SqlParameter("@StaffId", staff.StaffId), new SqlParameter("@FullName", staff.FullName ?? ""), new SqlParameter("@Role", staff.Role ?? ""), new SqlParameter("@Department", (object?)staff.Department ?? DBNull.Value), new SqlParameter("@Shift", (object?)staff.Shift ?? DBNull.Value), new SqlParameter("@Salary", staff.Salary), new SqlParameter("@IsActive", staff.IsActive), new SqlParameter("@Email", (object?)staff.Email ?? DBNull.Value), new SqlParameter("@PhoneNumber", (object?)staff.PhoneNumber ?? DBNull.Value) };
-            _db.ExecuteNonQuery(query, parameters);
-        }
+
 
         /// <summary>
         /// Mapping logic from SqlDataReader to Staff model.

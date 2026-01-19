@@ -109,8 +109,8 @@
             var orderBy = args.OrderBy;
             if (string.IsNullOrEmpty(orderBy)) orderBy = "FullName";
 
-            patients = PatientRepo.GetPatientsPaged(skip, top, orderBy, searchTerm);
-            count = PatientRepo.GetPatientsCount(searchTerm);
+            patients = await PatientRepo.GetPatientsPagedAsync(skip, top, orderBy, searchTerm);
+            count = await PatientRepo.GetPatientsCountAsync(searchTerm);
         }
         catch (Exception ex)
         {

@@ -1,15 +1,11 @@
-﻿@*
- * FILE: MainLayout.razor
- * PURPOSE: Layout definition component.
- * COMMUNICATES WITH: None
-*@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @using Radzen.Blazor
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
 
-<RadzenComponents />
+<RadzenComponents @rendermode="InteractiveServer" />
 
-
-<RadzenLayout Style="grid-template-areas: 'rz-header rz-header' 'rz-sidebar rz-body';">
+<RadzenLayout
+    Style="grid-template-areas: 'rz-header rz-header' 'rz-sidebar rz-body'; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr; height: 100vh;">
     <MainLayoutUI />
 
     <RadzenBody>
@@ -28,4 +24,3 @@
 @code {
     // UI state handled by MainLayoutUI
 }
-

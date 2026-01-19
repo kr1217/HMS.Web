@@ -56,9 +56,13 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 // WHY: It holds no request-specific state and managing its lifetime as a singleton ensures better SQL Connection Pooling efficiency.
 builder.Services.AddSingleton<HMS.Web.DAL.DatabaseHelper>();
 builder.Services.AddHostedService<HMS.Web.Services.HospitalBackgroundService>();
+builder.Services.AddHostedService<HMS.Web.Services.MigrationService>(); // Phase 4 DB Migration
 builder.Services.AddScoped<HMS.Web.DAL.PatientRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.DoctorRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.DoctorShiftRepository>();
+builder.Services.AddScoped<HMS.Web.DAL.DoctorLedgerRepository>(); // Phase 4 Ledger
+builder.Services.AddScoped<HMS.Web.DAL.AuditRepository>(); // Phase 4 Audit
+builder.Services.AddScoped<HMS.Web.DAL.AnalyticsRepository>(); // Phase 4 CEO Dashboard
 builder.Services.AddScoped<HMS.Web.DAL.AppointmentRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.ReportRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.PrescriptionRepository>();
@@ -69,11 +73,10 @@ builder.Services.AddScoped<HMS.Web.DAL.NotificationRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.StaffRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.FacilityRepository>();
 builder.Services.AddScoped<HMS.Web.DAL.FinanceRepository>();
+builder.Services.AddScoped<HMS.Web.DAL.PatientLossRepository>();
+builder.Services.AddScoped<HMS.Web.Services.IPatientLossService, HMS.Web.Services.PatientLossService>();
 
-builder.Services.AddScoped<DialogService>();
-builder.Services.AddScoped<NotificationService>();
-builder.Services.AddScoped<TooltipService>();
-builder.Services.AddScoped<ContextMenuService>();
+builder.Services.AddRadzenComponents();
 
 var app = builder.Build();
 

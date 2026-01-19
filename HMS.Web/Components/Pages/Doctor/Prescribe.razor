@@ -21,6 +21,7 @@
 @inject NavigationManager Nav
 @inject NotificationRepository NotificationRepo
 @inject NotificationService NotificationService
+@inject DoctorLedgerRepository LedgerRepo
 @*
     COMPONENT: Prescription Management
     PURPOSE: Interface for creating and signing digital prescriptions.
@@ -197,13 +198,13 @@
                 var userId = UserManager.GetUserId(userClaims);
                 if (!string.IsNullOrEmpty(userId))
                 {
-                    CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                    CurrentDoctor = await DoctorRepo.GetDoctorByUserIdAsync(userId);
                 }
             }
 
             if (CurrentDoctor != null)
             {
-                PatientAppointments = AppointmentRepo.GetAppointmentsByPatientId(PatientId);
+                PatientAppointments = await AppointmentRepo.GetAppointmentsByPatientIdAsync(PatientId);
                 var firstAppt = PatientAppointments.FirstOrDefault();
                 if (firstAppt != null)
                 {
@@ -238,7 +239,7 @@
         MedicationsList.Remove(item);
     }
 
-    private void SavePrescription()
+    private async Task SavePrescription()
     {
         try
         {
@@ -270,15 +271,28 @@
                     DigitalSignature = $"Digitally Signed by Dr. {CurrentDoctor.FullName} ({CurrentDoctor.MedicalLicenseNumber}) on {DateTime.Now:yyyy-MM-dd HH:mm:ss}"
                 };
 
-            PrescriptionRepo.CreatePrescription(prescription);
+            await PrescriptionRepo.CreatePrescriptionAsync(prescription);
 
             // Mark appointment as Completed if linked
             if (AppointmentId.HasValue)
             {
-                 AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
+                 await AppointmentRepo.UpdateAppointmentStatusAsync(AppointmentId.Value, "Completed");
+                 
+                 // Phase 4.2: Accrue Consultation Fee to Ledger
+                 if (CurrentDoctor.ConsultationFee > 0)
+                 {
+                     await LedgerRepo.AddEntryAsync(new DoctorLedger
+                     {
+                         DoctorId = CurrentDoctor.DoctorId,
+                         TransactionType = "Consultation",
+                         ReferenceId = AppointmentId.Value,
+                         Amount = CurrentDoctor.ConsultationFee,
+                         Description = $"Consultation Fee for Appt #{AppointmentId.Value}, Patient {PatientName}"
+                     });
+                 }
             }
 
-            NotificationRepo.CreateNotification(new Notification
+            await NotificationRepo.CreateNotificationAsync(new Notification
             {
                 PatientId = PatientId,
                 Title = "New Prescription",

@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Dashboard.razor
- * PURPOSE: Doctor-facing component for clinical management.
- * COMMUNICATES WITH: DoctorRepository, AppointmentRepository, DoctorShiftRepository, ReportRepository
+* FILE: Dashboard.razor
+* PURPOSE: Doctor-facing component for clinical management.
+* COMMUNICATES WITH: DoctorRepository, AppointmentRepository, DoctorShiftRepository, ReportRepository
 *@
 @page "/doctor/dashboard"
 @rendermode InteractiveServer
@@ -14,8 +14,10 @@
 @inject NavigationManager Navigation
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@inject IPatientLossService LossService
 @using HMS.Web.Models
 @using HMS.Web.DAL
+@using HMS.Web.Services
 @using Microsoft.AspNetCore.Components.Authorization
 
 @*
@@ -119,25 +121,25 @@ OPTIMIZATION: [Scoped Data] Loads only the authenticated doctor's data to ensure
                         <RadzenDataGridColumn TItem="Appointment" Property="AppointmentDate" Title="Date/Time"
                             FormatString="{0:MMM dd, hh:mm tt}" Width="160px" />
                         <RadzenDataGridColumn TItem="Appointment" Property="PatientName" Title="Patient Designation" />
-                        <RadzenDataGridColumn TItem="Appointment" Title="Shift Status" Width="140px">
-                            <Template Context="appt">
-                                @if (IsOnShift(appt))
-                                {
-                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="During Shift" Shade="Shade.Lighter"
-                                        IsPill="true" Icon="check_circle" />
-                                }
-                                else
-                                {
-                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Off-Shift" Shade="Shade.Lighter"
-                                        IsPill="true" Icon="warning" />
-                                }
-                            </Template>
-                        </RadzenDataGridColumn>
+
                         <RadzenDataGridColumn TItem="Appointment" Title="Clinical Status" Width="120px"
                             TextAlign="TextAlign.Center">
                             <Template Context="appt">
                                 <RadzenBadge BadgeStyle="@GetStatusBadgeStyle(appt.Status)" Text="@appt.Status"
                                     IsPill="true" />
+                                @{
+                                    var onShift = IsOnShift(appt);
+                                    if (onShift)
+                                    {
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="During Shift" Shade="Shade.Lighter"
+                                            IsPill="true" Icon="check_circle" Class="rz-ml-2" />
+                                    }
+                                    else
+                                    {
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Off-Shift" Shade="Shade.Lighter"
+                                            IsPill="true" Icon="warning" Class="rz-ml-2" />
+                                    }
+                                }
                             </Template>
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="Appointment" Title="Operations" Sortable="false" Filterable="false"
@@ -214,6 +216,7 @@ OPTIMIZATION: [Scoped Data] Loads only the authenticated doctor's data to ensure
     RadzenDataGrid<Appointment> appointmentGrid = default!;
     int appointmentCount;
     bool isLoading = false;
+    Dictionary<int, bool> ShiftAvailability = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -225,10 +228,10 @@ OPTIMIZATION: [Scoped Data] Loads only the authenticated doctor's data to ensure
 
             if (!string.IsNullOrEmpty(userId))
             {
-                currentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                currentDoctor = await DoctorRepo.GetDoctorByUserIdAsync(userId);
                 if (currentDoctor != null)
                 {
-                    stats = DoctorRepo.GetDoctorDashboardStats(currentDoctor.DoctorId);
+                    stats = await DoctorRepo.GetDoctorDashboardStatsAsync(currentDoctor.DoctorId);
                 }
             }
         }
@@ -249,10 +252,7 @@ OPTIMIZATION: [Scoped Data] Loads only the authenticated doctor's data to ensure
 
     bool IsOnShift(Appointment appt)
     {
-        if (currentDoctor == null) return false;
-        // Optimization: Ensure we don't call DB too many times if possible,
-        // but for now, simple check
-        return ShiftRepo.IsAvailableAtTime(currentDoctor.DoctorId, appt.AppointmentDate);
+        return ShiftAvailability.TryGetValue(appt.AppointmentId, out var isAvailable) && isAvailable;
     }
 
     async Task LoadAppointmentsData(LoadDataArgs args)
@@ -275,8 +275,18 @@ OPTIMIZATION: [Scoped Data] Loads only the authenticated doctor's data to ensure
             var orderBy = args.OrderBy;
             if (string.IsNullOrEmpty(orderBy)) orderBy = "AppointmentDate DESC";
 
-            appointments = AppointmentRepo.GetAppointmentsByDoctorIdPaged(currentDoctor.DoctorId, skip, top, orderBy);
-            appointmentCount = AppointmentRepo.GetAppointmentsByDoctorIdCount(currentDoctor.DoctorId);
+            appointments = await AppointmentRepo.GetAppointmentsByDoctorIdPagedAsync(currentDoctor.DoctorId, skip, top, orderBy);
+            appointmentCount = await AppointmentRepo.GetAppointmentsByDoctorIdCountAsync(currentDoctor.DoctorId);
+
+            ShiftAvailability.Clear();
+            if (appointments != null)
+            {
+                foreach (var appt in appointments)
+                {
+                    ShiftAvailability[appt.AppointmentId] = await ShiftRepo.IsAvailableAtTimeAsync(currentDoctor.DoctorId,
+                    appt.AppointmentDate);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -305,10 +315,10 @@ OPTIMIZATION: [Scoped Data] Loads only the authenticated doctor's data to ensure
     {
         try
         {
-            AppointmentRepo.UpdateAppointmentStatus(appt.AppointmentId, "Approved");
+            await AppointmentRepo.UpdateAppointmentStatusAsync(appt.AppointmentId, "Approved");
             NotificationService.Notify(NotificationSeverity.Success, "Appointment Approved");
             await appointmentGrid.Reload();
-            stats = DoctorRepo.GetDoctorDashboardStats(currentDoctor!.DoctorId);
+            stats = await DoctorRepo.GetDoctorDashboardStatsAsync(currentDoctor!.DoctorId);
         }
         catch (Exception ex)
         {
@@ -320,14 +330,39 @@ OPTIMIZATION: [Scoped Data] Loads only the authenticated doctor's data to ensure
     {
         try
         {
+            // Optional: load shifts for context if needed, otherwise pass empty or current doctor's shifts
+            var shifts = new List<DoctorShift>();
+            if (currentDoctor != null)
+            {
+                // We could load actual shifts here if we want the dialog to show them
+                shifts = await ShiftRepo.GetShiftsByDoctorIdAsync(currentDoctor.DoctorId);
+            }
+
             var result = await DialogService.OpenAsync<RejectAppointmentDialog>("Reject Appointment",
-            new Dictionary<string, object> { { "AppointmentId", appt.AppointmentId } },
+            new Dictionary<string, object> {
+{ "Appointment", appt },
+{ "DoctorShifts", shifts }
+                },
             new DialogOptions { Width = "500px", Height = "auto", Resizable = true, Draggable = true });
 
-            if (result == true)
+            if (result != null)
             {
+                string reason = result.ToString();
+
+                // 1. Update status
+                await AppointmentRepo.UpdateAppointmentStatusAsync(appt.AppointmentId, "Rejected", rejectionReason: reason);
+
+                // 2. Record Loss
+                // Using NO_SPECIALIST as a fallback if reason isn't parsed, but practically it's "Doctor Unavailable" or similar.
+                // We'll map "Time Unavailable" if that's the likely cause, or just generic.
+                // For now, allow the detailed reason to be captured.
+                await LossService.RecordLossAsync("Appointment", LossReasonCode.TIME_UNAVAILABLE, reason, docId:
+                currentDoctor?.DoctorId);
+
+                NotificationService.Notify(NotificationSeverity.Info, "Rejected", "Appointment rejected and loss recorded.");
+
                 await appointmentGrid.Reload();
-                stats = DoctorRepo.GetDoctorDashboardStats(currentDoctor!.DoctorId);
+                if (currentDoctor != null) stats = await DoctorRepo.GetDoctorDashboardStatsAsync(currentDoctor.DoctorId);
             }
         }
         catch (Exception ex)
@@ -341,4 +376,3 @@ OPTIMIZATION: [Scoped Data] Loads only the authenticated doctor's data to ensure
         // Potentially open details
     }
 }
-

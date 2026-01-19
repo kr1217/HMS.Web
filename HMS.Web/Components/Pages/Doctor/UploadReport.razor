@@ -1,7 +1,8 @@
 ﻿@*
- * FILE: UploadReport.razor
- * PURPOSE: Doctor-facing component for clinical management.
- * COMMUNICATES WITH: DoctorRepository, PatientRepository, ReportRepository, NotificationRepository, AppointmentRepository
+* FILE: UploadReport.razor
+* PURPOSE: Doctor-facing component for clinical management.
+* COMMUNICATES WITH: DoctorRepository, PatientRepository, ReportRepository, NotificationRepository,
+AppointmentRepository
 *@
 @page "/Doctor/UploadReport/{PatientId:int}"
 @using Microsoft.AspNetCore.Authorization
@@ -174,11 +175,11 @@ OPTIMIZATION: [Secure Storage] Files are renamed with unique GUIDs to prevent ov
                 var userId = UserManager.GetUserId(userClaims);
                 if (!string.IsNullOrEmpty(userId))
                 {
-                    CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                    CurrentDoctor = await DoctorRepo.GetDoctorByUserIdAsync(userId);
                 }
             }
 
-            Patient = PatientRepo.GetPatientById(PatientId);
+            Patient = await PatientRepo.GetPatientByIdAsync(PatientId);
             NewReport.ReportDate = DateTime.Now;
         }
         catch (Exception ex)
@@ -231,7 +232,7 @@ OPTIMIZATION: [Secure Storage] Files are renamed with unique GUIDs to prevent ov
             IsUploading = false;
         }
     }
-    private void SaveReport()
+    private async Task SaveReport()
     {
         try
         {
@@ -244,15 +245,15 @@ OPTIMIZATION: [Secure Storage] Files are renamed with unique GUIDs to prevent ov
             NewReport.Status = "Finalized";
             NewReport.ReportDate = DateTime.Now;
 
-            ReportRepo.CreateReport(NewReport);
+            await ReportRepo.CreateReportAsync(NewReport);
 
             // Mark appointment as Completed if linked
             if (AppointmentId.HasValue)
             {
-                AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
+                await AppointmentRepo.UpdateAppointmentStatusAsync(AppointmentId.Value, "Completed");
             }
 
-            NotificationRepo.CreateNotification(new Notification
+            await NotificationRepo.CreateNotificationAsync(new Notification
                 {
                     PatientId = PatientId,
                     Title = "New Medical Report",
@@ -274,4 +275,3 @@ OPTIMIZATION: [Secure Storage] Files are renamed with unique GUIDs to prevent ov
         Nav.NavigateTo("/Doctor/Dashboard");
     }
 }
-

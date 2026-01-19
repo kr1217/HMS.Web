@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Reports.razor
- * PURPOSE: Patient-facing component for self-service portal.
- * COMMUNICATES WITH: PatientRepository, ReportRepository
+* FILE: Reports.razor
+* PURPOSE: Patient-facing component for self-service portal.
+* COMMUNICATES WITH: PatientRepository, ReportRepository
 *@
 @page "/patient/reports"
 @using Microsoft.AspNetCore.Authorization
@@ -105,10 +105,13 @@ OPTIMIZATION: [Secure Access] Validates user identity before granting access to 
                 var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userId != null)
                 {
-                    CurrentPatient = PatientRepo.GetPatientByUserId(userId);
-                    if (CurrentPatient != null)
+                    if (userId != null)
                     {
-                        ReportList = ReportRepo.GetReportsByPatientId(CurrentPatient.PatientId);
+                        CurrentPatient = await PatientRepo.GetPatientByUserIdAsync(userId);
+                        if (CurrentPatient != null)
+                        {
+                            ReportList = await ReportRepo.GetReportsByPatientIdAsync(CurrentPatient.PatientId);
+                        }
                     }
                 }
             }
@@ -129,4 +132,3 @@ OPTIMIZATION: [Secure Access] Validates user identity before granting access to 
         // For now, simple alert or console
     }
 }
-

@@ -202,19 +202,19 @@
     List<string> Roles = new List<string> { "All", "Admin", "Teller", "Doctor" };
     string SelectedRole = "All";
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        LoadShifts();
+        await LoadShifts();
     }
 
     /// <summary>
     /// Aggregates shift data, calculates variances, and identifies anomalies.
     /// </summary>
-    void LoadShifts()
+    async Task LoadShifts()
     {
         try
         {
-            allShifts = FinanceRepo.GetAllShifts();
+            allShifts = await FinanceRepo.GetAllShiftsAsync();
             closedShifts = allShifts.Where(s => s.Status == "Closed").ToList();
 
             // Calculate totals

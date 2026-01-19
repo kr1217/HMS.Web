@@ -45,7 +45,7 @@
                     <RadzenButton Icon="refresh" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" Click="LoadData" Variant="Variant.Flat" />
                 </RadzenStack>
 
-                <RadzenDataGrid @ref="grid" TItem="PatientOperation" Data="@Operations" AllowPaging="true" PageSize="10"
+                <RadzenDataGrid @ref="grid" TItem="PatientOperation" Data="@Operations" Count="@operationsCount" LoadData="@LoadOperationsData" AllowPaging="true" PageSize="10"
                     Class="rz-border-none">
                     <EmptyTemplate>
                         <RadzenStack AlignItems="AlignItems.Center" Class="rz-p-12">
@@ -109,14 +109,19 @@
             <RadzenStack Gap="1.5rem">
                 <RadzenCard Class="rz-shadow-2 rz-background-color-base-100">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-mb-4">
-                        <RadzenIcon Icon="suite" />
+                        <RadzenIcon Icon="meeting_room" />
                         <RadzenText Text="Theater Availability" TextStyle="TextStyle.H6" Class="rz-m-0" />
                     </RadzenStack>
-                    <RadzenStack Gap="1rem">
-                        @foreach (var ot in Theaters)
-                        {
-                            var activeOp = Operations.FirstOrDefault(o => o.TheaterId == ot.TheaterId && o.Status == "Running");
-                            <RadzenCard Class="rz-p-3" Style="border: 1px solid var(--rz-base-200);">
+                    @if (!Theaters.Any())
+                    {
+                        <RadzenText Text="No theaters available." TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                    }
+                    <RadzenDataList Data="@Theaters" TItem="OperationTheater" Count="@theatersCount" LoadData="@LoadTheatersData" AllowPaging="true" PageSize="5" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true">
+                        <Template Context="ot">
+                            @{
+                                var activeOp = RunningOperations.FirstOrDefault(o => o.TheaterId == ot.TheaterId);
+                            }
+                            <RadzenCard Class="rz-p-3 rz-mb-2" Style="border: 1px solid var(--rz-base-200);">
                                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
                                     <RadzenStack Gap="0">
                                         <RadzenText Text="@ot.TheaterName" TextStyle="TextStyle.Subtitle1" Class="rz-m-0 rz-font-weight-bold" />
@@ -127,8 +132,8 @@
                                     <RadzenIcon Icon="circle" Style="@($"font-size: 12px; color: {(activeOp != null ? "var(--rz-danger)" : "var(--rz-success)")};")" />
                                 </RadzenStack>
                             </RadzenCard>
-                        }
-                    </RadzenStack>
+                        </Template>
+                    </RadzenDataList>
                 </RadzenCard>
 
                 <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false">
@@ -163,39 +168,54 @@
 @code {
     RadzenDataGrid<PatientOperation> grid = default!;
     List<PatientOperation> Operations = new();
+    List<PatientOperation> RunningOperations = new(); // For Sidebar accuracy
     List<OperationTheater> Theaters = new();
+    int operationsCount;
+    int theatersCount;
     System.Threading.Timer? dataRefreshTimer;
     System.Threading.Timer? uiTickTimer;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender && grid != null)
-        {
-            await grid.Reload();
-            StateHasChanged();
-        }
-    }
-
-    protected override void OnInitialized()
-    {
-        LoadData();
+        // Initial load
+        await LoadData();
         
-        // Refresh DATA every 30 seconds (expensive)
+        // Refresh DATA every 60 seconds (optimized from 30)
         dataRefreshTimer = new System.Threading.Timer(_ => InvokeAsync(async () => { 
-            LoadData(); 
+            await LoadData(); 
             await InvokeAsync(StateHasChanged); 
-        }), null, 30000, 30000);
+        }), null, 60000, 60000);
 
-        // Tick UI every 1 second (cheap - for countdowns)
+        // Tick UI every 1 second
         uiTickTimer = new System.Threading.Timer(_ => InvokeAsync(async () => { 
             await InvokeAsync(StateHasChanged); 
         }), null, 1000, 1000);
     }
 
-    void LoadData()
+    async Task LoadData()
     {
-        Operations = OperationRepo.GetAllScheduledOperations();
-        Theaters = FacilityRepo.GetTheaters();
+        // For the sidebar, we need ALL running operations regardless of paging
+        RunningOperations = await OperationRepo.GetOperationsByStatusAsync("Running");
+        
+        // Initial Theater Load (Page 0, 5 items)
+        Theaters = await FacilityRepo.GetTheatersPagedAsync(0, 5, "TheaterName", includeInactive: true);
+        theatersCount = await FacilityRepo.GetTheatersCountAsync(includeInactive: true);
+
+        if (grid != null) await grid.Reload();
+    }
+
+    async Task LoadOperationsData(LoadDataArgs args)
+    {
+        var result = await OperationRepo.GetAllScheduledOperationsPagedAsync(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
+        Operations = result;
+        operationsCount = await OperationRepo.GetAllScheduledOperationsCountAsync();
+    }
+
+    async Task LoadTheatersData(LoadDataArgs args)
+    {
+        var result = await FacilityRepo.GetTheatersPagedAsync(args.Skip ?? 0, args.Top ?? 5, args.OrderBy, includeInactive: true);
+        Theaters = result;
+        theatersCount = await FacilityRepo.GetTheatersCountAsync(includeInactive: true);
     }
 
     string GetRemainingTime(PatientOperation op)
@@ -213,31 +233,31 @@
 
         if (result == true)
         {
-            OperationRepo.UpdateOperationStatusAndCosts(op.OperationId, "Running", op.AgreedOperationCost, op.AgreedMedicineCost, op.AgreedEquipmentCost, op.TheaterId, actualStartTime: DateTime.Now, doctorId: op.DoctorId);
+            await OperationRepo.UpdateOperationStatusAndCostsAsync(op.OperationId, "Running", op.AgreedOperationCost, op.AgreedMedicineCost, op.AgreedEquipmentCost, op.TheaterId, actualStartTime: DateTime.Now, doctorId: op.DoctorId);
 
             if (op.TheaterId.HasValue)
             {
-                FacilityRepo.UpdateTheaterStatus(op.TheaterId.Value, "Occupied");
+                await FacilityRepo.UpdateTheaterStatusAsync(op.TheaterId.Value, "Occupied");
             }
 
             NotificationService.Notify(NotificationSeverity.Info, "Surgery Commenced", $"{op.PatientName}'s surgery is now in progress.");
-            LoadData();
+            await LoadData();
         }
     }
 
     async Task CompleteOperation(PatientOperation op)
     {
-        OperationRepo.UpdateOperationStatusAndCosts(op.OperationId, "Completed", op.AgreedOperationCost, op.AgreedMedicineCost, op.AgreedEquipmentCost, op.TheaterId);
+        await OperationRepo.UpdateOperationStatusAndCostsAsync(op.OperationId, "Completed", op.AgreedOperationCost, op.AgreedMedicineCost, op.AgreedEquipmentCost, op.TheaterId);
 
         if (op.TheaterId.HasValue)
         {
-            FacilityRepo.UpdateTheaterStatus(op.TheaterId.Value, "Available");
+            await FacilityRepo.UpdateTheaterStatusAsync(op.TheaterId.Value, "Available");
         }
 
         NotificationService.Notify(NotificationSeverity.Success, "Surgery Complete", $"{op.PatientName} has completed their procedure.");
         
         // Create formal notification for Admin
-        NotificationRepo.CreateNotification(new Notification {
+        await NotificationRepo.CreateNotificationAsync(new Notification {
             Title = "Surgery Completed - Handover Required",
             Message = $"Operation for {op.PatientName} has concluded in {op.TheaterName}. Patient is ready for ward assignment.",
             TargetRole = "Admin",
@@ -245,7 +265,7 @@
             IsRead = false
         });
 
-        LoadData();
+        await LoadData();
     }
 
     BadgeStyle GetStatusBadge(string status) => status switch

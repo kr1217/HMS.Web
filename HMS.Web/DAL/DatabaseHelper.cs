@@ -27,43 +27,9 @@ namespace HMS.Web.DAL
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
-        /// <summary>
-        /// Executes a SQL query and returns a DataSet.
-        /// </summary>
-        public DataSet ExecuteDataSet(string query, SqlParameter[] parameters = null)
-        {
-            try
-            {
-                using (var connection = new SqlConnection(_connectionString))
-                {
-                    using (var command = new SqlCommand(query, connection))
-                    {
-                        if (parameters != null)
-                        {
-                            command.Parameters.AddRange(parameters);
-                        }
 
-                        var adapter = new SqlDataAdapter(command);
-                        var dataSet = new DataSet();
-                        adapter.Fill(dataSet);
-                        return dataSet;
-                    }
-                }
-            }
-            catch (SqlException ex)
-            {
-                throw new Exception($"Database Error (DataSet): {ex.Message}. Query: {query}", ex);
-            }
-        }
 
-        /// <summary>
-        /// Executes a SQL query and returns a DataTable.
-        /// </summary>
-        public DataTable ExecuteDataTable(string query, SqlParameter[] parameters = null)
-        {
-            var ds = ExecuteDataSet(query, parameters);
-            return ds.Tables.Count > 0 ? ds.Tables[0] : null;
-        }
+
 
         /// <summary>
         /// Asynchronously executes a SQL query and returns a DataTable.
@@ -97,37 +63,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        /// <summary>
-        /// Executes a non-query SQL command (INSERT, UPDATE, DELETE).
-        /// </summary>
-        public int ExecuteNonQuery(string query, SqlParameter[] parameters = null, SqlTransaction transaction = null)
-        {
-            try
-            {
-                var connection = transaction?.Connection ?? new SqlConnection(_connectionString);
-                using (var command = new SqlCommand(query, connection, transaction))
-                {
-                    if (parameters != null)
-                    {
-                        command.Parameters.AddRange(parameters);
-                    }
 
-                    if (connection.State != ConnectionState.Open)
-                        connection.Open();
-
-                    int result = command.ExecuteNonQuery();
-
-                    if (transaction == null)
-                        connection.Close();
-
-                    return result;
-                }
-            }
-            catch (SqlException ex)
-            {
-                throw new Exception($"Database Error (NonQuery): {ex.Message}. Query: {query}", ex);
-            }
-        }
 
         /// <summary>
         /// Asynchronously executes a non-query SQL command.
@@ -161,37 +97,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        /// <summary>
-        /// Executes a SQL command and returns the first column of the first row (scalar).
-        /// </summary>
-        public object ExecuteScalar(string query, SqlParameter[] parameters = null, SqlTransaction transaction = null)
-        {
-            try
-            {
-                var connection = transaction?.Connection ?? new SqlConnection(_connectionString);
-                using (var command = new SqlCommand(query, connection, transaction))
-                {
-                    if (parameters != null)
-                    {
-                        command.Parameters.AddRange(parameters);
-                    }
 
-                    if (connection.State != ConnectionState.Open)
-                        connection.Open();
-
-                    object result = command.ExecuteScalar();
-
-                    if (transaction == null)
-                        connection.Close();
-
-                    return result;
-                }
-            }
-            catch (SqlException ex)
-            {
-                throw new Exception($"Database Error (Scalar): {ex.Message}. Query: {query}", ex);
-            }
-        }
 
         /// <summary>
         /// Asynchronously executes a SQL command and returns the first column of the first row.
@@ -225,12 +131,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public T ExecuteScalar<T>(string query, SqlParameter[] parameters = null, SqlTransaction transaction = null)
-        {
-            var result = ExecuteScalar(query, parameters, transaction);
-            if (result == null || result == DBNull.Value) return default;
-            return (T)Convert.ChangeType(result, typeof(T));
-        }
+
 
         public async Task<T> ExecuteScalarAsync<T>(string query, SqlParameter[] parameters = null, SqlTransaction transaction = null)
         {
@@ -239,47 +140,14 @@ namespace HMS.Web.DAL
             return (T)Convert.ChangeType(result, typeof(T));
         }
 
-        /// <summary>
-        /// Executes a query and maps results to a list using a data reader for efficiency.
-        /// OPTIMIZATION: [Performance Telemetry] Added Stopwatch to log slow queries (>500ms).
-        /// OPTIMIZATION: [Connection Management] Explicitly handles connection lifecycles to prevent leaks.
-        /// </summary>
-        public List<T> ExecuteQuery<T>(string query, Func<SqlDataReader, T> map, SqlParameter[]? parameters = null, SqlTransaction? transaction = null)
-        {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            List<T> list = new List<T>();
-            SqlConnection connection = transaction?.Connection ?? new SqlConnection(_connectionString);
-            try
-            {
-                if (connection.State != ConnectionState.Open) connection.Open();
-                using (var command = new SqlCommand(query, connection, transaction))
-                {
-                    if (parameters != null) command.Parameters.AddRange(parameters);
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read()) list.Add(map(reader));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Database Error (Query): {ex.Message}. Query: {query}", ex);
-            }
-            finally
-            {
-                if (transaction == null && connection.State != ConnectionState.Closed) connection.Close();
-                sw.Stop();
-                if (sw.ElapsedMilliseconds > 500) System.Diagnostics.Debug.WriteLine($"SLOW QUERY ({sw.ElapsedMilliseconds}ms): {query}");
-            }
-            return list;
-        }
+
 
         /// <summary>
         /// Asynchronously executes a query and maps results to a list using a data reader.
         /// OPTIMIZATION: [Async Performance] Threshold for logging is higher (800ms) to account for initial connection scaling.
         /// OPTIMIZATION: [Memory Footprint] Uses forward-only readers to minimize RAM usage on large datasets.
         /// </summary>
-        public async Task<List<T>> ExecuteQueryAsync<T>(string query, Func<SqlDataReader, T> map, SqlParameter[]? parameters = null, SqlTransaction? transaction = null)
+        public async Task<List<T>>  ExecuteQueryAsync<T>(string query, Func<SqlDataReader, T> map, SqlParameter[]? parameters = null, SqlTransaction? transaction = null)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             List<T> list = new List<T>();
@@ -309,22 +177,7 @@ namespace HMS.Web.DAL
             return list;
         }
 
-        /// <summary>
-        /// Legacy method for DataRow mapping (still supported but reader-based ExecuteQuery is preferred).
-        /// </summary>
-        public List<T> ExecuteQuery<T>(string query, Func<DataRow, T> map, SqlParameter[] parameters = null)
-        {
-            var table = ExecuteDataTable(query, parameters);
-            var list = new List<T>();
-            if (table != null)
-            {
-                foreach (DataRow row in table.Rows)
-                {
-                    list.Add(map(row));
-                }
-            }
-            return list;
-        }
+
 
         public SqlConnection GetConnection()
         {

@@ -21,7 +21,69 @@ namespace HMS.Web.DAL
     public class BillingRepository
     {
         private readonly DatabaseHelper _db;
-        public BillingRepository(DatabaseHelper db) { _db = db; }
+        private readonly AuditRepository _audit;
+        public BillingRepository(DatabaseHelper db, AuditRepository audit)
+        {
+            _db = db;
+            _audit = audit;
+        }
+
+        /// <summary>
+        /// Asynchronously cancels a bill (Soft Delete) and logs it for auditing.
+        /// </summary>
+        public async Task CancelBillAsync(int billId, string reason, string userId, string userName)
+        {
+            try
+            {
+                const string sql = "UPDATE Bills SET Status = 'Cancelled' WHERE BillId = @Id";
+                await _db.ExecuteNonQueryAsync(sql, new[] { new SqlParameter("@Id", billId) });
+
+                await _audit.LogActionAsync(userId, userName, "Bill_Deletion", "Bills", billId.ToString(), $"Reason: {reason}");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to cancel bill {billId}: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Applies a manual override to a bill amount.
+        /// OPTIMIZATION: [Audit Compliance] Mandates a reason and logs the original amount before modification.
+        /// </summary>
+        public async Task ApplyPriceOverrideAsync(int billId, decimal newAmount, string reason, string userId, string userName)
+        {
+            try
+            {
+                // 1. Fetch current amount for audit
+                var currentAmountObj = await _db.ExecuteScalarAsync("SELECT TotalAmount FROM Bills WHERE BillId = @Id", new[] { new SqlParameter("@Id", billId) });
+                decimal originalAmount = Convert.ToDecimal(currentAmountObj ?? 0);
+
+                // 2. Apply Override
+                const string sql = @"UPDATE Bills 
+                                     SET TotalAmount = @NewAmount, 
+                                         DueAmount = @NewAmount - PaidAmount,
+                                         IsOverridden = 1, 
+                                         OverrideReason = @Reason, 
+                                         OverriddenBy = @UserName, 
+                                         OverrideDate = GETDATE(),
+                                         OriginalAmount = @Original
+                                     WHERE BillId = @Id";
+
+                await _db.ExecuteNonQueryAsync(sql, new[] {
+                    new SqlParameter("@Id", billId),
+                    new SqlParameter("@NewAmount", newAmount),
+                    new SqlParameter("@Reason", reason),
+                    new SqlParameter("@UserName", userName),
+                    new SqlParameter("@Original", originalAmount)
+                });
+
+                await _audit.LogActionAsync(userId, userName, "Price_Override", "Bills", billId.ToString(), $"Original: {originalAmount:C}, New: {newAmount:C}, Reason: {reason}");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to apply price override for bill {billId}: {ex.Message}", ex);
+            }
+        }
 
         private const string BillColumns = "BillId, PatientId, TotalAmount, PaidAmount, DueAmount, Status, BillDate, ShiftId, CreatedBy, AdmissionId";
 
@@ -44,23 +106,10 @@ namespace HMS.Web.DAL
                     ORDER BY b.BillDate DESC";
 
                 var parameters = new[] { new SqlParameter("@Id", patientId) };
-                return await _db.ExecuteQueryAsync(query, reader =>
-                {
-                    var bill = new Bill
-                    {
-                        BillId = reader.GetInt32(0),
-                        PatientId = reader.GetInt32(1),
-                        TotalAmount = reader.GetDecimal(2),
-                        PaidAmount = reader.GetDecimal(3),
-                        Status = reader["Status"]?.ToString() ?? "Pending",
-                        BillDate = reader.GetDateTime(5),
-                        ShiftId = reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
-                        CreatedBy = reader.IsDBNull(7) ? null : reader["CreatedBy"]?.ToString(),
-                        AdmissionId = reader.IsDBNull(8) ? null : (int?)reader.GetInt32(8)
-                    };
-                    bill.DueAmount = bill.TotalAmount - bill.PaidAmount;
-                    return bill;
-                }, parameters);
+                var rawData = await _db.ExecuteQueryAsync(query, MapRawBill, parameters);
+
+                // Domain Logic: Final processing (Sync) using IEnumerable
+                return ProcessCalculatedBills(rawData);
             }
             catch (Exception ex)
             {
@@ -68,13 +117,33 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Bill> GetBillsByPatientId(int patientId)
+        private Bill MapRawBill(SqlDataReader r)
         {
-            if (patientId <= 0) return new List<Bill>();
-            string query = $"SELECT {BillColumns} FROM Bills WHERE PatientId = @Id ORDER BY BillDate DESC";
-            var parameters = new[] { new SqlParameter("@Id", patientId) };
-            return _db.ExecuteQuery(query, MapBill, parameters);
+            return new Bill
+            {
+                BillId = r.GetInt32(0),
+                PatientId = r.GetInt32(1),
+                TotalAmount = r.GetDecimal(2),
+                PaidAmount = r.GetDecimal(3),
+                Status = r["Status"]?.ToString() ?? "Pending",
+                BillDate = r.GetDateTime(5),
+                ShiftId = r.IsDBNull(6) ? null : (int?)r.GetInt32(6),
+                CreatedBy = r.IsDBNull(7) ? null : r["CreatedBy"]?.ToString(),
+                AdmissionId = r.IsDBNull(8) ? null : (int?)r.GetInt32(8)
+            };
         }
+
+        private List<Bill> ProcessCalculatedBills(IEnumerable<Bill> bills)
+        {
+            var list = bills.ToList();
+            foreach (var b in list)
+            {
+                b.DueAmount = b.TotalAmount - b.PaidAmount;
+            }
+            return list;
+        }
+
+
 
         /// <summary>
         /// Asynchronously creates a comprehensive bill with items within a transaction.
@@ -112,19 +181,9 @@ namespace HMS.Web.DAL
                             new SqlParameter("@AdmissionId", (object?)bill.AdmissionId ?? DBNull.Value)
                         }, transaction);
 
-                        if (bill.Items != null && bill.Items.Any())
+                        if (bill.Items != null)
                         {
-                            foreach (var item in bill.Items)
-                            {
-                                const string itemSql = @"INSERT INTO BillItems (BillId, Description, Amount, Category) 
-                                                       VALUES (@BillId, @Description, @Amount, @Category)";
-                                await _db.ExecuteNonQueryAsync(itemSql, new[] {
-                                    new SqlParameter("@BillId", billId),
-                                    new SqlParameter("@Description", item.Description ?? "No description"),
-                                    new SqlParameter("@Amount", item.Amount),
-                                    new SqlParameter("@Category", item.Category ?? "General")
-                                }, transaction);
-                            }
+                            await ProcessBillItemsAsync(billId, bill.Items, transaction);
                         }
 
                         transaction.Commit();
@@ -139,59 +198,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public int CreateBill(Bill bill)
-        {
-            if (bill.PatientId <= 0) throw new ArgumentException("Invalid Patient ID for bill.");
-            if (bill.TotalAmount < 0) throw new ArgumentException("Bill Total Amount cannot be negative.");
 
-            using (var connection = _db.GetConnection())
-            {
-                connection.Open();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        const string sql = @"INSERT INTO Bills (PatientId, TotalAmount, PaidAmount, DueAmount, Status, BillDate, ShiftId, CreatedBy, AdmissionId) 
-                                           OUTPUT INSERTED.BillId
-                                           VALUES (@PatientId, @TotalAmount, @PaidAmount, @DueAmount, @Status, @BillDate, @ShiftId, @CreatedBy, @AdmissionId)";
-
-                        int billId = _db.ExecuteScalar<int>(sql, new[] {
-                            new SqlParameter("@PatientId", bill.PatientId),
-                            new SqlParameter("@TotalAmount", bill.TotalAmount),
-                            new SqlParameter("@PaidAmount", bill.PaidAmount),
-                            new SqlParameter("@DueAmount", bill.TotalAmount),
-                            new SqlParameter("@Status", bill.Status ?? "Pending"),
-                            new SqlParameter("@BillDate", bill.BillDate == default ? DateTime.Now : bill.BillDate),
-                            new SqlParameter("@ShiftId", (object?)bill.ShiftId ?? DBNull.Value),
-                            new SqlParameter("@CreatedBy", (object?)bill.CreatedBy ?? DBNull.Value),
-                            new SqlParameter("@AdmissionId", (object?)bill.AdmissionId ?? DBNull.Value)
-                        }, transaction);
-
-                        if (bill.Items != null && bill.Items.Any())
-                        {
-                            foreach (var item in bill.Items)
-                            {
-                                const string itemSql = @"INSERT INTO BillItems (BillId, Description, Amount, Category) VALUES (@BillId, @Description, @Amount, @Category)";
-                                _db.ExecuteNonQuery(itemSql, new[] {
-                                    new SqlParameter("@BillId", billId),
-                                    new SqlParameter("@Description", item.Description ?? "No description"),
-                                    new SqlParameter("@Amount", item.Amount),
-                                    new SqlParameter("@Category", item.Category ?? "General")
-                                }, transaction);
-                            }
-                        }
-
-                        transaction.Commit();
-                        return billId;
-                    }
-                    catch (Exception ex)
-                    {
-                        transaction.Rollback();
-                        throw new Exception($"Failed to create bill: {ex.Message}", ex);
-                    }
-                }
-            }
-        }
 
         /// <summary>
         /// Retrieves items for a specific bill.
@@ -216,23 +223,28 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<BillItem> GetBillItems(int billId)
+
+
+
+
+        /// <summary>
+        /// Mapping logic from SqlDataReader to Bill model.
+        /// </summary>
+        private async Task ProcessBillItemsAsync(int billId, IEnumerable<BillItem> items, SqlTransaction transaction)
         {
-            const string sql = "SELECT BillItemId, BillId, Description, Amount, Category FROM BillItems WHERE BillId = @Id";
-            return _db.ExecuteQuery(sql, reader => new BillItem
+            foreach (var item in items)
             {
-                BillItemId = reader.GetInt32(reader.GetOrdinal("BillItemId")),
-                BillId = reader.GetInt32(reader.GetOrdinal("BillId")),
-                Description = reader["Description"]?.ToString() ?? "",
-                Amount = reader.GetDecimal(reader.GetOrdinal("Amount")),
-                Category = reader["Category"]?.ToString() ?? "General"
-            }, new[] { new SqlParameter("@Id", billId) });
+                const string itemSql = @"INSERT INTO BillItems (BillId, Description, Amount, Category) 
+                                       VALUES (@BillId, @Description, @Amount, @Category)";
+                await _db.ExecuteNonQueryAsync(itemSql, new[] {
+                    new SqlParameter("@BillId", billId),
+                    new SqlParameter("@Description", item.Description ?? "No description"),
+                    new SqlParameter("@Amount", item.Amount),
+                    new SqlParameter("@Category", item.Category ?? "General")
+                }, transaction);
+            }
         }
 
-        public void CreateComprehensiveBill(Bill bill)
-        {
-            bill.BillId = CreateBill(bill);
-        }
 
         /// <summary>
         /// Mapping logic from SqlDataReader to Bill model.

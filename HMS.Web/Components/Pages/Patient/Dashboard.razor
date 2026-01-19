@@ -248,7 +248,7 @@
                 if (UserId != null)
                 {
                     // In a real app, use async DB calls. Here we wrap sync in Task for UI responsiveness if needed, but sync is fine.
-                    CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
+                    CurrentPatient = await PatientRepo.GetPatientByUserIdAsync(UserId);
                     if (CurrentPatient == null && string.IsNullOrEmpty(NewPatient.UserId))
                     {
                         NewPatient.UserId = UserId;
@@ -256,7 +256,7 @@
 
                     if (CurrentPatient != null)
                     {
-                        DashboardAppointments = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
+                        DashboardAppointments = await ApptRepo.GetAppointmentsByPatientIdAsync(CurrentPatient.PatientId);
                     }
                 }
             }
@@ -307,16 +307,16 @@
         }
     }
 
-    private void CancelEdit()
+    private async Task CancelEdit()
     {
         IsEditing = false;
         if (UserId != null)
         {
-            CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
+            CurrentPatient = await PatientRepo.GetPatientByUserIdAsync(UserId);
         }
     }
 
-    private void CreateProfile()
+    private async Task CreateProfile()
     {
         try
         {
@@ -324,15 +324,15 @@
             {
                 if (IsEditing)
                 {
-                    PatientRepo.UpdatePatient(NewPatient);
+                    await PatientRepo.UpdatePatientAsync(NewPatient);
                     IsEditing = false;
                 }
                 else
                 {
                     NewPatient.UserId = UserId;
-                    PatientRepo.CreatePatient(NewPatient);
+                    await PatientRepo.CreatePatientAsync(NewPatient);
                 }
-                CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
+                CurrentPatient = await PatientRepo.GetPatientByUserIdAsync(UserId);
                 // Refresh
                 NotificationService.Notify(NotificationSeverity.Success, "Profile Updated", "Your clinical profile has been successfully updated.");
             }

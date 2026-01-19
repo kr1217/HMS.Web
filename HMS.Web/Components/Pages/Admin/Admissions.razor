@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Admissions.razor
- * PURPOSE: Administrative interface for hospital operations.
- * COMMUNICATES WITH: FacilityRepository, PatientRepository
+* FILE: Admissions.razor
+* PURPOSE: Administrative interface for hospital operations.
+* COMMUNICATES WITH: FacilityRepository, PatientRepository
 *@
 @page "/admin/admissions"
 @layout HMS.Web.Components.Layout.AdminLayout
@@ -177,8 +177,8 @@ without browser lag.
         var orderBy = args.OrderBy;
         if (string.IsNullOrEmpty(orderBy)) orderBy = "AdmissionDate DESC";
 
-        activeAdmissions = FacilityRepo.GetActiveAdmissionsPaged(skip, take, orderBy);
-        count = FacilityRepo.GetActiveAdmissionsCount();
+        activeAdmissions = await FacilityRepo.GetActiveAdmissionsPagedAsync(skip, take, orderBy);
+        count = await FacilityRepo.GetActiveAdmissionsCountAsync();
 
         isLoading = false;
         StateHasChanged();
@@ -228,4 +228,3 @@ without browser lag.
         }
     }
 }
-

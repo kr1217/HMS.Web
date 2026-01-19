@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: AdminNavMenu.razor
- * PURPOSE: Layout definition component.
- * COMMUNICATES WITH: None
+* FILE: AdminNavMenu.razor
+* PURPOSE: Layout definition component.
+* COMMUNICATES WITH: None
 *@
 @implements IDisposable
 @inject NavigationManager NavigationManager
@@ -14,8 +14,11 @@
     <AuthorizeView Roles="Admin">
         <Authorized>
             <RadzenPanelMenuItem Text="Governance" Icon="admin_panel_settings" Expanded="true">
-                <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="admin/dashboard" />
+                <RadzenPanelMenuItem Text="Executive View (CEO)" Icon="analytics" Path="admin/ceo-dashboard" />
+                <RadzenPanelMenuItem Text="Loss Intelligence" Icon="trending_down" Path="admin/loss-analytics" />
+                <RadzenPanelMenuItem Text="Ops Dashboard" Icon="dashboard" Path="admin/dashboard" />
                 <RadzenPanelMenuItem Text="Staff Registry" Icon="people" Path="admin/staff" />
+                <RadzenPanelMenuItem Text="System Audit Trail" Icon="policy" Path="admin/audit-logs" />
             </RadzenPanelMenuItem>
 
             <RadzenPanelMenuItem Text="Clinical Operations" Icon="local_hospital">
@@ -32,6 +35,7 @@
 
             <RadzenPanelMenuItem Text="Finance & HR" Icon="payments">
                 <RadzenPanelMenuItem Text="Financial Hub" Icon="attach_money" Path="admin/finance" />
+                <RadzenPanelMenuItem Text="Payout Audit" Icon="verified" Path="admin/doctor-ledger" />
                 <RadzenPanelMenuItem Text="Doctor Settlements" Icon="account_balance" Path="admin/settlements" />
                 <RadzenPanelMenuItem Text="Shift Reports" Icon="assessment" Path="admin/shift-report" />
             </RadzenPanelMenuItem>
@@ -46,11 +50,7 @@
         </Authorized>
     </AuthorizeView>
 
-    <AuthorizeView>
-        <Authorized>
-            <RadzenPanelMenuItem Text="Exit" Icon="close" Click="HandleLogout" />
-        </Authorized>
-    </AuthorizeView>
+
 </RadzenPanelMenu>
 
 <form action="/Account/Logout" method="post" id="adminLogoutForm" style="display:none">
@@ -90,11 +90,11 @@
             {
                 try
                 {
-                    var shift = FinanceRepo.GetCurrentShift(userId);
+                    var shift = await FinanceRepo.GetCurrentShiftAsync(userId);
                     if (shift != null)
                     {
-                        var expectedRevenue = FinanceRepo.GetShiftRevenue(shift.ShiftId);
-                        FinanceRepo.CloseShift(shift.ShiftId, expectedRevenue, "Auto-closed on Logout");
+                        var expectedRevenue = await FinanceRepo.GetShiftRevenueAsync(shift.ShiftId);
+                        await FinanceRepo.CloseShiftAsync(shift.ShiftId, expectedRevenue, "Auto-closed on Logout");
                     }
                 }
                 catch (Exception ex)
@@ -107,4 +107,3 @@
         await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('adminLogoutForm').submit();");
     }
 }
-

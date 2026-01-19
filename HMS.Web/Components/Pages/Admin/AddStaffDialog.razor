@@ -20,14 +20,14 @@
                 <RadzenRow Gap="1rem">
                     <RadzenColumn Size="12" SizeMD="6">
                         <RadzenStack Gap="0.5rem">
-                            <RadzenLabel Text="Personnel Full Name" Component="FullName" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenLabel Text="Personnel Full Name" Component="FullName" TextStyle="TextStyle.Subtitle2" Class="required" />
                             <RadzenTextBox @bind-Value="model.FullName" Name="FullName" Class="rz-w-100" Placeholder="Enter legal name..." />
                             <RadzenRequiredValidator Component="FullName" Text="Full name is mandatory" />
                         </RadzenStack>
                     </RadzenColumn>
                     <RadzenColumn Size="12" SizeMD="6">
                         <RadzenStack Gap="0.5rem">
-                            <RadzenLabel Text="Institutional Email (Login ID)" Component="Email" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenLabel Text="Institutional Email (Login ID)" Component="Email" TextStyle="TextStyle.Subtitle2" Class="required" />
                             <RadzenTextBox @bind-Value="model.Email" Name="Email" Class="rz-w-100" Disabled="@IsEdit" Placeholder="institutional@hms.com" />
                             <RadzenRequiredValidator Component="Email" Text="Email identifier is required" />
                             <RadzenEmailValidator Component="Email" Text="Invalid clinical email format" />
@@ -38,7 +38,7 @@
                 <RadzenRow Gap="1rem">
                     <RadzenColumn Size="12" SizeMD="6">
                         <RadzenStack Gap="0.5rem">
-                            <RadzenLabel Text="Institutional Role" Component="Role" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenLabel Text="Institutional Role" Component="Role" TextStyle="TextStyle.Subtitle2" Class="required" />
                             <RadzenDropDown @bind-Value="model.Role" Data="@roles" Class="rz-w-100" Name="Role" Placeholder="Select registry role..." />
                             <RadzenRequiredValidator Component="Role" Text="Role assignment is mandatory" />
                         </RadzenStack>
@@ -91,7 +91,7 @@
         }
 
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-4">
-            <RadzenButton ButtonType="ButtonType.Submit" Text="Synchronize Registry" ButtonStyle="ButtonStyle.Primary" Icon="save" />
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Synchronize Registry" ButtonStyle="ButtonStyle.Primary" Icon="save" IsBusy="@isSubmitting" BusyText="Synchronizing..." />
             <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
         </RadzenStack>
     </RadzenStack>
@@ -106,6 +106,7 @@
     private List<string> departments = new() { "Cardiology", "Neurology", "General", "Orthopedics", "Administration",
 "Pharmacy", "Finance" };
     private List<string> shifts = new() { "Morning", "Evening", "Night" };
+    private bool isSubmitting = false;
 
     protected override void OnInitialized()
     {
@@ -136,11 +137,14 @@
 
     private async Task HandleValidSubmit()
     {
+        if (isSubmitting) return;
+        isSubmitting = true;
+
         try
         {
             if (IsEdit)
             {
-                StaffRepo.UpdateStaff(model);
+                await StaffRepo.UpdateStaffAsync(model);
                 NotificationService.Notify(NotificationSeverity.Success, "Registry Updated", "Staff record synchronized successfully.");
                 DialogService.Close(true);
             }
@@ -157,7 +161,7 @@
 
                     // 3. Create Staff
                     model.UserId = user.Id;
-                    StaffRepo.CreateStaff(model);
+                    await StaffRepo.CreateStaffAsync(model);
                     NotificationService.Notify(NotificationSeverity.Success, "Personnel Enrolled", "New staff account provisioned and enrolled.");
                     DialogService.Close(true);
                 }
@@ -168,12 +172,16 @@
                         NotificationService.Notify(NotificationSeverity.Error, "Credential Error", error.Description);
                     }
                 }
-            }
-        }
-        catch (Exception ex)
-        {
-            NotificationService.Notify(NotificationSeverity.Error, "System Error", ex.Message);
         }
     }
+    catch (Exception ex)
+    {
+        NotificationService.Notify(NotificationSeverity.Error, "System Error", ex.Message);
+    }
+    finally
+    {
+        isSubmitting = false;
+    }
+}
 }
 

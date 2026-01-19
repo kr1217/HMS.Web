@@ -18,7 +18,7 @@ namespace HMS.Web.Models
         public int BedId { get; set; }
         public DateTime AdmissionDate { get; set; } = DateTime.Now;
         public DateTime? DischargeDate { get; set; }
-        public string Status { get; set; } = "Admitted"; // Admitted, Discharged
+        public string Status { get; set; } = "Admitted"; // Registered, Admitted, Under Treatment, Surgery Scheduled, Post-Op, Ready for Discharge, Financial Clearance, Discharged, Archived
         public string Notes { get; set; } = string.Empty;
 
         // Optional Joined Properties

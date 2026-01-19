@@ -17,10 +17,15 @@ namespace HMS.Web.Models
         public int PatientId { get; set; }
         public int? PackageId { get; set; }
         public string PackageName { get; set; } = string.Empty;
+        public int? DoctorId { get; set; } // Examining/Recommending Doctor
+
+        // Phase 4.2: Operating Surgeon (The one who actually cuts)
+        public int? OperatingSurgeonId { get; set; }
+
+        public string DoctorName { get; set; } = string.Empty;
         public string Status { get; set; } = "Scheduled"; // Scheduled, In Progress, Completed
         public DateTime ScheduledDate { get; set; }
         public string Notes { get; set; } = string.Empty;
-        public int DoctorId { get; set; }
         public string? Urgency { get; set; } // Low, Medium, High, Critical
 
         // New Detailed Recommendation Fields
@@ -39,7 +44,6 @@ namespace HMS.Web.Models
         public decimal? AgreedEquipmentCost { get; set; }
 
         public string? PatientName { get; set; } // Optional Joined
-        public string? DoctorName { get; set; } // Optional Joined
         public bool IsTransferred { get; set; }
     }
 }

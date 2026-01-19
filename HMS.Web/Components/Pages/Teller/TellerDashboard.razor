@@ -10,6 +10,7 @@
 @using Microsoft.AspNetCore.Authorization
 @inject OperationRepository OperationRepo
 @inject FinanceRepository FinanceRepo
+@inject BillingRepository BillingRepo
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 @inject AuthenticationStateProvider AuthStateProvider
@@ -47,7 +48,7 @@
 
         <RadzenRow Gap="1.5rem">
             <RadzenColumn Size="12" SizeMD="4">
-                <RadzenCard Class="rz-p-4" Style="border-left: 4px solid var(--rz-warning); border-radius: 12px;">
+                <RadzenCard Class="rz-p-4" Style="border-left: 4px solid var(--rz-warning);">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
                         <RadzenIcon Icon="account_balance" Style="font-size: 2.5rem; color: var(--rz-warning);" />
                         <RadzenStack Gap="0">
@@ -58,9 +59,9 @@
                 </RadzenCard>
             </RadzenColumn>
             <RadzenColumn Size="12" SizeMD="4">
-                <RadzenCard Class="rz-p-4" Style="border-left: 4px solid var(--rz-info); border-radius: 12px;">
+                <RadzenCard Class="rz-p-4" Style="border-left: 4px solid var(--ui-primary);">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                        <RadzenIcon Icon="payments" Style="font-size: 2.5rem; color: var(--rz-info);" />
+                        <RadzenIcon Icon="payments" Style="font-size: 2.5rem; color: var(--ui-primary);" />
                         <RadzenStack Gap="0">
                             <RadzenText Text="Advance Requests" TextStyle="TextStyle.Caption" Class="rz-m-0" />
                             <RadzenText Text="@advanceRequestsCount.ToString()" TextStyle="TextStyle.H4" Class="rz-m-0 rz-font-weight-bold" />
@@ -69,9 +70,9 @@
                 </RadzenCard>
             </RadzenColumn>
             <RadzenColumn Size="12" SizeMD="4">
-                <RadzenCard Class="rz-p-4" Style="border-left: 4px solid var(--rz-success); border-radius: 12px;">
+                <RadzenCard Class="rz-p-4" Style="border-left: 4px solid var(--ui-success);">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                        <RadzenIcon Icon="currency_exchange" Style="font-size: 2.5rem; color: var(--rz-success);" />
+                        <RadzenIcon Icon="currency_exchange" Style="font-size: 2.5rem; color: var(--ui-success);" />
                         <RadzenStack Gap="0">
                             <RadzenText Text="Shift Revenue" TextStyle="TextStyle.Caption" Class="rz-m-0" />
                             <RadzenText Text="@ShiftRevenue.ToString("C")" TextStyle="TextStyle.H4" Class="rz-m-0 rz-font-weight-bold" />
@@ -84,7 +85,7 @@
         <RadzenTabs RenderMode="TabRenderMode.Server">
             <Tabs>
                 <RadzenTabsItem Text="Revenue Collection Queue" Icon="payments">
-                    <RadzenCard Class="rz-p-0 rz-shadow-4" Style="overflow: hidden; border-radius: 12px;">
+                    <RadzenCard Class="rz-p-0 rz-shadow-4" Style="overflow: hidden;">
                         <RadzenDataGrid @ref="billsGrid" Data="@pendingBills" TItem="Bill" Count="@pendingBillsCount" LoadData="@LoadBillsData"
                                         IsLoading="@isBillsLoading" AllowFiltering="true" AllowPaging="true" PageSize="10" AllowSorting="true" 
                                         ShowPagingSummary="true" FilterMode="FilterMode.Simple">
@@ -104,11 +105,17 @@
                                         <RadzenBadge Text="@bill.Status" BadgeStyle="@(bill.Status == "Paid" ? BadgeStyle.Success : BadgeStyle.Warning)" Shade="Shade.Lighter" IsPill="true" />
                                     </Template>
                                 </RadzenDataGridColumn>
-                                <RadzenDataGridColumn TItem="Bill" Title="Operations" Sortable="false" Filterable="false" Width="140px" TextAlign="TextAlign.Right">
+                                <RadzenDataGridColumn TItem="Bill" Title="Operations" Sortable="false" Filterable="false" Width="200px" TextAlign="TextAlign.Right">
                                     <Template Context="bill">
-                                        <RadzenButton Text="Collect" Icon="money" Click="@(args => OpenPaymentDialog(bill))" 
-                                                      ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" 
-                                                      Disabled="@(!IsShiftActive)" />
+                                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" JustifyContent="JustifyContent.End">
+                                            <RadzenButton Text="Collect" Icon="money" Click="@(args => OpenPaymentDialog(bill))" 
+                                                          ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" 
+                                                          Disabled="@(!IsShiftActive)" />
+                                            <RadzenButton Icon="delete" Click="@(args => CancelBill(bill))" 
+                                                          ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" 
+                                                          Variant="Variant.Outlined"
+                                                          Disabled="@(!IsShiftActive)" />
+                                        </RadzenStack>
                                     </Template>
                                 </RadzenDataGridColumn>
                             </Columns>
@@ -116,7 +123,7 @@
                     </RadzenCard>
                 </RadzenTabsItem>
                 <RadzenTabsItem Text="@($"Surgical Advance Requests ({advanceRequestsCount})")" Icon="pending_actions">
-                    <RadzenCard Class="rz-p-0 rz-shadow-4" Style="overflow: hidden; border-radius: 12px;">
+                    <RadzenCard Class="rz-p-0 rz-shadow-4" Style="overflow: hidden;">
                         <RadzenDataGrid @ref="advanceGrid" Data="@advanceRequests" TItem="PatientOperation" Count="@advanceRequestsCount" LoadData="@LoadAdvanceData"
                                         IsLoading="@isAdvanceLoading" AllowFiltering="true" AllowPaging="true" PageSize="10" AllowSorting="true"
                                         EmptyText="No pending advance payment requests.">
@@ -133,7 +140,7 @@
                                 <RadzenDataGridColumn TItem="PatientOperation" Title="Action" Width="180px" TextAlign="TextAlign.Right">
                                     <Template Context="op">
                                         <RadzenButton Text="Process Advance" Icon="payments" 
-                                                      ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small"
+                                                      ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
                                                       Click="@(() => OpenAdvanceDialog(op))" 
                                                       Disabled="@(!IsShiftActive)" />
                                     </Template>
@@ -175,14 +182,14 @@
 
             if(UserId != null)
             {
-                 var shift = FinanceRepo.GetCurrentShift(UserId);
+                 var shift = await FinanceRepo.GetCurrentShiftAsync(UserId);
                  IsShiftActive = (shift != null);
-                 if(shift != null) ShiftRevenue = FinanceRepo.GetShiftRevenue(shift.ShiftId);
+                 if(shift != null) ShiftRevenue = await FinanceRepo.GetShiftRevenueAsync(shift.ShiftId);
             }
             
             // Initial counts for the summary cards
-            pendingBillsCount = FinanceRepo.GetPendingBillsCount();
-            advanceRequestsCount = OperationRepo.GetOperationsByStatusCount("Advance Payment Requested");
+            pendingBillsCount = await FinanceRepo.GetPendingBillsCountAsync();
+            advanceRequestsCount = await OperationRepo.GetOperationsByStatusCountAsync("Advance Payment Requested");
         }
         catch (Exception ex)
         {
@@ -217,8 +224,8 @@
             var orderBy = args.OrderBy;
             if (string.IsNullOrEmpty(orderBy)) orderBy = "BillDate DESC";
 
-            pendingBills = FinanceRepo.GetPendingBillsPaged(skip, top, orderBy);
-            pendingBillsCount = FinanceRepo.GetPendingBillsCount();
+            pendingBills = await FinanceRepo.GetPendingBillsPagedAsync(skip, top, orderBy);
+            pendingBillsCount = await FinanceRepo.GetPendingBillsCountAsync();
             isBillsLoading = false;
             StateHasChanged();
         }
@@ -246,8 +253,8 @@
             var orderBy = args.OrderBy;
             if (string.IsNullOrEmpty(orderBy)) orderBy = "ScheduledDate DESC";
 
-            advanceRequests = OperationRepo.GetOperationsByStatusPaged("Advance Payment Requested", skip, top, orderBy);
-            advanceRequestsCount = OperationRepo.GetOperationsByStatusCount("Advance Payment Requested");
+            advanceRequests = await OperationRepo.GetOperationsByStatusPagedAsync("Advance Payment Requested", skip, top, orderBy);
+            advanceRequestsCount = await OperationRepo.GetOperationsByStatusCountAsync("Advance Payment Requested");
             isAdvanceLoading = false;
         }
         catch (Exception ex)
@@ -262,7 +269,7 @@
         try
         {
             if (UserId == null) return;
-            var shift = FinanceRepo.GetCurrentShift(UserId);
+            var shift = await FinanceRepo.GetCurrentShiftAsync(UserId);
             if (shift == null) return;
 
             var result = await DialogService.OpenAsync<CollectAdvanceDialog>($"Advance Payment - {op.PatientName}",
@@ -282,7 +289,7 @@
         try
         {
             if (UserId == null) return;
-            var shift = FinanceRepo.GetCurrentShift(UserId);
+            var shift = await FinanceRepo.GetCurrentShiftAsync(UserId);
             if (shift == null)
             {
                 NotificationService.Notify(NotificationSeverity.Warning, "Shift Required", "You must clock in before collecting payments.");
@@ -305,15 +312,41 @@
     {
         if(UserId != null)
         {
-            var shift = FinanceRepo.GetCurrentShift(UserId);
-            if(shift != null) ShiftRevenue = FinanceRepo.GetShiftRevenue(shift.ShiftId);
+            var shift = await FinanceRepo.GetCurrentShiftAsync(UserId);
+            if(shift != null) ShiftRevenue = await FinanceRepo.GetShiftRevenueAsync(shift.ShiftId);
         }
         
         if (billsGrid != null) await billsGrid.Reload();
         if (advanceGrid != null) await advanceGrid.Reload();
         
-        pendingBillsCount = FinanceRepo.GetPendingBillsCount();
-        advanceRequestsCount = OperationRepo.GetOperationsByStatusCount("Advance Payment Requested");
+        pendingBillsCount = await FinanceRepo.GetPendingBillsCountAsync();
+        advanceRequestsCount = await OperationRepo.GetOperationsByStatusCountAsync("Advance Payment Requested");
+    }
+
+    async Task CancelBill(Bill bill)
+    {
+        try
+        {
+            var result = await DialogService.OpenAsync<CancelBillDialog>($"Void Bill #{bill.BillId}",
+                   new Dictionary<string, object>() { { "BillId", bill.BillId } },
+                   new DialogOptions() { Width = "500px", Height = "auto" });
+
+            if (result is string reason && !string.IsNullOrWhiteSpace(reason))
+            {
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var user = authState.User;
+                var userId = user.FindFirst(u => u.Type.Contains("nameidentifier"))?.Value ?? "Unknown";
+                var userName = user.Identity?.Name ?? "Admin";
+
+                await BillingRepo.CancelBillAsync(bill.BillId, reason, userId, userName);
+                NotificationService.Notify(NotificationSeverity.Success, "Bill Voided", "The transaction has been cancelled and audited.");
+                await RefreshDashboard();
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Cancellation Failed", ex.Message);
+        }
     }
 }
 

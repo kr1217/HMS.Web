@@ -21,9 +21,14 @@ namespace HMS.Web.DAL
     public class DoctorRepository
     {
         private readonly DatabaseHelper _db;
-        public DoctorRepository(DatabaseHelper db) { _db = db; }
+        private readonly AuditRepository _audit;
+        public DoctorRepository(DatabaseHelper db, AuditRepository audit)
+        {
+            _db = db;
+            _audit = audit;
+        }
 
-        private const string DoctorColumns = "DoctorId, UserId, FullName, Gender, ContactNumber, Email, Qualification, Specialization, MedicalLicenseNumber, LicenseIssuingAuthority, YearsOfExperience, DepartmentId, HospitalJoiningDate, ConsultationFee, FollowUpFee, AvailableDays, AvailableTimeSlots, RoomNumber, IsOnCall, IsActive, IsVerified, CreatedAt, IsAvailable, CommissionRate";
+        private const string DoctorColumns = "DoctorId, UserId, FullName, Gender, ContactNumber, Email, Qualification, Specialization, MedicalLicenseNumber, LicenseIssuingAuthority, YearsOfExperience, DepartmentId, HospitalJoiningDate, ConsultationFee, FollowUpFee, AvailableDays, AvailableTimeSlots, RoomNumber, IsOnCall, IsActive, IsVerified, CreatedAt, IsAvailable, CommissionRate, SurgeryCommission, RecommendationCommission";
 
         /// <summary>
         /// Retrieves all active doctors with their department details.
@@ -41,11 +46,6 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Doctor> GetAllDoctors()
-        {
-            string query = $"SELECT d.*, dept.DepartmentName FROM Doctors d LEFT JOIN Departments dept ON d.DepartmentId = dept.DepartmentId WHERE d.IsActive = 1";
-            return _db.ExecuteQuery(query, MapDoctor);
-        }
 
         /// <summary>
         /// Retrieves a specific doctor by their ID.
@@ -66,13 +66,6 @@ namespace HMS.Web.DAL
             }
         }
 
-        public Doctor? GetDoctorById(int id)
-        {
-            if (id <= 0) return null;
-            string query = $"SELECT d.*, dept.DepartmentName FROM Doctors d LEFT JOIN Departments dept ON d.DepartmentId = dept.DepartmentId WHERE d.DoctorId = @Id";
-            var parameters = new[] { new SqlParameter("@Id", id) };
-            return _db.ExecuteQuery(query, MapDoctor, parameters).FirstOrDefault();
-        }
 
         public async Task<Doctor?> GetDoctorByUserIdAsync(string userId)
         {
@@ -82,12 +75,6 @@ namespace HMS.Web.DAL
             return list.FirstOrDefault();
         }
 
-        public Doctor? GetDoctorByUserId(string userId)
-        {
-            if (string.IsNullOrEmpty(userId)) return null;
-            string query = $"SELECT d.*, dept.DepartmentName FROM Doctors d LEFT JOIN Departments dept ON d.DepartmentId = dept.DepartmentId WHERE d.UserId = @UserId";
-            return _db.ExecuteQuery(query, MapDoctor, new[] { new SqlParameter("@UserId", userId) }).FirstOrDefault();
-        }
 
         /// <summary>
         /// Retrieves all doctors belonging to a specific department.
@@ -107,26 +94,23 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Doctor> GetDoctorsByDepartment(int departmentId)
-        {
-            if (departmentId <= 0) return new List<Doctor>();
-            string query = $"SELECT d.*, dept.DepartmentName FROM Doctors d LEFT JOIN Departments dept ON d.DepartmentId = dept.DepartmentId WHERE d.DepartmentId = @DeptId AND d.IsActive = 1";
-            var parameters = new[] { new SqlParameter("@DeptId", departmentId) };
-            return _db.ExecuteQuery(query, MapDoctor, parameters);
-        }
 
-        /// <summary>
-        /// Dashboard statistics for a specific doctor.
-        /// </summary>
-
-        /// <summary>
-        /// Asynchronously updates a doctor's profile.
-        /// </summary>
         public async Task UpdateDoctorAsync(Doctor d)
         {
             try
             {
                 if (d == null || d.DoctorId <= 0) throw new ArgumentException("Invalid doctor data.");
+
+                // Audit: Check for sensitive changes
+                var old = await GetDoctorByIdAsync(d.DoctorId);
+                if (old != null)
+                {
+                    var financialAudit = EvaluateFinancialChanges(old, d);
+                    if (financialAudit.Changed)
+                    {
+                        await _audit.LogActionAsync("SYSTEM", "User-Action", "Doctor_Price_Override", "Doctors", d.DoctorId.ToString(), financialAudit.Details);
+                    }
+                }
 
                 string query = @"UPDATE Doctors 
                                  SET FullName = @FullName, 
@@ -146,7 +130,9 @@ namespace HMS.Web.DAL
                                      IsOnCall = @OnCall,
                                      IsActive = @Active,
                                      IsAvailable = @Available,
-                                     CommissionRate = @Comm
+                                     CommissionRate = @Comm,
+                                     SurgeryCommission = @SurgComm,
+                                     RecommendationCommission = @RecComm
                                  WHERE DoctorId = @Id";
                 var parameters = new[]
                 {
@@ -168,6 +154,8 @@ namespace HMS.Web.DAL
                     new SqlParameter("@Active", d.IsActive),
                     new SqlParameter("@Available", d.IsAvailable),
                     new SqlParameter("@Comm", d.CommissionRate),
+                    new SqlParameter("@SurgComm", d.SurgeryCommission),
+                    new SqlParameter("@RecComm", d.RecommendationCommission),
                     new SqlParameter("@Id", d.DoctorId)
                 };
                 await _db.ExecuteNonQueryAsync(query, parameters);
@@ -178,60 +166,58 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void UpdateDoctor(Doctor d)
-        {
-            if (d == null || d.DoctorId <= 0) throw new ArgumentException("Invalid doctor data.");
-            string query = @"UPDATE Doctors SET FullName = @FullName, Gender = @Gender, ContactNumber = @Phone, Email = @Email, Qualification = @Qual, Specialization = @Spec, MedicalLicenseNumber = @License, YearsOfExperience = @Exp, DepartmentId = @DeptId, ConsultationFee = @Fee, FollowUpFee = @FollowFee, AvailableDays = @Days, AvailableTimeSlots = @Slots, RoomNumber = @Room, IsOnCall = @OnCall, IsActive = @Active, IsAvailable = @Available, CommissionRate = @Comm WHERE DoctorId = @Id";
-            var parameters = new[] { new SqlParameter("@FullName", d.FullName ?? ""), new SqlParameter("@Gender", d.Gender ?? ""), new SqlParameter("@Phone", d.ContactNumber ?? ""), new SqlParameter("@Email", d.Email ?? ""), new SqlParameter("@Qual", d.Qualification ?? ""), new SqlParameter("@Spec", d.Specialization ?? ""), new SqlParameter("@License", d.MedicalLicenseNumber ?? ""), new SqlParameter("@Exp", d.YearsOfExperience), new SqlParameter("@DeptId", d.DepartmentId), new SqlParameter("@Fee", d.ConsultationFee), new SqlParameter("@FollowFee", d.FollowUpFee), new SqlParameter("@Days", d.AvailableDays ?? ""), new SqlParameter("@Slots", d.AvailableTimeSlots ?? ""), new SqlParameter("@Room", d.RoomNumber ?? ""), new SqlParameter("@OnCall", d.IsOnCall), new SqlParameter("@Active", d.IsActive), new SqlParameter("@Available", d.IsAvailable), new SqlParameter("@Comm", d.CommissionRate), new SqlParameter("@Id", d.DoctorId) };
-            _db.ExecuteNonQuery(query, parameters);
-        }
 
         /// <summary>
         /// Retrieves real-time dashboard statistics for a specific doctor.
         /// OPTIMIZATION: [Compute at Source] Uses SQL subqueries to calculate appointment counts and revenue directly on the DB server.
         /// WHY: This prevents pulling thousands of individual appointment rows into memory just to count them.
         /// </summary>
-        public DoctorDashboardStats GetDoctorDashboardStats(int doctorId)
-        {
-            if (doctorId <= 0) return new DoctorDashboardStats();
-            string query = @"SELECT 
-                (SELECT COUNT(*) FROM Appointments WHERE DoctorId = @Id AND Status = 'Scheduled' AND CAST(AppointmentDate AS DATE) = CAST(GETDATE() AS DATE)) as TodayAppointments,
-                (SELECT COUNT(*) FROM Appointments WHERE DoctorId = @Id AND Status = 'Pending') as NewRequests,
-                (SELECT COUNT(DISTINCT PatientId) FROM Appointments WHERE DoctorId = @Id) as TotalPatients,
-                (SELECT ISNULL(SUM(Amount), 0) FROM Payments p JOIN Bills b ON p.BillId = b.BillId WHERE b.PatientId IN (SELECT PatientId FROM Appointments WHERE DoctorId = @Id) AND MONTH(p.PaymentDate) = MONTH(GETDATE())) as Revenue";
-
-            return _db.ExecuteQuery(query, reader => new DoctorDashboardStats
-            {
-                AppointmentsToday = reader.GetInt32(0),
-                PendingApprovals = reader.GetInt32(1),
-                TotalPatientsServed = reader.GetInt32(2),
-                MonthlyCommission = reader.GetDecimal(3)
-            }, new[] { new SqlParameter("@Id", doctorId) }).FirstOrDefault() ?? new DoctorDashboardStats();
-        }
-
         public async Task<DoctorDashboardStats> GetDoctorDashboardStatsAsync(int doctorId)
         {
             if (doctorId <= 0) return new DoctorDashboardStats();
+
+            // I/O (Async)
             string query = @"SELECT 
                 (SELECT COUNT(*) FROM Appointments WHERE DoctorId = @Id AND Status = 'Scheduled' AND CAST(AppointmentDate AS DATE) = CAST(GETDATE() AS DATE)) as TodayAppointments,
                 (SELECT COUNT(*) FROM Appointments WHERE DoctorId = @Id AND Status = 'Pending') as NewRequests,
                 (SELECT COUNT(DISTINCT PatientId) FROM Appointments WHERE DoctorId = @Id) as TotalPatients,
                 (SELECT ISNULL(SUM(Amount), 0) FROM Payments p JOIN Bills b ON p.BillId = b.BillId WHERE b.PatientId IN (SELECT PatientId FROM Appointments WHERE DoctorId = @Id) AND MONTH(p.PaymentDate) = MONTH(GETDATE())) as Revenue";
 
-            var results = await _db.ExecuteQueryAsync(query, reader => new DoctorDashboardStats
+            var rawStats = await _db.ExecuteQueryAsync(query, r => new
             {
-                AppointmentsToday = reader.GetInt32(0),
-                PendingApprovals = reader.GetInt32(1),
-                TotalPatientsServed = reader.GetInt32(2),
-                MonthlyCommission = reader.GetDecimal(3)
+                Today = r.GetInt32(0),
+                Pending = r.GetInt32(1),
+                Patients = r.GetInt32(2),
+                Revenue = r.GetDecimal(3)
             }, new[] { new SqlParameter("@Id", doctorId) });
-            return results.FirstOrDefault() ?? new DoctorDashboardStats();
+
+            // Domain Logic: Assembly (Sync)
+            return AssembleDoctorStats(rawStats);
         }
 
-        public List<Doctor> GetDoctors()
+        private DoctorDashboardStats AssembleDoctorStats(IEnumerable<dynamic> rawStats)
         {
-            string query = "SELECT d.*, dept.DepartmentName FROM Doctors d LEFT JOIN Departments dept ON d.DepartmentId = dept.DepartmentId WHERE d.IsActive = 1";
-            return _db.ExecuteQuery(query, MapDoctor);
+            var data = rawStats.FirstOrDefault();
+            if (data == null) return new DoctorDashboardStats();
+
+            return new DoctorDashboardStats
+            {
+                AppointmentsToday = data.Today,
+                PendingApprovals = data.Pending,
+                TotalPatientsServed = data.Patients,
+                MonthlyCommission = data.Revenue
+            };
+        }
+
+        private (bool Changed, string Details) EvaluateFinancialChanges(Doctor old, Doctor d)
+        {
+            bool changed = old.ConsultationFee != d.ConsultationFee ||
+                           old.CommissionRate != d.CommissionRate ||
+                           old.SurgeryCommission != d.SurgeryCommission ||
+                           old.RecommendationCommission != d.RecommendationCommission;
+
+            string details = changed ? $"Financial terms changed. Fee: {old.ConsultationFee}->{d.ConsultationFee}, Comm: {old.CommissionRate}->{d.CommissionRate}" : "";
+            return (changed, details);
         }
 
         /// <summary>
@@ -264,7 +250,9 @@ namespace HMS.Web.DAL
                 IsVerified = reader.GetBoolean(reader.GetOrdinal("IsVerified")),
                 CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
                 IsAvailable = reader.GetBoolean(reader.GetOrdinal("IsAvailable")),
-                CommissionRate = reader.GetDecimal(reader.GetOrdinal("CommissionRate"))
+                CommissionRate = reader.GetDecimal(reader.GetOrdinal("CommissionRate")),
+                SurgeryCommission = reader.HasColumn("SurgeryCommission") ? (reader.IsDBNull(reader.GetOrdinal("SurgeryCommission")) ? 0 : reader.GetDecimal(reader.GetOrdinal("SurgeryCommission"))) : 0,
+                RecommendationCommission = reader.HasColumn("RecommendationCommission") ? (reader.IsDBNull(reader.GetOrdinal("RecommendationCommission")) ? 0 : reader.GetDecimal(reader.GetOrdinal("RecommendationCommission"))) : 0
             };
 
             for (int i = 0; i < reader.FieldCount; i++)
@@ -276,4 +264,3 @@ namespace HMS.Web.DAL
         }
     }
 }
-

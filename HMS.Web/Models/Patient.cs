@@ -61,6 +61,7 @@ namespace HMS.Web.Models
         public string? DisabilityStatus { get; set; }
         public DateTime RegistrationDate { get; set; } = DateTime.Now;
         public bool IsActive { get; set; } = true;
+        public bool IsArchived { get; set; } = false; // Phase 4.3: Auto-archive old patient records
         public string? PatientType { get; set; }
         public string? Email { get; set; }
         public string? City { get; set; }

@@ -47,13 +47,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<DoctorShift> GetShiftsByDoctorId(int doctorId)
-        {
-            if (doctorId <= 0) return new List<DoctorShift>();
-            string query = $@"SELECT {ShiftColumns} FROM DoctorShifts WHERE DoctorId = @Id AND IsActive = 1 ORDER BY CASE DayOfWeek WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3 WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 WHEN 'Sunday' THEN 7 END, StartTime";
-            var parameters = new[] { new SqlParameter("@Id", doctorId) };
-            return _db.ExecuteQuery(query, MapShift, parameters);
-        }
+
 
         /// <summary>
         /// Retrieves a single shift record by its ID.
@@ -74,13 +68,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public DoctorShift? GetShiftById(int shiftId)
-        {
-            if (shiftId <= 0) return null;
-            string query = $"SELECT {ShiftColumns} FROM DoctorShifts WHERE ShiftId = @Id";
-            var parameters = new[] { new SqlParameter("@Id", shiftId) };
-            return _db.ExecuteQuery(query, MapShift, parameters).FirstOrDefault();
-        }
+
 
         /// <summary>
         /// Asynchronously creates a new doctor shift.
@@ -112,13 +100,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void CreateShift(DoctorShift shift)
-        {
-            if (shift == null || shift.DoctorId <= 0) throw new ArgumentException("Invalid shift data.");
-            string query = @"INSERT INTO DoctorShifts (DoctorId, DayOfWeek, StartTime, EndTime, ShiftType, IsActive, Notes, CreatedAt) VALUES (@DoctorId, @DayOfWeek, @StartTime, @EndTime, @ShiftType, @IsActive, @Notes, @CreatedAt)";
-            var parameters = new[] { new SqlParameter("@DoctorId", shift.DoctorId), new SqlParameter("@DayOfWeek", shift.DayOfWeek ?? "Monday"), new SqlParameter("@StartTime", shift.StartTime), new SqlParameter("@EndTime", shift.EndTime), new SqlParameter("@ShiftType", (object?)shift.ShiftType ?? DBNull.Value), new SqlParameter("@IsActive", shift.IsActive), new SqlParameter("@Notes", (object?)shift.Notes ?? DBNull.Value), new SqlParameter("@CreatedAt", shift.CreatedAt == default ? DateTime.Now : shift.CreatedAt) };
-            _db.ExecuteNonQuery(query, parameters);
-        }
+
 
         /// <summary>
         /// Asynchronously updates an existing shift.
@@ -149,13 +131,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void UpdateShift(DoctorShift shift)
-        {
-            if (shift == null || shift.ShiftId <= 0) throw new ArgumentException("Invalid shift ID for update.");
-            string query = @"UPDATE DoctorShifts SET DayOfWeek=@DayOfWeek, StartTime=@StartTime, EndTime=@EndTime, ShiftType=@ShiftType, IsActive=@IsActive, Notes=@Notes WHERE ShiftId=@ShiftId";
-            var parameters = new[] { new SqlParameter("@ShiftId", shift.ShiftId), new SqlParameter("@DayOfWeek", shift.DayOfWeek ?? "Monday"), new SqlParameter("@StartTime", shift.StartTime), new SqlParameter("@EndTime", shift.EndTime), new SqlParameter("@ShiftType", (object?)shift.ShiftType ?? DBNull.Value), new SqlParameter("@IsActive", shift.IsActive), new SqlParameter("@Notes", (object?)shift.Notes ?? DBNull.Value) };
-            _db.ExecuteNonQuery(query, parameters);
-        }
+
 
         /// <summary>
         /// Asynchronously marks a shift as inactive.
@@ -175,13 +151,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void DeleteShift(int shiftId)
-        {
-            if (shiftId <= 0) return;
-            string query = "UPDATE DoctorShifts SET IsActive = 0 WHERE ShiftId = @Id";
-            var parameters = new[] { new SqlParameter("@Id", shiftId) };
-            _db.ExecuteNonQuery(query, parameters);
-        }
+
 
         /// <summary>
         /// Checks if a doctor is available at a specific date and time based on their weekly shifts.
@@ -212,14 +182,7 @@ namespace HMS.Web.DAL
             return await _db.ExecuteScalarAsync<int>(query, parameters) > 0;
         }
 
-        public bool IsAvailableAtTime(int doctorId, DateTime appointmentDateTime)
-        {
-            string dayOfWeek = appointmentDateTime.DayOfWeek.ToString();
-            TimeSpan appointmentTime = appointmentDateTime.TimeOfDay;
-            string query = @"SELECT COUNT(*) FROM DoctorShifts WHERE DoctorId = @DoctorId AND DayOfWeek = @DayOfWeek AND StartTime <= @AppointmentTime AND EndTime >= @AppointmentTime AND IsActive = 1";
-            var parameters = new[] { new SqlParameter("@DoctorId", doctorId), new SqlParameter("@DayOfWeek", dayOfWeek), new SqlParameter("@AppointmentTime", appointmentTime) };
-            return _db.ExecuteScalar<int>(query, parameters) > 0;
-        }
+
 
         /// <summary>
         /// Mapping logic from SqlDataReader to DoctorShift model.

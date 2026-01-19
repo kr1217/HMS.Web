@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Invoice.razor
- * PURPOSE: Frontend web component.
- * COMMUNICATES WITH: FinanceRepository, BillingRepository
+* FILE: Invoice.razor
+* PURPOSE: Frontend web component.
+* COMMUNICATES WITH: FinanceRepository, BillingRepository
 *@
 @page "/invoice/{BillId:int}"
 @layout HMS.Web.Components.Layout.EmptyLayout
@@ -187,11 +187,10 @@ else
         var user = authState.User;
         IsAdmin = user.IsInRole("Admin");
 
-        bill = FinanceRepo.GetBillById(BillId);
+        bill = await FinanceRepo.GetBillByIdAsync(BillId);
         if (bill != null)
         {
-            bill.Items = BillingRepo.GetBillItems(BillId);
+            bill.Items = await BillingRepo.GetBillItemsAsync(BillId);
         }
     }
 }
-

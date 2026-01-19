@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Prescriptions.razor
- * PURPOSE: Patient-facing component for self-service portal.
- * COMMUNICATES WITH: PatientRepository, PrescriptionRepository
+* FILE: Prescriptions.razor
+* PURPOSE: Patient-facing component for self-service portal.
+* COMMUNICATES WITH: PatientRepository, PrescriptionRepository
 *@
 @page "/patient/prescriptions"
 @using Microsoft.AspNetCore.Authorization
@@ -104,10 +104,10 @@ OPTIMIZATION: [JSON Deserialization] Robust parsing of medication lists stored a
                 var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userId != null)
                 {
-                    CurrentPatient = PatientRepo.GetPatientByUserId(userId);
+                    CurrentPatient = await PatientRepo.GetPatientByUserIdAsync(userId);
                     if (CurrentPatient != null)
                     {
-                        PrescriptionList = PrescriptionRepo.GetPrescriptionsByPatientId(CurrentPatient.PatientId);
+                        PrescriptionList = await PrescriptionRepo.GetPrescriptionsByPatientIdAsync(CurrentPatient.PatientId);
                     }
                 }
             }
@@ -192,4 +192,3 @@ OPTIMIZATION: [JSON Deserialization] Robust parsing of medication lists stored a
         }
     }
 }
-

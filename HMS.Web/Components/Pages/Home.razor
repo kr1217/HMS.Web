@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Home.razor
- * PURPOSE: Frontend web component.
- * COMMUNICATES WITH: None
+* FILE: Home.razor
+* PURPOSE: Frontend web component.
+* COMMUNICATES WITH: None
 *@
 @page "/"
 @layout SimpleLayout
@@ -43,10 +43,10 @@
                     Style="width: 320px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius: 15px;"
                     Class="rz-p-6">
                     <RadzenStack AlignItems="AlignItems.Center">
-                        <RadzenIcon Icon="person_add" Style="font-size: 3rem; color: #fff;" />
-                        <RadzenText Text="New Patient" TextStyle="TextStyle.H5" Style="color: #fff;" />
+                        <RadzenIcon Icon="person_add" Style="font-size: 3rem; color: var(--ui-primary);" />
+                        <RadzenText Text="New Patient" TextStyle="TextStyle.H5" Style="color: var(--ui-text);" />
                         <RadzenText Text="Begin your healthcare journey with us today." TextStyle="TextStyle.Body2"
-                            TextAlign="TextAlign.Center" Style="color: rgba(255,255,255,0.7);" />
+                            TextAlign="TextAlign.Center" Style="color: var(--ui-text-muted);" />
                         <RadzenButton Text="Create Account"
                             Click="@(() => NavigationManager.NavigateTo("Account/Register"))"
                             ButtonStyle="ButtonStyle.Secondary" Class="rz-mt-6 rz-w-100" />
@@ -57,10 +57,10 @@
                     Style="width: 320px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius: 15px;"
                     Class="rz-p-6">
                     <RadzenStack AlignItems="AlignItems.Center">
-                        <RadzenIcon Icon="login" Style="font-size: 3rem; color: #fff;" />
-                        <RadzenText Text="Returning User" TextStyle="TextStyle.H5" Style="color: #fff;" />
+                        <RadzenIcon Icon="login" Style="font-size: 3rem; color: var(--ui-primary);" />
+                        <RadzenText Text="Returning User" TextStyle="TextStyle.H5" Style="color: var(--ui-text);" />
                         <RadzenText Text="Access your dashboard, appointments, and reports." TextStyle="TextStyle.Body2"
-                            TextAlign="TextAlign.Center" Style="color: rgba(255,255,255,0.7);" />
+                            TextAlign="TextAlign.Center" Style="color: var(--ui-text-muted);" />
                         <RadzenButton Text="Sign In" Click="@(() => NavigationManager.NavigateTo("Account/Login"))"
                             ButtonStyle="ButtonStyle.Light" Class="rz-mt-6 rz-w-100" />
                     </RadzenStack>
@@ -95,4 +95,3 @@
         }
     }
 }
-

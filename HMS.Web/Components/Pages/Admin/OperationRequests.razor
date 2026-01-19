@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: OperationRequests.razor
- * PURPOSE: Administrative interface for hospital operations.
- * COMMUNICATES WITH: OperationRepository, FacilityRepository
+* FILE: OperationRequests.razor
+* PURPOSE: Administrative interface for hospital operations.
+* COMMUNICATES WITH: OperationRepository, FacilityRepository
 *@
 @page "/Admin/OperationRequests"
 @using HMS.Web.Models
@@ -125,8 +125,8 @@ OPTIMIZATION: [Workflow Validation] Prevents admission if required deposits are 
             var orderBy = args.OrderBy;
             if (string.IsNullOrEmpty(orderBy)) orderBy = "ScheduledDate DESC";
 
-            Requests = OperationRepo.GetPendingOperationsPaged(skip, take, orderBy);
-            count = OperationRepo.GetPendingOperationsCount();
+            Requests = await OperationRepo.GetPendingOperationsPagedAsync(skip, take, orderBy);
+            count = await OperationRepo.GetPendingOperationsCountAsync();
         }
         catch (Exception ex)
         {
@@ -155,8 +155,15 @@ OPTIMIZATION: [Workflow Validation] Prevents admission if required deposits are 
     /// </summary>
     async Task OpenAdmitDialog(PatientOperation op)
     {
+        Console.WriteLine($"[DEBUG] OpenAdmitDialog called for OperationId: {op?.OperationId}");
         try
         {
+            if (op == null)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", "Operation data is missing.");
+                return;
+            }
+
             var result = await DialogService.OpenAsync<AdmitForOperationDialog>($"Admit for Surgery - {op.PatientName}",
             new Dictionary<string, object> { { "Operation", op } },
             new DialogOptions { Width = "700px", Height = "600px" });
@@ -169,8 +176,8 @@ OPTIMIZATION: [Workflow Validation] Prevents admission if required deposits are 
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[ERROR] Failed to open dialog: {ex}");
             NotificationService.Notify(NotificationSeverity.Error, "Dialog Error", $"Failed to open admit dialog: {ex.Message}");
         }
     }
 }
-

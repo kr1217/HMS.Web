@@ -1,0 +1,101 @@
+@page "/admin/finance"
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@inject FinanceRepository FinanceRepo
+@inject AnalyticsRepository AnalyticsRepo
+@inject NavigationManager Nav
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+<PageTitle>Financial Hub | HMS</PageTitle>
+
+<RadzenStack Gap="2rem" Class="rz-p-4 rz-p-md-6">
+    <RadzenStack Gap="0.5rem">
+        <RadzenText Text="Financial Registry & Control Hub" TextStyle="TextStyle.H4" Class="rz-m-0 rz-color-primary" />
+        <RadzenText Text="Central gateway for settlements, audit trails, and revenue tracking."
+            TextStyle="TextStyle.Body2" Class="rz-color-text-secondary" />
+    </RadzenStack>
+
+    <RadzenRow Gap="1.5rem">
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard Class="rz-p-4 rz-shadow-2" Style="cursor: pointer;"
+                @onclick="@(() => Nav.NavigateTo("admin/doctor-ledger"))">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="verified_user" Style="font-size: 3rem; color: var(--rz-info);" />
+                    <RadzenStack Gap="0">
+                        <RadzenText Text="Payout Audit" TextStyle="TextStyle.Subtitle1"
+                            Class="rz-m-0 rz-font-weight-bold" />
+                        <RadzenText Text="Approve doctor accruals" TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard Class="rz-p-4 rz-shadow-2" Style="cursor: pointer;"
+                @onclick="@(() => Nav.NavigateTo("admin/settlements"))">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="account_balance" Style="font-size: 3rem; color: var(--rz-success);" />
+                    <RadzenStack Gap="0">
+                        <RadzenText Text="Legacy Settlements" TextStyle="TextStyle.Subtitle1"
+                            Class="rz-m-0 rz-font-weight-bold" />
+                        <RadzenText Text="Fixed rate processing" TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard Class="rz-p-4 rz-shadow-2" Style="cursor: pointer;"
+                @onclick="@(() => Nav.NavigateTo("admin/shift-report"))">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="assessment" Style="font-size: 3rem; color: var(--rz-warning);" />
+                    <RadzenStack Gap="0">
+                        <RadzenText Text="Shift Reports" TextStyle="TextStyle.Subtitle1"
+                            Class="rz-m-0 rz-font-weight-bold" />
+                        <RadzenText Text="Cashier reconciliation" TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenCard Class="rz-p-6">
+        <RadzenText Text="Quick Financial Snapshot" TextStyle="TextStyle.H6" Class="rz-mb-4" />
+        <RadzenRow>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenStack Gap="1rem">
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenText Text="Daily Revenue" />
+                        <RadzenText Text="@TodayRevenue.ToString("C")" Class="rz-font-weight-bold" />
+                    </RadzenStack>
+                    <hr />
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenText Text="Outstanding Receivables" />
+                        <RadzenText Text="@PendingCollections.ToString("C")"
+                            Class="rz-color-danger rz-font-weight-bold" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <!-- Add a small sparkline or helpful tip -->
+                <RadzenAlert Severity="AlertSeverity.Info" Variant="Variant.Flat" Shade="Shade.Lighter"
+                    AllowClose="false" Style="height: 100%;">
+                    Monitor high-value settlements and ensure all shift variances are justified in the audit log.
+                </RadzenAlert>
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    decimal TodayRevenue;
+    decimal PendingCollections;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var stats = await FinanceRepo.GetDashboardStatsAsync();
+        TodayRevenue = stats.TodayRevenue;
+        PendingCollections = await AnalyticsRepo.GetPendingCollectionTotalAsync();
+    }
+}

@@ -1,0 +1,276 @@
+@page "/admin/loss-analytics"
+@using HMS.Web.Models
+@using HMS.Web.Services
+@using HMS.Web.Utils
+@using Microsoft.AspNetCore.Authorization
+@using Radzen
+@using Radzen.Blazor
+@rendermode InteractiveServer
+@inject IPatientLossService LossService
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@layout HMS.Web.Components.Layout.AdminLayout
+@attribute [Authorize(Roles = "Admin")]
+
+<div class="container-fluid rz-mt-4">
+    <div class="row mb-4">
+        <div class="col-md-9">
+            <h2 class="rz-text-h3">Patient Loss & Opportunity Intelligence</h2>
+            <p class="text-muted">Analyze patient churn and discover revenue opportunities.</p>
+        </div>
+        <div class="col-md-3 text-end">
+            <RadzenButton Text="Generate Opportunities" Icon="autorenew" Click="@GenerateOpportunities"
+                ButtonStyle="ButtonStyle.Primary" IsBusy="@isGenerating" />
+        </div>
+    </div>
+
+    <!-- Top Stats -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <RadzenCard>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0">@totalLostPatients</h4>
+                        <small class="text-muted">Lost Patients (30d)</small>
+                    </div>
+                    <RadzenIcon Icon="person_off" Style="font-size: 2rem;" />
+                </div>
+            </RadzenCard>
+        </div>
+        <div class="col-md-4">
+            <RadzenCard>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0">@totalLostRevenue.ToString("C0")</h4>
+                        <small class="text-muted">Est. Revenue Leakage</small>
+                    </div>
+                    <RadzenIcon Icon="money_off" Style="font-size: 2rem;" />
+                </div>
+            </RadzenCard>
+        </div>
+        <div class="col-md-4">
+            <RadzenCard>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0">@activeOpportunities.Count</h4>
+                        <small class="text-muted">Detected Opportunities</small>
+                    </div>
+                    <RadzenIcon Icon="lightbulb" Style="font-size: 2rem;" />
+                </div>
+            </RadzenCard>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <RadzenCard Class="mb-4">
+                <RadzenText TextStyle="TextStyle.H6">Opportunity Engine Insights</RadzenText>
+                <RadzenDataGrid Data="@activeOpportunities" TItem="HospitalOpportunity" AllowPaging="true" PageSize="5">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="HospitalOpportunity" Property="Type" Title="Type" Width="120px" />
+                        <RadzenDataGridColumn TItem="HospitalOpportunity" Property="Target" Title="Target" />
+                        <RadzenDataGridColumn TItem="HospitalOpportunity" Property="LossCount" Title="Losses"
+                            Width="80px" />
+                        <RadzenDataGridColumn TItem="HospitalOpportunity" Property="EstimatedAnnualRevenue"
+                            Title="Est. Annual Rev">
+                            <Template Context="opp">
+                                @opp.EstimatedAnnualRevenue.ToString("C0")
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="HospitalOpportunity" Property="ConfidenceScore" Title="Confidence"
+                            Width="120px">
+                            <Template Context="opp">
+                                @opp.ConfidenceScore%
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="HospitalOpportunity" Title="Action">
+                            <Template Context="opp">
+                                <RadzenButton Size="ButtonSize.ExtraSmall" Text="Review"
+                                    Click="@(() => ReviewOpportunity(opp))" ButtonStyle="ButtonStyle.Secondary" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </RadzenCard>
+
+            <RadzenCard>
+                <RadzenText TextStyle="TextStyle.H6">Recent Loss Events</RadzenText>
+                <RadzenDataGrid Data="@recentLosses" TItem="PatientLossEvent" AllowPaging="true" PageSize="10">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="PatientLossEvent" Property="AttemptedAt" Title="Date"
+                            FormatString="{0:d}" Width="100px" />
+                        <RadzenDataGridColumn TItem="PatientLossEvent" Property="EntryPoint" Title="Entry Point"
+                            Width="120px" />
+                        <RadzenDataGridColumn TItem="PatientLossEvent" Property="LossReasonCode" Title="Reason" />
+                        <RadzenDataGridColumn TItem="PatientLossEvent" Property="EstimatedValue" Title="Value">
+                            <Template Context="evt">
+                                @evt.EstimatedValue.ToString("C0")
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </RadzenCard>
+        </div>
+
+        <!-- Sidebar / Charts -->
+        <div class="col-lg-4">
+            <RadzenCard>
+                <RadzenText TextStyle="TextStyle.H6" Class="mb-3">Loss Reasons (30 Days)</RadzenText>
+                @if (lossStats != null && lossStats.Any())
+                {
+                    <RadzenChart Style="height: 350px;">
+                        <RadzenBarSeries TItem="LossStat" Data="@lossStats" CategoryProperty="Reason"
+                            ValueProperty="TotalValue" Title="Loss Value">
+                            <TooltipTemplate Context="data">
+                                <div>
+                                    <strong>@data.Reason</strong>
+                                    <br />
+                                    Value: @data.TotalValue.ToString("C0")
+                                    <br />
+                                    Count: @data.Count
+                                </div>
+                            </TooltipTemplate>
+                        </RadzenBarSeries>
+                        <RadzenValueAxis Formatter="@FormatUtils.FormatCurrencyCompact">
+                            <RadzenGridLines Visible="true" />
+                        </RadzenValueAxis>
+                        <RadzenCategoryAxis Padding="20" />
+                        <RadzenLegend Visible="false" />
+                    </RadzenChart>
+                }
+                else
+                {
+                    <p class="text-muted">No sufficient data.</p>
+                }
+            </RadzenCard>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<HospitalOpportunity> activeOpportunities = new();
+    private List<LossStat> lossStats = new();
+    private List<PatientLossEvent> recentLosses = new();
+
+    private int totalLostPatients = 0;
+    private decimal totalLostRevenue = 0;
+    private bool isGenerating = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+                            {
+                                Severity = NotificationSeverity.Error,
+                                Summary = "Data Load Error",
+                                Detail = ex.Message
+                            });
+        }
+    }
+
+    private async Task LoadData()
+    {
+        activeOpportunities = await LossService.GetOpportunitiesAsync();
+        lossStats = await LossService.GetLossAnalyticsAsync();
+        recentLosses = await LossService.GetRecentLossesAsync();
+
+        if (lossStats.Any())
+        {
+            totalLostPatients = lossStats.Sum(x => x.Count);
+            totalLostRevenue = lossStats.Sum(x => x.TotalValue);
+        }
+    }
+
+    private async Task GenerateOpportunities()
+    {
+        isGenerating = true;
+        try
+        {
+            await LossService.AnalyzeAndGenerateOpportunitiesAsync();
+            NotificationService.Notify(new NotificationMessage
+                            {
+                                Severity = NotificationSeverity.Success,
+                                Summary = "Success",
+                                Detail = "Opportunity analysis completed."
+                            });
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+                            {
+                                Severity = NotificationSeverity.Error,
+                                Summary = "Error",
+                                Detail =
+                ex.Message
+                            });
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+
+    }
+
+    private async Task ReviewOpportunity(HospitalOpportunity opp)
+    {
+        await DialogService.OpenAsync("Opportunity Details", ds =>
+    @<RadzenStack Gap="1.5rem" Class="rz-p-4">
+        <RadzenRow>
+            <RadzenColumn Size="4">
+                <RadzenText Text="Type" TextStyle="TextStyle.Subtitle2" />
+            </RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenText Text="@opp.Type" />
+            </RadzenColumn>
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenColumn Size="4">
+                <RadzenText Text="Target" TextStyle="TextStyle.Subtitle2" />
+            </RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenText Text="@opp.Target" />
+            </RadzenColumn>
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenColumn Size="4">
+                <RadzenText Text="Annual Impact" TextStyle="TextStyle.Subtitle2" />
+            </RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenText Text="@opp.EstimatedAnnualRevenue.ToString("C0")"
+                    Class="rz-color-success rz-font-weight-bold" />
+            </RadzenColumn>
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenColumn Size="4">
+                <RadzenText Text="Confidence" TextStyle="TextStyle.Subtitle2" />
+            </RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenBadge Text="@($"{opp.ConfidenceScore}%")"
+                    BadgeStyle="@(opp.ConfidenceScore > 80 ? BadgeStyle.Success : BadgeStyle.Info)" />
+            </RadzenColumn>
+        </RadzenRow>
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+            <RadzenButton Text="Close" Click="() => ds.Close()" ButtonStyle="ButtonStyle.Light" />
+            <RadzenButton Text="Dismiss" ButtonStyle="ButtonStyle.Danger"
+                Click="@(() => { DismissOpportunity(opp); ds.Close(); })" />
+        </RadzenStack>
+    </RadzenStack>
+, new DialogOptions { Width = "500px" });
+    }
+
+    private void DismissOpportunity(HospitalOpportunity opp)
+    {
+        activeOpportunities.Remove(opp);
+        NotificationService.Notify(NotificationSeverity.Info, "Dismissed", "Opportunity removed.");
+    }
+}
+
+}
+}

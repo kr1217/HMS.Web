@@ -46,13 +46,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Prescription> GetPrescriptionsByPatientId(int patientId)
-        {
-            if (patientId <= 0) return new List<Prescription>();
-            string query = $@"SELECT {PrescriptionColumns} FROM Prescriptions p JOIN Doctors d ON p.DoctorId = d.DoctorId WHERE p.PatientId = @Id ORDER BY p.PrescribedDate DESC";
-            var parameters = new[] { new SqlParameter("@Id", patientId) };
-            return _db.ExecuteQuery(query, MapPrescription, parameters);
-        }
+
 
         /// <summary>
         /// Retrieves all prescriptions written by a specific doctor.
@@ -76,13 +70,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Prescription> GetPrescriptionsByDoctorId(int doctorId)
-        {
-            if (doctorId <= 0) return new List<Prescription>();
-            string query = $@"SELECT {PrescriptionColumns} FROM Prescriptions p JOIN Doctors d ON p.DoctorId = d.DoctorId WHERE p.DoctorId = @Id ORDER BY p.PrescribedDate DESC";
-            var parameters = new[] { new SqlParameter("@Id", doctorId) };
-            return _db.ExecuteQuery(query, MapPrescription, parameters);
-        }
+
 
         /// <summary>
         /// Retrieves a single prescription by its ID.
@@ -103,13 +91,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public Prescription? GetPrescriptionById(int prescriptionId)
-        {
-            if (prescriptionId <= 0) return null;
-            string query = $@"SELECT {PrescriptionColumns} FROM Prescriptions p JOIN Doctors d ON p.DoctorId = d.DoctorId WHERE p.PrescriptionId = @Id";
-            var parameters = new[] { new SqlParameter("@Id", prescriptionId) };
-            return _db.ExecuteQuery(query, MapPrescription, parameters).FirstOrDefault();
-        }
+
 
         /// <summary>
         /// Asynchronously creates a new prescription record.
@@ -141,13 +123,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void CreatePrescription(Prescription p)
-        {
-            if (p == null || p.PatientId <= 0 || p.DoctorId <= 0) throw new ArgumentException("Invalid prescription data.");
-            string query = @"INSERT INTO Prescriptions (PatientId, DoctorId, AppointmentId, Details, PrescribedDate, Medications, IsLocked, DigitalSignature) VALUES (@PatientId, @DoctorId, @AppointmentId, @Details, @PrescribedDate, @Medications, @IsLocked, @DigitalSignature)";
-            var parameters = new[] { new SqlParameter("@PatientId", p.PatientId), new SqlParameter("@DoctorId", p.DoctorId), new SqlParameter("@AppointmentId", (object?)p.AppointmentId ?? DBNull.Value), new SqlParameter("@Details", p.Details ?? ""), new SqlParameter("@PrescribedDate", p.PrescribedDate == default ? DateTime.Now : p.PrescribedDate), new SqlParameter("@Medications", p.Medications ?? ""), new SqlParameter("@IsLocked", p.IsLocked), new SqlParameter("@DigitalSignature", (object?)p.DigitalSignature ?? DBNull.Value) };
-            _db.ExecuteNonQuery(query, parameters);
-        }
+
 
         /// <summary>
         /// Mapping logic from SqlDataReader to Prescription model.

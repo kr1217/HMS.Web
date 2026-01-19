@@ -42,13 +42,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Notification> GetNotificationsByPatientId(int patientId)
-        {
-            if (patientId <= 0) return new List<Notification>();
-            string query = $"SELECT {NotificationColumns} FROM Notifications WHERE PatientId = @Id ORDER BY CreatedDate DESC";
-            var parameters = new[] { new SqlParameter("@Id", patientId) };
-            return _db.ExecuteQuery(query, MapNotification, parameters);
-        }
+
 
         /// <summary>
         /// Retrieves notifications for a specific doctor.
@@ -68,13 +62,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Notification> GetNotificationsByDoctorId(int doctorId)
-        {
-            if (doctorId <= 0) return new List<Notification>();
-            string query = $"SELECT {NotificationColumns} FROM Notifications WHERE DoctorId = @Id ORDER BY CreatedDate DESC";
-            var parameters = new[] { new SqlParameter("@Id", doctorId) };
-            return _db.ExecuteQuery(query, MapNotification, parameters);
-        }
+
 
         /// <summary>
         /// Retrieves the most recent notifications for administrators.
@@ -92,11 +80,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Notification> GetAdminNotifications()
-        {
-            string query = $"SELECT TOP 50 {NotificationColumns} FROM Notifications WHERE (PatientId IS NULL AND DoctorId IS NULL) OR TargetRole = 'Admin' ORDER BY CreatedDate DESC";
-            return _db.ExecuteQuery(query, MapNotification);
-        }
+
 
         /// <summary>
         /// Gets the count of unread admin notifications.
@@ -107,11 +91,7 @@ namespace HMS.Web.DAL
             return await _db.ExecuteScalarAsync<int>(query);
         }
 
-        public int GetAdminUnreadCount()
-        {
-            string query = "SELECT COUNT(*) FROM Notifications WHERE ((PatientId IS NULL AND DoctorId IS NULL) OR TargetRole = 'Admin') AND IsRead = 0";
-            return _db.ExecuteScalar<int>(query);
-        }
+
 
         /// <summary>
         /// Marks all admin notifications as read.
@@ -122,11 +102,7 @@ namespace HMS.Web.DAL
             await _db.ExecuteNonQueryAsync(sql);
         }
 
-        public void MarkAdminNotificationsAsRead()
-        {
-            const string sql = "UPDATE Notifications SET IsRead = 1 WHERE (PatientId IS NULL AND DoctorId IS NULL) OR TargetRole = 'Admin'";
-            _db.ExecuteNonQuery(sql);
-        }
+
 
         /// <summary>
         /// Retrieves recent notifications for a specific role.
@@ -146,13 +122,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Notification> GetNotificationsByRole(string role)
-        {
-            if (string.IsNullOrEmpty(role)) return new List<Notification>();
-            string query = $"SELECT TOP 50 {NotificationColumns} FROM Notifications WHERE TargetRole = @Role ORDER BY CreatedDate DESC";
-            var parameters = new[] { new SqlParameter("@Role", role) };
-            return _db.ExecuteQuery(query, MapNotification, parameters);
-        }
+
 
         /// <summary>
         /// Gets the unread notification count for a specific role.
@@ -165,13 +135,7 @@ namespace HMS.Web.DAL
             return await _db.ExecuteScalarAsync<int>(query, parameters);
         }
 
-        public int GetRoleUnreadCount(string role)
-        {
-            if (string.IsNullOrEmpty(role)) return 0;
-            string query = "SELECT COUNT(*) FROM Notifications WHERE TargetRole = @Role AND IsRead = 0";
-            var parameters = new[] { new SqlParameter("@Role", role) };
-            return _db.ExecuteScalar<int>(query, parameters);
-        }
+
 
         /// <summary>
         /// Gets the unread notification count for a specific doctor.
@@ -182,11 +146,7 @@ namespace HMS.Web.DAL
             return await _db.ExecuteScalarAsync<int>(query, new[] { new SqlParameter("@Id", doctorId) });
         }
 
-        public int GetDoctorUnreadCount(int doctorId)
-        {
-            string query = "SELECT COUNT(*) FROM Notifications WHERE DoctorId = @Id AND IsRead = 0";
-            return _db.ExecuteScalar<int>(query, new[] { new SqlParameter("@Id", doctorId) });
-        }
+
 
         /// <summary>
         /// Gets the unread notification count for a specific patient.
@@ -197,11 +157,7 @@ namespace HMS.Web.DAL
             return await _db.ExecuteScalarAsync<int>(query, new[] { new SqlParameter("@Id", patientId) });
         }
 
-        public int GetPatientUnreadCount(int patientId)
-        {
-            string query = "SELECT COUNT(*) FROM Notifications WHERE PatientId = @Id AND IsRead = 0";
-            return _db.ExecuteScalar<int>(query, new[] { new SqlParameter("@Id", patientId) });
-        }
+
 
         /// <summary>
         /// Marks all notifications as read for a specific doctor or patient.
@@ -215,14 +171,7 @@ namespace HMS.Web.DAL
                 await _db.ExecuteNonQueryAsync(sql + "PatientId = @Id", new[] { new SqlParameter("@Id", patientId.Value) });
         }
 
-        public void MarkNotificationsAsRead(int? doctorId, int? patientId)
-        {
-            string sql = "UPDATE Notifications SET IsRead = 1 WHERE ";
-            if (doctorId.HasValue)
-                _db.ExecuteNonQuery(sql + "DoctorId = @Id", new[] { new SqlParameter("@Id", doctorId.Value) });
-            else if (patientId.HasValue)
-                _db.ExecuteNonQuery(sql + "PatientId = @Id", new[] { new SqlParameter("@Id", patientId.Value) });
-        }
+
 
         /// <summary>
         /// Marks all notifications as read for a specific role.
@@ -234,12 +183,7 @@ namespace HMS.Web.DAL
             await _db.ExecuteNonQueryAsync(sql, new[] { new SqlParameter("@Role", role) });
         }
 
-        public void MarkRoleNotificationsAsRead(string role)
-        {
-            if (string.IsNullOrEmpty(role)) return;
-            const string sql = "UPDATE Notifications SET IsRead = 1 WHERE TargetRole = @Role";
-            _db.ExecuteNonQuery(sql, new[] { new SqlParameter("@Role", role) });
-        }
+
 
         /// <summary>
         /// Asynchronously creates a new system notification.
@@ -266,12 +210,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void CreateNotification(Notification n)
-        {
-            if (n == null) throw new ArgumentException("Notification data is required.");
-            string query = "INSERT INTO Notifications (PatientId, DoctorId, TargetRole, Title, Message, CreatedDate, IsRead) VALUES (@PatientId, @DoctorId, @TargetRole, @Title, @Message, @CreatedDate, @IsRead)";
-            _db.ExecuteNonQuery(query, new[] { new SqlParameter("@PatientId", (object?)n.PatientId ?? DBNull.Value), new SqlParameter("@DoctorId", (object?)n.DoctorId ?? DBNull.Value), new SqlParameter("@TargetRole", (object?)n.TargetRole ?? DBNull.Value), new SqlParameter("@Title", n.Title ?? "System Notification"), new SqlParameter("@Message", n.Message ?? ""), new SqlParameter("@CreatedDate", n.CreatedDate == default ? DateTime.Now : n.CreatedDate), new SqlParameter("@IsRead", n.IsRead) });
-        }
+
 
         /// <summary>
         /// Mapping logic from SqlDataReader to Notification model.

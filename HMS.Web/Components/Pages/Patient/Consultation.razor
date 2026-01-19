@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Consultation.razor
- * PURPOSE: Patient-facing component for self-service portal.
- * COMMUNICATES WITH: AppointmentRepository, PatientRepository
+* FILE: Consultation.razor
+* PURPOSE: Patient-facing component for self-service portal.
+* COMMUNICATES WITH: AppointmentRepository, PatientRepository
 *@
 @page "/patient/consultation"
 @using HMS.Web.DAL
@@ -148,10 +148,10 @@ OPTIMIZATION: [Smart Status] Dynamically filters and badges appointments based o
                 var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 if (userId != null)
                 {
-                    patient = PatientRepo.GetPatientByUserId(userId);
+                    patient = await PatientRepo.GetPatientByUserIdAsync(userId);
                     if (patient != null)
                     {
-                        appointments = AppointmentRepo.GetAppointmentsByPatientId(patient.PatientId);
+                        appointments = await AppointmentRepo.GetAppointmentsByPatientIdAsync(patient.PatientId);
                     }
                 }
             }
@@ -178,4 +178,3 @@ OPTIMIZATION: [Smart Status] Dynamically filters and badges appointments based o
         // Mock logic for joining a video call
     }
 }
-

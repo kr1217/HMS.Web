@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: StaffManagement.razor
- * PURPOSE: Administrative interface for hospital operations.
- * COMMUNICATES WITH: StaffRepository
+* FILE: StaffManagement.razor
+* PURPOSE: Administrative interface for hospital operations.
+* COMMUNICATES WITH: StaffRepository
 *@
 @page "/admin/staff"
 @layout HMS.Web.Components.Layout.AdminLayout
@@ -137,8 +137,8 @@ OPTIMIZATION: [Identity Integration] Directly interfaces with ASP.NET Core Ident
         }
 
         // Implementation of server-side pagination
-        staffList = StaffRepo.GetStaffPaged(skip, take, args.Filter, orderBy);
-        count = StaffRepo.GetStaffCount();
+        staffList = await StaffRepo.GetStaffPagedAsync(skip, take, args.Filter, orderBy);
+        count = await StaffRepo.GetStaffCountAsync();
 
         isLoading = false;
         StateHasChanged();
@@ -207,4 +207,3 @@ OPTIMIZATION: [Identity Integration] Directly interfaces with ASP.NET Core Ident
         }
     }
 }
-

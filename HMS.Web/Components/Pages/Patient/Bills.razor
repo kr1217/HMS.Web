@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Bills.razor
- * PURPOSE: Patient-facing component for self-service portal.
- * COMMUNICATES WITH: BillingRepository, PatientRepository
+* FILE: Bills.razor
+* PURPOSE: Patient-facing component for self-service portal.
+* COMMUNICATES WITH: BillingRepository, PatientRepository
 *@
 @page "/patient/bills"
 @using HMS.Web.DAL
@@ -106,10 +106,10 @@ OPTIMIZATION: [Lazy Loading] Fetches detailed bill items only when requested by 
                 var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 if (userId != null)
                 {
-                    patient = PatientRepo.GetPatientByUserId(userId);
+                    patient = await PatientRepo.GetPatientByUserIdAsync(userId);
                     if (patient != null)
                     {
-                        bills = BillRepo.GetBillsByPatientId(patient.PatientId);
+                        bills = await BillRepo.GetBillsByPatientIdAsync(patient.PatientId);
                     }
                 }
             }
@@ -130,7 +130,7 @@ OPTIMIZATION: [Lazy Loading] Fetches detailed bill items only when requested by 
     {
         try
         {
-            var items = BillRepo.GetBillItems(bill.BillId);
+            var items = await BillRepo.GetBillItemsAsync(bill.BillId);
             await DialogService.OpenAsync("Bill Details", ds =>
     @<RadzenStack Gap="1.5rem" Class="rz-p-4">
         <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
@@ -172,4 +172,3 @@ OPTIMIZATION: [Lazy Loading] Fetches detailed bill items only when requested by 
         }
     }
 }
-

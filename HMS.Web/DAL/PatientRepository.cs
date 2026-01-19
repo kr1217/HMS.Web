@@ -45,11 +45,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Patient> GetAllPatients()
-        {
-            string query = $"SELECT {PatientColumns} FROM Patients ORDER BY RegistrationDate DESC";
-            return _db.ExecuteQuery(query, MapPatient);
-        }
+
         /// <summary>
         /// Deactivates a patient record (Soft Delete).
         /// OPTIMIZATION: [Audit Retention] We never physically delete patient data to maintain medical history integrity.
@@ -88,13 +84,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public Patient? GetPatientById(int id)
-        {
-            if (id <= 0) return null;
-            string query = $"SELECT {PatientColumns} FROM Patients WHERE PatientId = @Id";
-            var parameters = new[] { new SqlParameter("@Id", id) };
-            return _db.ExecuteQuery(query, MapPatient, parameters).FirstOrDefault();
-        }
+
 
         public async Task<Patient?> GetPatientByUserIdAsync(string userId)
         {
@@ -104,12 +94,7 @@ namespace HMS.Web.DAL
             return list.FirstOrDefault();
         }
 
-        public Patient? GetPatientByUserId(string userId)
-        {
-            if (string.IsNullOrEmpty(userId)) return null;
-            string query = $"SELECT {PatientColumns} FROM Patients WHERE UserId = @UserId";
-            return _db.ExecuteQuery(query, MapPatient, new[] { new SqlParameter("@UserId", userId) }).FirstOrDefault();
-        }
+
 
         /// <summary>
         /// Retrieves a paged list of patients with optional search functionality.
@@ -147,15 +132,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Patient> GetPatientsPaged(int skip, int take, string orderBy, string? searchTerm = null)
-        {
-            string orderClause = string.IsNullOrEmpty(orderBy) ? "RegistrationDate DESC" : orderBy;
-            string whereClause = string.IsNullOrEmpty(searchTerm) ? "" : "WHERE FullName LIKE @Search OR Email LIKE @Search OR ContactNumber LIKE @Search";
-            string query = $@"SELECT {PatientColumns} FROM Patients {whereClause} ORDER BY {orderClause} OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
-            var parameters = new List<SqlParameter> { new SqlParameter("@Skip", skip), new SqlParameter("@Take", take) };
-            if (!string.IsNullOrEmpty(searchTerm)) parameters.Add(new SqlParameter("@Search", $"%{searchTerm}%"));
-            return _db.ExecuteQuery(query, MapPatient, parameters.ToArray());
-        }
+
 
         /// <summary>
         /// Gets the total count of patients, with optional filtering.
@@ -172,14 +149,7 @@ namespace HMS.Web.DAL
             return await _db.ExecuteScalarAsync<int>(query, parameters.ToArray());
         }
 
-        public int GetPatientsCount(string? searchTerm = null)
-        {
-            string whereClause = string.IsNullOrEmpty(searchTerm) ? "" : "WHERE FullName LIKE @Search OR Email LIKE @Search OR ContactNumber LIKE @Search";
-            string query = $"SELECT COUNT(*) FROM Patients {whereClause}";
-            var parameters = new List<SqlParameter>();
-            if (!string.IsNullOrEmpty(searchTerm)) parameters.Add(new SqlParameter("@Search", $"%{searchTerm}%"));
-            return _db.ExecuteScalar<int>(query, parameters.ToArray());
-        }
+
 
         /// <summary>
         /// Asynchronously creates a new patient record.
@@ -227,13 +197,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void CreatePatient(Patient p)
-        {
-            if (p == null) throw new ArgumentNullException(nameof(p));
-            string query = @"INSERT INTO Patients (UserId, FullName, DateOfBirth, Gender, ContactNumber, Address, CNIC, BloodGroup, MaritalStatus, EmergencyContactName, EmergencyContactNumber, RelationshipToEmergencyContact, Allergies, ChronicDiseases, CurrentMedications, DisabilityStatus, RegistrationDate, IsActive, PatientType, Email, City, Country, LastVisitDate, PrimaryDoctorId) VALUES (@UserId, @FullName, @DOB, @Gender, @Phone, @Address, @CNIC, @Blood, @Marital, @EName, @ENumber, @ERel, @Allergies, @Chronic, @Meds, @Disability, @Created, @Active, @Type, @Email, @City, @Country, @LastVisit, @DoctorId)";
-            var parameters = new[] { new SqlParameter("@UserId", p.UserId ?? (object)DBNull.Value), new SqlParameter("@FullName", p.FullName ?? ""), new SqlParameter("@DOB", (object?)p.DateOfBirth ?? DBNull.Value), new SqlParameter("@Gender", p.Gender ?? ""), new SqlParameter("@Phone", p.ContactNumber ?? ""), new SqlParameter("@Address", p.Address ?? ""), new SqlParameter("@CNIC", p.CNIC ?? ""), new SqlParameter("@Blood", p.BloodGroup ?? ""), new SqlParameter("@Marital", p.MaritalStatus ?? ""), new SqlParameter("@EName", p.EmergencyContactName ?? ""), new SqlParameter("@ENumber", p.EmergencyContactNumber ?? ""), new SqlParameter("@ERel", p.RelationshipToEmergencyContact ?? ""), new SqlParameter("@Allergies", (object?)p.Allergies ?? DBNull.Value), new SqlParameter("@Chronic", (object?)p.ChronicDiseases ?? DBNull.Value), new SqlParameter("@Meds", (object?)p.CurrentMedications ?? DBNull.Value), new SqlParameter("@Disability", (object?)p.DisabilityStatus ?? DBNull.Value), new SqlParameter("@Created", p.RegistrationDate), new SqlParameter("@Active", p.IsActive), new SqlParameter("@Type", (object?)p.PatientType ?? DBNull.Value), new SqlParameter("@Email", (object?)p.Email ?? DBNull.Value), new SqlParameter("@City", (object?)p.City ?? DBNull.Value), new SqlParameter("@Country", (object?)p.Country ?? DBNull.Value), new SqlParameter("@LastVisit", (object?)p.LastVisitDate ?? DBNull.Value), new SqlParameter("@DoctorId", (object?)p.PrimaryDoctorId ?? DBNull.Value) };
-            _db.ExecuteNonQuery(query, parameters);
-        }
+
 
         /// <summary>
         /// Asynchronously updates an existing patient record.
@@ -296,16 +260,47 @@ namespace HMS.Web.DAL
             }
         }
 
+        // --- Patient Administrative Status Machine (Phase 4.3) ---
+
         /// <summary>
-        /// Updates an existing patient record (Synchronous).
+        /// Auto-archives patients who haven't visited in X months.
         /// </summary>
-        public void UpdatePatient(Patient p)
+        public async Task<int> ArchiveOldPatientsAsync(int monthsThreshold = 24)
         {
-            if (p == null || p.PatientId <= 0) throw new ArgumentException("Invalid patient data for update.");
-            string query = @"UPDATE Patients SET FullName = @FullName, DateOfBirth = @DOB, Gender = @Gender, ContactNumber = @Phone, Address = @Address, CNIC = @CNIC, BloodGroup = @Blood, MaritalStatus = @Marital, EmergencyContactName = @EName, EmergencyContactNumber = @ENumber, RelationshipToEmergencyContact = @ERel, Allergies = @Allergies, ChronicDiseases = @Chronic, CurrentMedications = @Meds, DisabilityStatus = @Disability, IsActive = @Active, Email = @Email, City = @City, Country = @Country WHERE PatientId = @Id";
-            var parameters = new[] { new SqlParameter("@FullName", p.FullName ?? ""), new SqlParameter("@DOB", (object?)p.DateOfBirth ?? DBNull.Value), new SqlParameter("@Gender", p.Gender ?? ""), new SqlParameter("@Phone", p.ContactNumber ?? ""), new SqlParameter("@Address", p.Address ?? ""), new SqlParameter("@CNIC", p.CNIC ?? ""), new SqlParameter("@Blood", p.BloodGroup ?? ""), new SqlParameter("@Marital", p.MaritalStatus ?? ""), new SqlParameter("@EName", p.EmergencyContactName ?? ""), new SqlParameter("@ENumber", p.EmergencyContactNumber ?? ""), new SqlParameter("@ERel", p.RelationshipToEmergencyContact ?? ""), new SqlParameter("@Allergies", (object?)p.Allergies ?? DBNull.Value), new SqlParameter("@Chronic", (object?)p.ChronicDiseases ?? DBNull.Value), new SqlParameter("@Meds", (object?)p.CurrentMedications ?? DBNull.Value), new SqlParameter("@Disability", (object?)p.DisabilityStatus ?? DBNull.Value), new SqlParameter("@Active", p.IsActive), new SqlParameter("@Email", (object?)p.Email ?? DBNull.Value), new SqlParameter("@City", (object?)p.City ?? DBNull.Value), new SqlParameter("@Country", (object?)p.Country ?? DBNull.Value), new SqlParameter("@Id", p.PatientId) };
-            _db.ExecuteNonQuery(query, parameters);
+            try
+            {
+                string sql = @"UPDATE Patients 
+                               SET IsArchived = 1 
+                               WHERE IsArchived = 0 
+                               AND (LastVisitDate < DATEADD(month, -@Months, GETDATE()) 
+                                    OR (LastVisitDate IS NULL AND RegistrationDate < DATEADD(month, -@Months, GETDATE())))";
+
+                return await _db.ExecuteNonQueryAsync(sql, new[] { new SqlParameter("@Months", monthsThreshold) });
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to archive old patient records: {ex.Message}", ex);
+            }
         }
+
+        public async Task UpdatePatientArchivedStatusAsync(int patientId, bool isArchived)
+        {
+            try
+            {
+                if (patientId <= 0) return;
+                string sql = "UPDATE Patients SET IsArchived = @Status WHERE PatientId = @Id";
+                await _db.ExecuteNonQueryAsync(sql, new[] {
+                    new SqlParameter("@Id", patientId),
+                    new SqlParameter("@Status", isArchived)
+                });
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to update patient archived status: {ex.Message}", ex);
+            }
+        }
+
+
 
         /// <summary>
         /// Mapping logic from SqlDataReader to Patient model.

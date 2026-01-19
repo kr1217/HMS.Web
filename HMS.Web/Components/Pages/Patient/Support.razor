@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Support.razor
- * PURPOSE: Patient-facing component for self-service portal.
- * COMMUNICATES WITH: SupportRepository, PatientRepository
+* FILE: Support.razor
+* PURPOSE: Patient-facing component for self-service portal.
+* COMMUNICATES WITH: SupportRepository, PatientRepository
 *@
 @page "/patient/support"
 @using HMS.Web.DAL
@@ -140,10 +140,10 @@ OPTIMIZATION: [Contextual Submission] Automatically links new tickets to the log
                 var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 if (userId != null)
                 {
-                    patient = PatientRepo.GetPatientByUserId(userId);
+                    patient = await PatientRepo.GetPatientByUserIdAsync(userId);
                     if (patient != null)
                     {
-                        tickets = SupportRepo.GetTicketsByPatientId(patient.PatientId);
+                        tickets = await SupportRepo.GetTicketsByPatientIdAsync(patient.PatientId);
                     }
                 }
             }
@@ -161,7 +161,7 @@ OPTIMIZATION: [Contextual Submission] Automatically links new tickets to the log
             if (patient != null)
             {
                 newTicket.PatientId = patient.PatientId;
-                SupportRepo.CreateTicket(newTicket);
+                await SupportRepo.CreateTicketAsync(newTicket);
                 newTicket = new SupportTicket(); // Reset
                 await LoadData(); // Refresh list
                 NotificationService.Notify(NotificationSeverity.Success, "Ticket Submitted", "Your support request has been received.");
@@ -173,4 +173,3 @@ OPTIMIZATION: [Contextual Submission] Automatically links new tickets to the log
         }
     }
 }
-

@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: PendingTransfers.razor
- * PURPOSE: Administrative interface for hospital operations.
- * COMMUNICATES WITH: OperationRepository, FacilityRepository
+* FILE: PendingTransfers.razor
+* PURPOSE: Administrative interface for hospital operations.
+* COMMUNICATES WITH: OperationRepository, FacilityRepository
 *@
 @page "/admin/pending-transfers"
 @layout HMS.Web.Components.Layout.AdminLayout
@@ -101,9 +101,9 @@
         LoadPending();
     }
 
-    void LoadPending()
+    async Task LoadPending()
     {
-        PendingPatients = OperationRepo.GetOperationsReadyForTransfer();
+        PendingPatients = await OperationRepo.GetOperationsReadyForTransferAsync();
     }
 
     async Task OpenAdmissionDialog(PatientOperation op)
@@ -135,4 +135,3 @@
         }
     }
 }
-

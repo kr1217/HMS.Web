@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: AdminLayoutUI.razor
- * PURPOSE: Layout definition component.
- * COMMUNICATES WITH: None
+* FILE: AdminLayoutUI.razor
+* PURPOSE: Layout definition component.
+* COMMUNICATES WITH: None
 *@
 @using Radzen.Blazor
 @using Microsoft.AspNetCore.Components.Authorization
@@ -12,13 +12,13 @@
 @inject HMS.Web.DAL.FinanceRepository FinanceRepo
 @inject IJSRuntime JSRuntime
 
-<RadzenHeader Style="background: var(--rz-primary-dark);">
+<RadzenHeader>
     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
         JustifyContent="JustifyContent.SpaceBetween" Class="rz-px-4 rz-py-2" Gap="0">
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="2">
             <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
-            <RadzenIcon Icon="health_and_safety" Style="font-size: 2rem; color: white;" />
-            <RadzenText Text="HMS Admin Portal" TextStyle="TextStyle.H6" Class="rz-m-0" Style="color: white;" />
+            <RadzenIcon Icon="health_and_safety" Style="font-size: 2rem; color: var(--ui-primary);" />
+            <RadzenText Text="HMS Admin Portal" TextStyle="TextStyle.H6" Class="rz-m-0 rz-font-weight-bold" />
         </RadzenStack>
 
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="3">
@@ -28,7 +28,7 @@
             <NotificationBell TargetRole="Admin" />
             <RadzenProfileMenu>
                 <Template>
-                    <RadzenIcon Icon="account_circle" Style="color: white;" />
+                    <RadzenIcon Icon="account_circle" Style="color: var(--ui-text-muted);" />
                 </Template>
                 <ChildContent>
                     <RadzenProfileMenuItem Text="Profile" Icon="person" Path="Account/Manage" />
@@ -43,9 +43,7 @@
     <AdminNavMenu />
 </RadzenSidebar>
 
-<RadzenComponents />
 
 @code {
     bool sidebarExpanded = true;
 }
-

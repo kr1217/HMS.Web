@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: PaymentDialog.razor
- * PURPOSE: Financial interface for billing operations.
- * COMMUNICATES WITH: FinanceRepository, BillingRepository
+* FILE: PaymentDialog.razor
+* PURPOSE: Financial interface for billing operations.
+* COMMUNICATES WITH: FinanceRepository, BillingRepository
 *@
 @using HMS.Web.Models
 @using HMS.Web.DAL
@@ -159,14 +159,14 @@ OPTIMIZATION: [Audit Trail] Displays a detailed itemized breakdown before paymen
     {
         try
         {
-            var bill = FinanceRepo.GetBillById(BillId);
+            var bill = await FinanceRepo.GetBillByIdAsync(BillId);
             if (bill != null)
             {
                 BillAmount = bill.TotalAmount;
                 DueAmount = bill.DueAmount;
 
                 // Load Items
-                BillItems = BillingRepo.GetBillItems(BillId);
+                BillItems = await BillingRepo.GetBillItemsAsync(BillId);
 
                 if (bill.Status == "Pending" && bill.PaidAmount == 0)
                 {
@@ -198,7 +198,7 @@ OPTIMIZATION: [Audit Trail] Displays a detailed itemized breakdown before paymen
     {
         try
         {
-            FinanceRepo.AddPayment(payment);
+            await FinanceRepo.AddPaymentAsync(payment);
             NotificationService.Notify(NotificationSeverity.Success, "Payment Recorded", "Receipt generated successfully.");
             DialogService.Close(true);
         }
@@ -208,4 +208,3 @@ OPTIMIZATION: [Audit Trail] Displays a detailed itemized breakdown before paymen
         }
     }
 }
-

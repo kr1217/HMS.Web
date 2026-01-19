@@ -1,0 +1,41 @@
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@using Radzen
+@using Radzen.Blazor
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+
+<RadzenStack Gap="1.5rem" Class="rz-p-4">
+    <RadzenAlert Severity="AlertSeverity.Warning" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+            <RadzenIcon Icon="warning" />
+            <RadzenText
+                Text="Financial Audit Warning: Cancelling a bill is a sensitive action and will be logged immutably."
+                TextStyle="TextStyle.Subtitle2" Class="rz-m-0" />
+        </RadzenStack>
+    </RadzenAlert>
+
+    <RadzenStack Gap="0.5rem">
+        <RadzenLabel Text="Reason for Cancellation" TextStyle="TextStyle.Subtitle2" />
+        <RadzenTextArea @bind-Value="Reason"
+            Placeholder="Explain why this bill is being voided (e.g., Duplication, Clinical Error, Insurance Change)..."
+            Rows="4" Class="rz-w-100" />
+    </RadzenStack>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+        <RadzenButton Text="Confirm Cancellation" ButtonStyle="ButtonStyle.Danger" Icon="delete" Click="Confirm"
+            Disabled="@string.IsNullOrWhiteSpace(Reason)" />
+        <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public int BillId { get; set; }
+    string Reason = "";
+
+    void Confirm()
+    {
+        if (string.IsNullOrWhiteSpace(Reason)) return;
+        DialogService.Close(Reason);
+    }
+}

@@ -105,10 +105,10 @@
                 }
             };
 
-            BillingRepo.CreateBill(bill);
+            await BillingRepo.CreateBillAsync(bill);
 
             // 2. Update Operation Status to Scheduled
-            OperationRepo.UpdateOperationStatusAndCosts(
+            await OperationRepo.UpdateOperationStatusAndCostsAsync(
                 Operation.OperationId, 
                 "Scheduled", 
                 Operation.AgreedOperationCost, 

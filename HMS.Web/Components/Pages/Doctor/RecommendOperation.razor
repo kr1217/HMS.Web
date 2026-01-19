@@ -187,12 +187,12 @@
                 var userId = UserManager.GetUserId(userClaims);
                 if (!string.IsNullOrEmpty(userId))
                 {
-                    CurrentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                    CurrentDoctor = await DoctorRepo.GetDoctorByUserIdAsync(userId);
                 }
             }
 
-            Patient = PatientRepo.GetPatientById(PatientId);
-            Packages = OperationRepo.GetOperationPackages();
+            Patient = await PatientRepo.GetPatientByIdAsync(PatientId);
+            Packages = await OperationRepo.GetOperationPackagesAsync();
 
             NewOperation.ScheduledDate = DateTime.Today.AddDays(1);
         }
@@ -221,7 +221,7 @@
         }
     }
 
-    private void SaveOperation()
+    private async Task SaveOperation()
     {
         try
         {
@@ -250,15 +250,15 @@
             NewOperation.DoctorId = CurrentDoctor.DoctorId;
             NewOperation.Status = "Recommended";
 
-            OperationRepo.CreatePatientOperation(NewOperation);
+            await OperationRepo.CreatePatientOperationAsync(NewOperation);
 
             // Mark appointment as Completed if linked
             if (AppointmentId.HasValue)
             {
-                AppointmentRepo.UpdateAppointmentStatus(AppointmentId.Value, "Completed");
+                await AppointmentRepo.UpdateAppointmentStatusAsync(AppointmentId.Value, "Completed");
             }
 
-            NotificationRepo.CreateNotification(new Notification
+            await NotificationRepo.CreateNotificationAsync(new Notification
                 {
                     PatientId = PatientId,
                     Title = "Operation Recommended",
@@ -267,7 +267,7 @@
                     IsRead = false
                 });
 
-            NotificationRepo.CreateNotification(new Notification
+            await NotificationRepo.CreateNotificationAsync(new Notification
                 {
                     TargetRole = "Admin",
                     Title = "New Surgical Recommendation",

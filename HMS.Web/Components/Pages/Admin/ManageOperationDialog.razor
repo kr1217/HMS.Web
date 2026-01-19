@@ -1,14 +1,18 @@
 ﻿@*
- * FILE: ManageOperationDialog.razor
- * PURPOSE: Administrative interface for hospital operations.
- * COMMUNICATES WITH: OperationRepository, FacilityRepository
+* FILE: ManageOperationDialog.razor
+* PURPOSE: Administrative interface for hospital operations.
+* COMMUNICATES WITH: OperationRepository, FacilityRepository
 *@
 @using HMS.Web.Models
 @using HMS.Web.DAL
 @inject OperationRepository OperationRepo
 @inject FacilityRepository FacilityRepo
+@inject DoctorRepository DoctorRepo
+@inject DoctorLedgerRepository LedgerRepo
+@inject AuditRepository AuditRepo
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@inject AuthenticationStateProvider AuthStateProvider
 
 @*
 COMPONENT: Operation Management Interface
@@ -147,11 +151,7 @@ OPTIMIZATION: [Conflict Detection] Temporal collision checks run on every date c
     /// Performs a collision check for the current Operation Theater.
     /// It queries existing scheduled/running operations and identifies any temporal overlaps.
     /// </summary>
-    /// <summary>
-    /// Performs a collision check for the current Operation Theater.
-    /// It queries existing scheduled/running operations and identifies any temporal overlaps.
-    /// </summary>
-    void CheckConflicts()
+    async Task CheckConflicts()
     {
         try
         {
@@ -161,7 +161,7 @@ OPTIMIZATION: [Conflict Detection] Temporal collision checks run on every date c
             if (Operation.TheaterId != null)
             {
                 // Simple generic check logic
-                var dayOps = OperationRepo.GetOperationsByTheaterAndDate(Operation.TheaterId.Value, NewStartTime);
+                var dayOps = await OperationRepo.GetOperationsByTheaterAndDateAsync(Operation.TheaterId.Value, NewStartTime);
 
                 var myStart = NewStartTime;
                 var myEnd = NewStartTime.AddMinutes(NewDuration);
@@ -191,16 +191,79 @@ OPTIMIZATION: [Conflict Detection] Temporal collision checks run on every date c
     /// Updates the state of the operation (e.g., from 'Scheduled' to 'Running').
     /// This triggers downstream business logic for cost tracking.
     /// </summary>
-    /// <summary>
-    /// Updates the state of the operation (e.g., from 'Scheduled' to 'Running').
-    /// This triggers downstream business logic for cost tracking.
-    /// </summary>
-    void UpdateStatus(string newStatus)
+    async Task UpdateStatus(string newStatus)
     {
         try
         {
-            OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, newStatus,
+            var oldStatus = Operation.Status;
+
+            await OperationRepo.UpdateOperationStatusAndCostsAsync(Operation.OperationId, newStatus,
             Operation.AgreedOperationCost, Operation.AgreedMedicineCost, Operation.AgreedEquipmentCost, Operation.TheaterId);
+
+            // Phase 4.3: Audit Trail
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var userName = user.Identity?.Name ?? "Unknown";
+            var userId = user.FindFirst(c => c.Type.Contains("nameidentifier"))?.Value ?? "SYSTEM";
+
+            await AuditRepo.LogActionAsync(userId, userName, "Update_Operation_Status", "PatientOperations",
+            Operation.OperationId.ToString(), $"Status changed from {oldStatus} to {newStatus}", oldStatus, newStatus);
+
+            if (newStatus == "Completed")
+            {
+                // Phase 4.2: Role Trigger - Accrue Fees
+
+                // 1. Operating Surgeon Fee
+                int surgeonId = 0;
+                if (Operation.OperatingSurgeonId.HasValue && Operation.OperatingSurgeonId.Value > 0)
+                    surgeonId = Operation.OperatingSurgeonId.Value;
+                else if (Operation.DoctorId.HasValue && Operation.DoctorId.Value > 0)
+                    surgeonId = Operation.DoctorId.Value;
+
+                if (surgeonId > 0)
+                {
+                    var surgeon = await DoctorRepo.GetDoctorByIdAsync(surgeonId);
+                    if (surgeon != null && surgeon.SurgeryCommission > 0 && Operation.AgreedOperationCost.HasValue)
+                    {
+                        var commissionAmount = Operation.AgreedOperationCost.Value * (surgeon.SurgeryCommission / 100.0m);
+                        if (commissionAmount > 0)
+                        {
+                            await LedgerRepo.AddEntryAsync(new DoctorLedger
+                                {
+                                    DoctorId = surgeonId,
+                                    TransactionType = "Surgery",
+                                    ReferenceId = Operation.OperationId,
+                                    Amount = commissionAmount,
+                                    Description = $"Surgery Commission ({surgeon.SurgeryCommission}%) for Op #{Operation.OperationId}"
+                                });
+                        }
+                    }
+                }
+
+                // 2. Recommending Doctor Fee (Target is Operation.DoctorId)
+                if (Operation.DoctorId.HasValue && Operation.DoctorId.Value > 0)
+                {
+                    var doctorId = Operation.DoctorId.Value;
+                    var recommender = await DoctorRepo.GetDoctorByIdAsync(doctorId);
+                    // Ensure we don't double pay if surgeon == recommender? Enterprise rule says "Split Pay Profile".
+                    // Usually if you do both, you get both specific fees.
+                    if (recommender != null && recommender.RecommendationCommission > 0 && Operation.AgreedOperationCost.HasValue)
+                    {
+                        var recAmount = Operation.AgreedOperationCost.Value * (recommender.RecommendationCommission / 100.0m);
+                        if (recAmount > 0)
+                        {
+                            await LedgerRepo.AddEntryAsync(new DoctorLedger
+                                {
+                                    DoctorId = doctorId,
+                                    TransactionType = "Recommendation",
+                                    ReferenceId = Operation.OperationId,
+                                    Amount = recAmount,
+                                    Description = $"Recommendation Commission ({recommender.RecommendationCommission}%) for Op #{Operation.OperationId}"
+                                });
+                        }
+                    }
+                }
+            }
 
             NotificationService.Notify(NotificationSeverity.Success, "Status Updated", $"Operation marked as {newStatus}.");
             DialogService.Close(true);
@@ -211,11 +274,11 @@ OPTIMIZATION: [Conflict Detection] Temporal collision checks run on every date c
         }
     }
 
-    void SaveSchedule()
+    async Task SaveSchedule()
     {
         try
         {
-            OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, Operation.Status,
+            await OperationRepo.UpdateOperationStatusAndCostsAsync(Operation.OperationId, Operation.Status,
             Operation.AgreedOperationCost, Operation.AgreedMedicineCost, Operation.AgreedEquipmentCost, Operation.TheaterId,
             NewStartTime, NewDuration);
 
@@ -236,4 +299,3 @@ OPTIMIZATION: [Conflict Detection] Temporal collision checks run on every date c
         }
     }
 }
-

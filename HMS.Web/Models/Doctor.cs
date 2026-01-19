@@ -51,6 +51,11 @@ namespace HMS.Web.Models
         public DateTime HospitalJoiningDate { get; set; }
         public decimal ConsultationFee { get; set; }
         public decimal FollowUpFee { get; set; }
+
+        // Phase 4.2: Split Commission Structure
+        public decimal CommissionRate { get; set; } // Legacy/General rate
+        public decimal SurgeryCommission { get; set; } // Specific for performing surgeries
+        public decimal RecommendationCommission { get; set; } // Specific for referring/recommending patients
         public string AvailableDays { get; set; } = string.Empty;
         public string AvailableTimeSlots { get; set; } = string.Empty;
         public string RoomNumber { get; set; } = string.Empty;
@@ -60,9 +65,7 @@ namespace HMS.Web.Models
         public bool IsActive { get; set; } = true;
         public bool IsVerified { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
-
         public bool IsAvailable { get; set; }
-        public decimal CommissionRate { get; set; } = 100.00m; // Percentage of consultation fee doctor receives
     }
-}
 
+}

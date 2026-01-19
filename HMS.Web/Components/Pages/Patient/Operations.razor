@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Operations.razor
- * PURPOSE: Patient-facing component for self-service portal.
- * COMMUNICATES WITH: OperationRepository, PatientRepository
+* FILE: Operations.razor
+* PURPOSE: Patient-facing component for self-service portal.
+* COMMUNICATES WITH: OperationRepository, PatientRepository
 *@
 @page "/patient/operations"
 @using HMS.Web.DAL
@@ -104,7 +104,7 @@ OPTIMIZATION: [Price Transparency] Displays clear cost estimates to help patient
     {
         try
         {
-            packages = OpRepo.GetOperationPackages();
+            packages = await OpRepo.GetOperationPackagesAsync();
 
             var authState = await AuthenticationStateTask;
             var user = authState.User;
@@ -114,10 +114,10 @@ OPTIMIZATION: [Price Transparency] Displays clear cost estimates to help patient
                 var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 if (userId != null)
                 {
-                    patient = PatientRepo.GetPatientByUserId(userId);
+                    patient = await PatientRepo.GetPatientByUserIdAsync(userId);
                     if (patient != null)
                     {
-                        myOperations = OpRepo.GetPatientOperations(patient.PatientId);
+                        myOperations = await OpRepo.GetPatientOperationsAsync(patient.PatientId);
                     }
                 }
             }
@@ -128,4 +128,3 @@ OPTIMIZATION: [Price Transparency] Displays clear cost estimates to help patient
         }
     }
 }
-

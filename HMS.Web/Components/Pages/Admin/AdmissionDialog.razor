@@ -39,7 +39,7 @@
             <RadzenStack Gap="1.5rem">
                 @* Patient Selection Dropdown - Supports searching by name/ID *@
                 <RadzenStack Gap="0.5rem">
-                    <RadzenLabel Text="Subject Admission" Component="PatientId" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenLabel Text="Subject Admission" Component="PatientId" TextStyle="TextStyle.Subtitle2" Class="required" />
                     <RadzenDropDown Name="PatientId" Data="@patients" TextProperty="FullName" ValueProperty="PatientId"
                         @bind-Value="model.PatientId" Style="width: 100%;" AllowFiltering="true"
                         FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
@@ -82,7 +82,7 @@
                 </RadzenRow>
 
                 <RadzenStack Gap="0.5rem">
-                    <RadzenLabel Text="Inventory Bed Assignment" Component="BedId" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenLabel Text="Inventory Bed Assignment" Component="BedId" TextStyle="TextStyle.Subtitle2" Class="required" />
                     <RadzenDropDown Name="BedId" Data="@filteredBeds" ValueProperty="BedId" @bind-Value="model.BedId"
                         Style="width: 100%;" Disabled="@(selectedRoomId == 0)" Placeholder="Assign serial bed...">
                         <Template Context="bed">
@@ -109,7 +109,7 @@
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem"
             Class="rz-mt-4">
             <RadzenButton ButtonType="ButtonType.Submit" Text="Authorize Admission" ButtonStyle="ButtonStyle.Success"
-                Icon="check_circle" />
+                Icon="check_circle" IsBusy="@isSubmitting" BusyText="Authorizing..." />
             <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
         </RadzenStack>
     </RadzenStack>
@@ -130,17 +130,15 @@
     int selectedRoomId = 0;
     string? SpecialtyKeyword;
     string? RecommendedWardName;
+    bool isSubmitting = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         try
         {
-            // LOGIC: Initialize the form data.
-            // If a PatientId is passed as a parameter, we load ONLY that patient to avoid
-            // the performance hit of loading thousands of records into the dropdown.
             if (PatientId.HasValue)
             {
-                var patient = PatientRepo.GetPatientById(PatientId.Value);
+                var patient = await PatientRepo.GetPatientByIdAsync(PatientId.Value);
                 if (patient != null)
                 {
                     patients = new List<Patient> { patient };
@@ -149,18 +147,14 @@
             }
             else
             {
-                // Only load patients if drop-down is needed
-                // To prevent lag, we only load the top 100 or something if it's too much.
-                // But since this is a search dropdown, Radzen already handles filtering if configured.
-                patients = PatientRepo.GetAllPatients();
+                patients = (await PatientRepo.GetAllPatientsAsync()).ToList();
             }
 
-            // Only load available wards (usually a small list)
-            wards = FacilityRepo.GetWards();
+            wards = (await FacilityRepo.GetWardsAsync()).ToList();
 
             if (PatientId.HasValue)
             {
-                DetectSpecialtyNeeds();
+                await DetectSpecialtyNeeds();
             }
         }
         catch (Exception ex)
@@ -169,24 +163,19 @@
         }
     }
 
-    /// <summary>
-    /// Analyzes the patient's medical history to recommend the most appropriate ward.
-    /// This logic looks for completed operations and matches the surgeon's department/specialization
-    /// to the hospital wards (e.g., Cardiology surgery -> Cardiology Ward).
-    /// </summary>
-    void DetectSpecialtyNeeds()
+    async Task DetectSpecialtyNeeds()
     {
         try
         {
-            // Find latest completed operation for this patient to suggest correct ward
-            var latestOp = OperationRepo.GetOperationsByStatus("Completed")
+            var completedOps = await OperationRepo.GetOperationsByStatusAsync("Completed");
+            var latestOp = completedOps
             .Where(o => o.PatientId == model.PatientId)
             .OrderByDescending(o => o.OperationId)
             .FirstOrDefault();
 
-            if (latestOp != null)
+            if (latestOp != null && latestOp.DoctorId.HasValue)
             {
-                var doctor = DoctorRepo.GetDoctorById(latestOp.DoctorId);
+                var doctor = await DoctorRepo.GetDoctorByIdAsync(latestOp.DoctorId.Value);
                 SpecialtyKeyword = doctor?.DepartmentName;
 
                 if (string.IsNullOrEmpty(SpecialtyKeyword))
@@ -200,13 +189,13 @@
 
                     if (bestWard != null)
                     {
-                        // Check if ward has available beds (optimized query)
-                        var wardRooms = FacilityRepo.GetRoomsByWard(bestWard.WardId);
+                        var wardRooms = await FacilityRepo.GetRoomsByWardAsync(bestWard.WardId);
                         bool hasBeds = false;
 
                         foreach (var room in wardRooms)
                         {
-                            if (FacilityRepo.GetAvailableBedsByRoom(room.RoomId).Any())
+                            var availableBeds = await FacilityRepo.GetAvailableBedsByRoomAsync(room.RoomId);
+                            if (availableBeds.Any())
                             {
                                 hasBeds = true;
                                 break;
@@ -216,10 +205,9 @@
                         if (hasBeds)
                         {
                             RecommendedWardName = bestWard.WardName;
-                            // STRICT ENFORCEMENT: Lock to this ward if beds are available
                             wards = new List<Ward> { bestWard };
                             selectedWardId = bestWard.WardId;
-                            OnWardChange();
+                            await OnWardChange();
                         }
                         else
                         {
@@ -233,7 +221,7 @@
                             if (generalWard != null)
                             {
                                 selectedWardId = generalWard.WardId;
-                                OnWardChange();
+                                await OnWardChange();
                             }
                         }
                     }
@@ -243,34 +231,28 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error detecting specialty needs: {ex.Message}");
-            // Non-critical, so we don't necessarily need to show a notification, but creating a log is good.
         }
     }
 
-    void OnWardChange()
+    async Task OnWardChange()
     {
-        // PERFORMANCE OPTIMIZATION: Load rooms only for selected ward
-        filteredRooms = FacilityRepo.GetRoomsByWard(selectedWardId);
+        filteredRooms = (await FacilityRepo.GetRoomsByWardAsync(selectedWardId)).ToList();
         selectedRoomId = 0;
         filteredBeds.Clear();
         model.BedId = 0;
     }
 
-    void OnRoomChange()
+    async Task OnRoomChange()
     {
-        // PERFORMANCE OPTIMIZATION: Load beds only for selected room
-        filteredBeds = FacilityRepo.GetAvailableBedsByRoom(selectedRoomId);
+        filteredBeds = (await FacilityRepo.GetAvailableBedsByRoomAsync(selectedRoomId)).ToList();
         model.BedId = 0;
     }
 
-    /// <summary>
-    /// Finalizes the admission process.
-    /// 1. Updates the bed status to 'Occupied' in the database.
-    /// 2. Creates a new Admission record.
-    /// 3. Updates surgical transfer status if applicable.
-    /// </summary>
     async Task OnSubmit(Admission args)
     {
+        if (isSubmitting) return;
+        isSubmitting = true;
+
         try
         {
             if (args.PatientId == 0 || args.BedId == 0)
@@ -279,21 +261,22 @@
                 return;
             }
 
-            FacilityRepo.AdmitPatient(args);
+            await FacilityRepo.AdmitPatientAsync(args);
 
             if (OperationId.HasValue)
             {
-                OperationRepo.MarkOperationAsTransferred(OperationId.Value);
+                await OperationRepo.MarkOperationAsTransferredAsync(OperationId.Value);
             }
             else
             {
-                var latestOp = OperationRepo.GetOperationsReadyForTransfer()
+                var readyOps = await OperationRepo.GetOperationsReadyForTransferAsync();
+                var latestOp = readyOps
                 .OrderByDescending(o => o.OperationId)
                 .FirstOrDefault(o => o.PatientId == args.PatientId);
 
                 if (latestOp != null)
                 {
-                    OperationRepo.MarkOperationAsTransferred(latestOp.OperationId);
+                    await OperationRepo.MarkOperationAsTransferredAsync(latestOp.OperationId);
                 }
             }
 
@@ -302,6 +285,10 @@
         catch (Exception ex)
         {
             NotificationService.Notify(NotificationSeverity.Error, "Admission Error", ex.Message);
+        }
+        finally
+        {
+            isSubmitting = false;
         }
     }
 }

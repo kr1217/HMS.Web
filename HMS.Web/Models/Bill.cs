@@ -24,6 +24,13 @@ namespace HMS.Web.Models
         public int? ShiftId { get; set; }
         public string? CreatedBy { get; set; }
 
+        // Exception & Override Management
+        public bool IsOverridden { get; set; }
+        public string? OverrideReason { get; set; }
+        public string? OverriddenBy { get; set; }
+        public DateTime? OverrideDate { get; set; }
+        public decimal? OriginalAmount { get; set; }
+
         // Optional Joined Properties
         public string? PatientName { get; set; }
         public int? AdmissionId { get; set; }

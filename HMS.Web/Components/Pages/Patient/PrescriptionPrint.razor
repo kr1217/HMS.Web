@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: PrescriptionPrint.razor
- * PURPOSE: Patient-facing component for self-service portal.
- * COMMUNICATES WITH: PrescriptionRepository, PatientRepository
+* FILE: PrescriptionPrint.razor
+* PURPOSE: Patient-facing component for self-service portal.
+* COMMUNICATES WITH: PrescriptionRepository, PatientRepository
 *@
 @page "/patient/prescription/print/{PrescriptionId:int}"
 @using HMS.Web.Models
@@ -156,14 +156,14 @@ else
     private string PatientName = "";
     private List<PrescriptionMedication> Medications = new();
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         try
         {
-            Prescription = PrescriptionRepo.GetPrescriptionById(PrescriptionId);
+            Prescription = await PrescriptionRepo.GetPrescriptionByIdAsync(PrescriptionId);
             if (Prescription != null)
             {
-                var patient = PatientRepo.GetPatientById(Prescription.PatientId);
+                var patient = await PatientRepo.GetPatientByIdAsync(Prescription.PatientId);
                 if (patient != null)
                 {
                     PatientName = patient.FullName;
@@ -187,4 +187,3 @@ else
         }
     }
 }
-

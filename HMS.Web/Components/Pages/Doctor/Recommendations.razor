@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Recommendations.razor
- * PURPOSE: Doctor-facing component for clinical management.
- * COMMUNICATES WITH: OperationRepository, DoctorRepository
+* FILE: Recommendations.razor
+* PURPOSE: Doctor-facing component for clinical management.
+* COMMUNICATES WITH: OperationRepository, DoctorRepository
 *@
 @page "/doctor/recommendations"
 @using HMS.Web.Models
@@ -101,10 +101,10 @@ OPTIMIZATION: [Lightweight Grid] Uses simple data binding for quick status check
 
             if (!string.IsNullOrEmpty(userId))
             {
-                currentDoctor = DoctorRepo.GetDoctorByUserId(userId);
+                currentDoctor = await DoctorRepo.GetDoctorByUserIdAsync(userId);
                 if (currentDoctor != null)
                 {
-                    recommendations = OperationRepo.GetOperationsByDoctorId(currentDoctor.DoctorId);
+                    recommendations = await OperationRepo.GetOperationsByDoctorIdAsync(currentDoctor.DoctorId);
                 }
             }
         }
@@ -131,4 +131,3 @@ OPTIMIZATION: [Lightweight Grid] Uses simple data binding for quick status check
         _ => BadgeStyle.Light
     };
 }
-

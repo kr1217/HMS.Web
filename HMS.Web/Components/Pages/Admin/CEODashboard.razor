@@ -1,0 +1,186 @@
+@*
+* FILE: CEODashboard.razor
+* PURPOSE: High-level executive overview of hospital performance.
+* COMMUNICATES WITH: AnalyticsRepository
+*@
+@page "/admin/ceo-dashboard"
+@using HMS.Web.DAL
+@using HMS.Web.Models
+@using Radzen
+@using HMS.Web.Utils
+@using Radzen
+@using Radzen.Blazor
+@inject AnalyticsRepository AnalyticsRepo
+@inject NotificationService NotificationService
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+<PageTitle>Executive Dashboard | HMS</PageTitle>
+
+<style>
+    .ceo-card {
+        border-radius: 12px;
+        transition: transform 0.2s;
+    }
+
+    .ceo-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .kpi-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        letter-spacing: -1px;
+    }
+
+    .glass-panel {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+</style>
+
+<RadzenStack Gap="2rem" Class="rz-p-4 rz-p-md-6">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0.5rem">
+            <RadzenText Text="Executive BI Dashboard" TextStyle="TextStyle.H3" Class="rz-m-0 rz-color-primary"
+                Style="font-weight: 800;" />
+            <RadzenText Text="Global hospital performance metrics and financial health indicators."
+                TextStyle="TextStyle.Body1" Class="rz-color-text-secondary" />
+        </RadzenStack>
+        <RadzenButton Icon="refresh" ButtonStyle="ButtonStyle.Light" Click="LoadData" Text="Update Metrics" />
+    </RadzenStack>
+
+    <RadzenRow Gap="1.5rem">
+        <!-- Main Line KPIs -->
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="ceo-card rz-shadow-4"
+                Style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); color: white;">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="NET REVENUE (MTD)" TextStyle="TextStyle.Overline"
+                        Style="color: rgba(255,255,255,0.8);" />
+                    <RadzenText Text="@NetRevenue.ToString("C0")" Class="kpi-value" />
+                    <RadzenText Text="After Doctor Commissions" TextStyle="TextStyle.Caption"
+                        Style="color: rgba(255,255,255,0.7);" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="ceo-card rz-shadow-4">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="OCCUPANCY RATE" TextStyle="TextStyle.Overline" Class="rz-color-text-secondary" />
+                    <RadzenText Text="@($"{OccupancyRate:F1}%")" Class="kpi-value rz-color-info" />
+                    <RadzenProgressBar Value="@((double)OccupancyRate)" Mode="ProgressBarMode.Determinate"
+                        Style="height: 6px;" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="ceo-card rz-shadow-4">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="PENDING COLLECTIONS" TextStyle="TextStyle.Overline"
+                        Class="rz-color-text-secondary" />
+                    <RadzenText Text="@PendingCollections.ToString("C0")" Class="kpi-value rz-color-danger" />
+                    <RadzenText Text="Outstanding Patient Dues" TextStyle="TextStyle.Caption" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="ceo-card rz-shadow-4">
+                <RadzenStack Gap="0.5rem">
+                    <RadzenText Text="ADMISSIONS TODAY" TextStyle="TextStyle.Overline"
+                        Class="rz-color-text-secondary" />
+                    <RadzenText Text="@AdmissionsToday.ToString()" Class="kpi-value rz-color-success" />
+                    <RadzenText Text="@($"{ActiveDoctors} Active Doctors Online")" TextStyle="TextStyle.Caption" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenRow Gap="1.5rem">
+        <RadzenColumn Size="12" SizeLG="8">
+            <RadzenCard Class="rz-p-6 rz-shadow-2" Style="border-radius: 12px;">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                    JustifyContent="JustifyContent.SpaceBetween" Class="rz-mb-4">
+                    <RadzenText Text="Financial Trajectory" TextStyle="TextStyle.H5" Class="rz-m-0" />
+                    <RadzenBadge Text="Last 30 Days" BadgeStyle="BadgeStyle.Light" />
+                </RadzenStack>
+                <RadzenChart Style="height: 350px;">
+                    <RadzenAreaSeries Data="@RevenueTrend" CategoryProperty="Date" Title="Daily Cash Flow"
+                        ValueProperty="Amount" Smooth="true">
+                        <RadzenMarkers MarkerType="MarkerType.Circle" Fill="var(--rz-primary)" />
+                    </RadzenAreaSeries>
+                    <RadzenCategoryAxis Padding="20" FormatString="{0:MMM dd}" />
+                    <RadzenValueAxis Formatter="@FormatUtils.FormatCurrencyCompact">
+                        <RadzenGridLines Visible="true" />
+                        <RadzenAxisTitle Text="Amount (USD)" />
+                    </RadzenValueAxis>
+                    <RadzenLegend Visible="false" />
+                </RadzenChart>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeLG="4">
+            <RadzenCard Class="rz-p-6 rz-shadow-2" Style="border-radius: 12px; height: 100%;">
+                <RadzenText Text="Strategic Insights" TextStyle="TextStyle.H5" Class="rz-mb-4" />
+                <RadzenStack Gap="1.5rem">
+                    <RadzenStack Gap="0.25rem">
+                        <RadzenText Text="Health Index" TextStyle="TextStyle.Subtitle2" />
+                        <RadzenText
+                            Text="@(OccupancyRate > 80 ? "Critical Capacity" : OccupancyRate > 50 ? "Optimal Efficiency" : "Underutilized")"
+                            TextStyle="TextStyle.Body2"
+                            Style="@(OccupancyRate > 80 ? "color: var(--rz-danger);" : "color: var(--rz-success);")" />
+                    </RadzenStack>
+                    <hr class="rz-my-2" />
+                    <RadzenStack Gap="0.25rem">
+                        <RadzenText Text="Collection Risk" TextStyle="TextStyle.Subtitle2" />
+                        <RadzenText Text="@(PendingCollections > 50000 ? "High Risk" : "Managed")"
+                            TextStyle="TextStyle.Body2"
+                            Style="@(PendingCollections > 50000 ? "color: var(--rz-danger);" : "color: var(--rz-success);")" />
+                    </RadzenStack>
+                    <hr class="rz-my-2" />
+                    <RadzenStack Gap="0.25rem">
+                        <RadzenText Text="Operational Velocity" TextStyle="TextStyle.Subtitle2" />
+                        <RadzenText Text="@($"{AdmissionsToday} unit(s) moved today")" TextStyle="TextStyle.Body2" />
+                    </RadzenStack>
+                </RadzenStack>
+
+                <RadzenButton Text="Generate Quarterly Report" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Flat"
+                    Class="rz-mt-12 rz-w-100" Icon="description" />
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+</RadzenStack>
+
+@code {
+    decimal OccupancyRate;
+    decimal NetRevenue;
+    decimal PendingCollections;
+    int AdmissionsToday;
+    int ActiveDoctors;
+    List<DailyRevenue> RevenueTrend = new();
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    async Task LoadData()
+    {
+        try
+        {
+            OccupancyRate = await AnalyticsRepo.GetOccupancyRateAsync();
+            NetRevenue = await AnalyticsRepo.GetNetRevenueAsync(DateTime.Now.Month, DateTime.Now.Year);
+            RevenueTrend = await AnalyticsRepo.GetRevenueTrendAsync(30);
+            PendingCollections = await AnalyticsRepo.GetPendingCollectionTotalAsync();
+            AdmissionsToday = await AnalyticsRepo.GetTotalAdmissionsTodayAsync();
+            ActiveDoctors = await AnalyticsRepo.GetActiveDoctorCountAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Analytics Error", ex.Message);
+        }
+    }
+}

@@ -1,0 +1,154 @@
+@*
+ * FILE: DoctorLedger.razor
+ * PURPOSE: Admin interface for doctor financial settlements and audit.
+ * COMMUNICATES WITH: DoctorLedgerRepository, DoctorRepository
+ *@
+@page "/admin/doctor-ledger"
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@inject DoctorLedgerRepository LedgerRepo
+@inject DoctorRepository DoctorRepo
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+<PageTitle>Doctor Settlements Ledger | Admin</PageTitle>
+
+<RadzenStack Gap="1.5rem" Class="rz-p-4">
+    <RadzenText Text="Doctor Settlements Ledger" TextStyle="TextStyle.H3" Class="rz-color-primary" />
+    <RadzenText Text="Audit and approve accruals before payout." TextStyle="TextStyle.Body1" Class="rz-mb-4" />
+
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Class="rz-mb-4">
+             <RadzenLabel Text="Filter by Doctor:" />
+             <RadzenDropDown TValue="int?" Data="@Doctors" TextProperty="FullName" ValueProperty="DoctorId" 
+                            @bind-Value="SelectedDoctorId" Change="@LoadLedger" Placeholder="All Doctors" AllowClear="true" />
+             
+             <RadzenButton Text="Refresh" Icon="refresh" Click="@LoadLedger" ButtonStyle="ButtonStyle.Light" />
+             <RadzenButton Text="Settle Selected" Icon="payments" ButtonStyle="ButtonStyle.Success" 
+                           Click="@SettleSelected" Disabled="@(!SelectedEntries.Any())" />
+        </RadzenStack>
+
+        <RadzenDataGrid @ref="grid" Data="@LedgerEntries" TItem="DoctorLedger" AllowFiltering="true" AllowSorting="true" 
+                        AllowPaging="true" PageSize="20" SelectionMode="DataGridSelectionMode.Multiple" @bind-Value="SelectedEntries">
+            <Columns>
+                <RadzenDataGridColumn TItem="DoctorLedger" Width="40px" Sortable="false" Filterable="false">
+                    <HeaderTemplate>
+                        <RadzenCheckBox TriState="false" TValue="bool" Value="@(LedgerEntries.Any(i => SelectedEntries != null && SelectedEntries.Contains(i)))"
+                                        Change="@(args => SelectedEntries = args ? LedgerEntries.Where(e => e.Status == "Approved").ToList() : null)" />
+                    </HeaderTemplate>
+                    <Template Context="data">
+                        <RadzenCheckBox TriState="false" Value="@(SelectedEntries != null && SelectedEntries.Contains(data))" 
+                                        TValue="bool" Change="@(args => { if(args) { if(SelectedEntries == null) SelectedEntries = new List<DoctorLedger>(); ((List<DoctorLedger>)SelectedEntries).Add(data); } else { ((List<DoctorLedger>)SelectedEntries).Remove(data); } })" 
+                                        Disabled="@(data.Status != "Approved")"/>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="DoctorLedger" Property="DoctorName" Title="Doctor" Width="180px" />
+                <RadzenDataGridColumn TItem="DoctorLedger" Property="TransactionDate" Title="Date" FormatString="{0:d}" Width="120px" />
+                <RadzenDataGridColumn TItem="DoctorLedger" Property="TransactionType" Title="Type" Width="140px" />
+                <RadzenDataGridColumn TItem="DoctorLedger" Property="Description" Title="Description" />
+                <RadzenDataGridColumn TItem="DoctorLedger" Property="Amount" Title="Amount" FormatString="{0:C}" Width="120px" TextAlign="TextAlign.Right" />
+                <RadzenDataGridColumn TItem="DoctorLedger" Property="Status" Title="Status" Width="120px" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <RadzenBadge BadgeStyle="@GetStatusStyle(data.Status)" Text="@data.Status" IsPill="true" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="DoctorLedger" Title="Action" Width="100px" Sortable="false" Filterable="false">
+                    <Template Context="data">
+                        @if (data.Status == "Pending")
+                        {
+                            <RadzenButton Icon="check_circle" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" 
+                                          Tooltip="Approve for Payout" Click="@(() => ApproveEntry(data))" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    List<DoctorLedger> LedgerEntries = new();
+    IList<DoctorLedger> SelectedEntries = new List<DoctorLedger>();
+    List<Doctor> Doctors = new();
+    int? SelectedDoctorId;
+    RadzenDataGrid<DoctorLedger> grid;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Doctors = await DoctorRepo.GetAllDoctorsAsync();
+        await LoadLedger();
+    }
+
+    async Task LoadLedger()
+    {
+        if (SelectedDoctorId.HasValue)
+        {
+            LedgerEntries = await LedgerRepo.GetLedgerByDoctorAsync(SelectedDoctorId.Value);
+        }
+        else
+        {
+            LedgerEntries = await LedgerRepo.GetPendingEntriesAsync(); 
+            // By default show pending? Or all? 
+            // The method GetPendingEntriesAsync returns ALL pending.
+            // Retrieve all for the grid if filter is clear? 
+            // We need a GetAll method in Repo or just iterate doctors. 
+            // For now, let's just show Pending if no doctor. Or we can add GetAllLedgerAsync.
+            // Let's stick to Pending for the default view to keep it focused.
+        }
+    }
+
+    BadgeStyle GetStatusStyle(string status)
+    {
+        return status switch
+        {
+            "Pending" => BadgeStyle.Warning,
+            "Approved" => BadgeStyle.Info,
+            "Paid" => BadgeStyle.Success,
+            _ => BadgeStyle.Light
+        };
+    }
+
+    async Task ApproveEntry(DoctorLedger entry)
+    {
+        try 
+        {
+            await LedgerRepo.ApproveEntryAsync(entry.LedgerId);
+            NotificationService.Notify(NotificationSeverity.Success, "Approved", "Entry approved for payout.");
+            await LoadLedger();
+        }
+        catch(Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+        }
+    }
+
+    async Task SettleSelected()
+    {
+        if (SelectedEntries == null || !SelectedEntries.Any()) return;
+
+        var approved = SelectedEntries.Where(e => e.Status == "Approved").Select(e => e.LedgerId).ToList();
+        if (!approved.Any())
+        {
+             NotificationService.Notify(NotificationSeverity.Warning, "Selection Invalid", "Only 'Approved' entries can be settled.");
+             return;
+        }
+
+        bool? confirm = await DialogService.Confirm($"Settle {approved.Count} transactions? This marks them as PAID.", "Confirm Payout");
+        if (confirm == true)
+        {
+            try
+            {
+                await LedgerRepo.SettleEntriesAsync(approved);
+                NotificationService.Notify(NotificationSeverity.Success, "Settled", "Transactions marked as paid.");
+                await LoadLedger();
+                SelectedEntries = null;
+            }
+            catch(Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+            }
+        }
+    }
+}

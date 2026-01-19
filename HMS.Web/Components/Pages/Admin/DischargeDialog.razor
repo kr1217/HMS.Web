@@ -146,8 +146,7 @@
 
     @inject OperationRepository OperationRepo
 
-    // ... inside code ...
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         // Calculate Room Rent automatically
         Items.Add(new BillItem
@@ -158,42 +157,49 @@
             });
 
         // Load Operations & Recommendations for billing
-        var ops = OperationRepo.GetPatientOperations(Admission.PatientId);
-
-        foreach (var op in ops.Where(o => o.Status == "Completed" || o.Status == "Scheduled" || o.Status == "Recommended"))
+        try
         {
-            // Add Procedure Cost
-            Items.Add(new BillItem
+            var ops = await OperationRepo.GetPatientOperationsAsync(Admission.PatientId);
+
+            foreach (var op in ops.Where(o => o.Status == "Completed" || o.Status == "Scheduled" || o.Status == "Recommended"))
+            {
+                // Add Procedure Cost
+                Items.Add(new BillItem
+                    {
+                        Category = "Procedures",
+                        Description = $"Operation: {op.PackageName}",
+                        Amount = op.AgreedOperationCost ?? 0 // Use Agreed Cost if set
+                    });
+
+                // Add Recommended Items
+                if (!string.IsNullOrEmpty(op.RecommendedMedicines))
                 {
-                    Category = "Procedures",
-                    Description = $"Operation: {op.PackageName}",
-                    Amount = op.AgreedOperationCost ?? 0 // Use Agreed Cost if set
-                });
+                    string medDesc = $"Rec: {op.RecommendedMedicines}";
+                    if (medDesc.Length > 250) medDesc = medDesc.Substring(0, 247) + "...";
+                    Items.Add(new BillItem
+                        {
+                            Category = "Medicines",
+                            Description = medDesc,
+                            Amount = op.AgreedMedicineCost ?? 0
+                        });
+                }
 
-            // Add Recommended Items
-            if (!string.IsNullOrEmpty(op.RecommendedMedicines))
-            {
-                string medDesc = $"Rec: {op.RecommendedMedicines}";
-                if (medDesc.Length > 250) medDesc = medDesc.Substring(0, 247) + "...";
-                Items.Add(new BillItem
-                    {
-                        Category = "Medicines",
-                        Description = medDesc,
-                        Amount = op.AgreedMedicineCost ?? 0
-                    });
+                if (!string.IsNullOrEmpty(op.RecommendedEquipment))
+                {
+                    string eqDesc = $"Rec Eq: {op.RecommendedEquipment}";
+                    if (eqDesc.Length > 250) eqDesc = eqDesc.Substring(0, 247) + "...";
+                    Items.Add(new BillItem
+                        {
+                            Category = "Services",
+                            Description = eqDesc,
+                            Amount = op.AgreedEquipmentCost ?? 0
+                        });
+                }
             }
-
-            if (!string.IsNullOrEmpty(op.RecommendedEquipment))
-            {
-                string eqDesc = $"Rec Eq: {op.RecommendedEquipment}";
-                if (eqDesc.Length > 250) eqDesc = eqDesc.Substring(0, 247) + "...";
-                Items.Add(new BillItem
-                    {
-                        Category = "Services",
-                        Description = eqDesc,
-                        Amount = op.AgreedEquipmentCost ?? 0
-                    });
-            }
+        }
+        catch (Exception ex)
+        {
+             NotificationService.Notify(NotificationSeverity.Error, "Data Load Error", "Failed to load patient operations for billing.");
         }
     }
 
@@ -248,20 +254,27 @@
                 Items = Items
             };
 
-        BillingRepo.CreateComprehensiveBill(bill);
+        try
+        {
+            await BillingRepo.CreateBillAsync(bill);
 
-        // Notify Patient
-        NotificationRepo.CreateNotification(new Notification
-            {
-                PatientId = Admission.PatientId,
-                Title = "Bill Generated",
-                Message = $"A new bill of {TotalAmount:C} has been generated for your recent stay. Please view details in 'My Bills'.",
-                CreatedDate = DateTime.Now,
-                IsRead = false
-            });
+            // Notify Patient
+            await NotificationRepo.CreateNotificationAsync(new Notification
+                {
+                    PatientId = Admission.PatientId,
+                    Title = "Bill Generated",
+                    Message = $"A new bill of {TotalAmount:C} has been generated for your recent stay. Please view details in 'My Bills'.",
+                    CreatedDate = DateTime.Now,
+                    IsRead = false
+                });
 
-        NotificationService.Notify(NotificationSeverity.Success, "Bill Generated", "Bill sent to Teller. Patient notified.");
-        DialogService.Close(true);
+            NotificationService.Notify(NotificationSeverity.Success, "Bill Generated", "Bill sent to Teller. Patient notified.");
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Billing Error", $"Failed to generate bill: {ex.Message}");
+        }
     }
 }
 

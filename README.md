@@ -5,24 +5,39 @@ A modern, full-stack **Blazor Web App** implemented with **.NET 8+** (Interactiv
 ## 🚀 Features
 
 ### 🏥 Core Modules
-*   **Authentication & Authorization**: Secure identity management with Role-Based Access Control (RBAC) for **Doctors** and **Patients**.
-*   **Responsive UI**: Built with Bootstrap and custom CSS for a premium, clean aesthetic.
+*   **Authentication & Authorization**: Secure identity management with Role-Based Access Control (RBAC) for **Admin**, **Doctors**, **Patients**, and **Tellers**.
+*   **Responsive UI**: Built with Radzen Blazor and custom Enterprise CSS for a premium, clean aesthetic.
+
+### 🏛️ Admin Operational Dashboard (Command Center)
+*   **Real-Time Command Center**: Operational dashboard for orchestration (not just reporting).
+*   **Surgical Workflow Control**: Live countdowns, theater heatmaps, and extended duration alerts.
+*   **Patient Flow Monitoring**: Managed queues for Admissions, Post-Op Transfers, and Financial Clearance.
+*   **Intelligence & Analytics**:
+    *   **Patient Loss Intelligence**: Automated tracking of lost revenue and rejected procedural requests.
+    *   **Operational KPIs**: UT utilization, Bed occupancy rates, and Financial throughput per hour.
+*   **Administrative Actions**: Authorize/Reject surgery requests with standardized reasoning and notifications.
 
 ### 👨‍⚕️ Doctor Portal
 *   **Dashboard**: Overview of appointments, active cases, and revenue.
 *   **Profile Management**: Comprehensive professional profile setup (Specialization, License, Fees).
 *   **Shift Management**: Visual tool to add, edit, and manage weekly availability (shifts).
+*   **Surgical Recommendations**: Direct interface to recommend complex procedures for administrative approval.
 *   **Appointment Handling**:
     *   View pending requests.
     *   **Approve/Reject** appointments with real-time validation.
     *   Instant visual feedback upon action.
+
+### 💰 Teller & Finance Module
+*   **Shift Management**: Clock-in/Clock-out with cash drawer reconciliation and shift revenue auditing.
+*   **Advance Payments**: Secure collection of surgery deposits with automated workflow triggers (OT Scheduling).
+*   **Settlement Engine**: Doctor commission auditing and payment processing.
 
 ### 😷 Patient Portal
 *   **Dashboard**: Quick stats and easy navigation.
 *   **Appointment Booking**: Search for doctors, view valid shifts, and book appointments.
 *   **Real-time Status**:
     *   View "Approved" (Green), "Pending" (Yellow), or "Rejected" (Red) status badges.
-    *   **Interactive Notifications**: Clicking the notification bell takes you directly to the relevant update.
+    *   **Interactive Notifications**: Clicking the notification bell takes you directly to the relevant update (Surgery status, Payments, Rejections).
 
 ## 🛠️ Tech Stack
 *   **Framework**: ASP.NET Core Blazor (Interactive Server)
@@ -96,28 +111,31 @@ The system enforces a strict separation of concerns where doctors and patients *
 *   **Medical History**: Centralized view of all past prescriptions, reports, and operation recommendations.
 *   **Live Updates**: Real-time status badges and notifications for all interactions.
 
-## 🔄 Recent Updates
-*   **Post-Op Handover Module**: Dedicated queue and logic for transferring patients from OT to specialized wards.
-*   **Strict Ward Enforcement**: Smart routing engine ensures patients go to specialty wards (e.g. Cardiology) based on surgery type.
-*   **Real-time Surgical HUD**: 1-second countdown timers for active surgeries on Admin/OT dashboards.
-*   **Persistent Notifications**: Role-based alert system for multi-department coordination.
-*   **Revenue Tracking**: Implemented dynamic revenue calculation for doctors (Daily & Total).
-*   **Profile Editor**: Added comprehensive "Edit Profile" capability for doctors.
-*   **Fixes**: Resolved data mapping issues for Consultation Fees and file upload stability.
-*   **Foundation**: Laid the groundwork for a future **Admin Module**.
+## 🛡️ Engineering & Architecture
+### Robustness & Error Handling
+We have implemented a **Defense-in-Depth** strategy to ensure high availability and user confidence:
+*   **Comprehensive Exception Handling**: All critical paths (Payment, Booking, Data Loading) are wrapped in `try-catch` blocks to degrade gracefully rather than crash.
+*   **User Feedback Loops**: Integrated `NotificationService` across all user-facing components to provide immediate, human-readable feedback.
+*   **Self-Documenting Codebase**: Every single file features a standardized header detailing its **Purpose** and **Dependencies**.
 
-### 💼 Admin Module (Phase 3 Complete)
-*   **Financial Core**:
-    *   **Shift Management (Anti-Fraud)**: Strict "Clock In/Out" system for staff. Revenue is tracked per shift and variance reports are auto-generated.
-    *   **Doctor Settlements**: Automated commission calculation engine (Revenue Share vs Fixed Salary).
-    *   **Shift Reports**: Detailed analytics dashboard comparing System Expected Cash vs Physical Cash Count.
-*   **Hospital Facilities**:
-    *   Digital Twin of hospital infrastructure (Wards, Rooms, Beds).
-    *   Real-time Bed Occupancy tracking (Green=Free, Red=Occupied, Yellow=Maintenance).
-*   **Staff Registry**:
-    *   Comprehensive HR system to manage Doctors, Nurses, and Admin staff.
-    *   Role-Based Access Control logic fully implemented.
+### Performance Optimizations
+*   **Background Services**: Heavy maintenance tasks (like Daily Revenue Accrual) are offloaded to `HospitalBackgroundService`.
+*   **Smart Querying**: Repositories use targeted SQL queries with simplified indexing strategies.
+*   **Asynchronous I/O**: Full adoption of `async/await` patterns in Data Access Layer (DAL).
 
+## 🔄 Recent Updates & Roadmap
+### ✅ Completed Features
+*   **Admin Command Center**: Real-time surgical monitoring with theater heatmaps and automated delays tracking.
+*   **Patient Loss System**: Integrated audit trail for rejected surgeries and revenue leakage (Patient Loss Events).
+*   **Patient Operations**: Resilient interfaces for `Appointments`, `Bills`, and `Dashboard`.
+*   **Teller Operations**: Secure cash handling workflows for `CollectAdvance` and `PaymentDialog` with Shift reconciliation.
+*   **Enterprise Features**: Real-time Bed/OT utilization KPIs, Automated Doctor Notifications, and Shift Management.
+
+### 🧠 Engineering Principles
+1.  **Data Integrity**: Financial transactions are atomic. Consistency > Availability in billing modules.
+2.  **Validation First**: All inputs validated at UI and Repository layers.
+3.  **Query Optimization**: Strict adherence to `SELECT [Columns]` over `SELECT *`.
+4.  **Maintainability**: Code explains "Why" it exists via comprehensive headers.
 
 ---
-*Created by [kr1217](https://github.com/kr1217)*
+*Maintained by [kr1217](https://github.com/kr1217)*

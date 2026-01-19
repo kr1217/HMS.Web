@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Settlements.razor
- * PURPOSE: Administrative interface for hospital operations.
- * COMMUNICATES WITH: DoctorRepository, FinanceRepository
+* FILE: Settlements.razor
+* PURPOSE: Administrative interface for hospital operations.
+* COMMUNICATES WITH: DoctorRepository, FinanceRepository
 *@
 @page "/admin/settlements"
 @layout HMS.Web.Components.Layout.AdminLayout
@@ -62,7 +62,8 @@
                                 Width="150px" TextAlign="TextAlign.Right">
                                 <Template Context="data">
                                     <RadzenButton Text="Execute" Icon="payments" ButtonStyle="ButtonStyle.Success"
-                                        Size="ButtonSize.Small" Click="@(() => ProcessSettlement(data))" />
+                                        Size="ButtonSize.Small" Click="@(() => ProcessSettlement(data))"
+                                        IsBusy="@isProcessing" />
                                 </Template>
                             </RadzenDataGridColumn>
                         </Columns>
@@ -128,21 +129,23 @@
     List<DoctorPayment> paymentHistory = new();
     int? selectedDoctorId;
 
-    protected override void OnInitialized()
+    async Task LoadDoctors()
     {
-        LoadDoctors();
+        doctors = await DoctorRepo.GetAllDoctorsAsync();
     }
 
-    void LoadDoctors()
+
+
+    protected override async Task OnInitializedAsync()
     {
-        doctors = DoctorRepo.GetDoctors();
+        await LoadDoctors();
     }
 
-    void LoadPaymentHistory()
+    async Task LoadPaymentHistory()
     {
         if (selectedDoctorId.HasValue)
         {
-            paymentHistory = FinanceRepo.GetDoctorPayments(selectedDoctorId.Value);
+            paymentHistory = await FinanceRepo.GetDoctorPaymentsAsync(selectedDoctorId.Value);
         }
     }
 
@@ -164,24 +167,36 @@
             <RadzenButton Text="Close" ButtonStyle="ButtonStyle.Light" Click="() => ds.Close()" />
         </RadzenStack>
     </RadzenStack>
-            , new DialogOptions { Width = "400px" });
+                , new DialogOptions { Width = "400px" });
     }
 
     DateTime periodStart = DateTime.Now.AddMonths(-1);
     DateTime periodEnd = DateTime.Now;
+    bool isProcessing = false;
 
     async Task ProcessSettlement(Doctor doctor)
     {
-        var amount = FinanceRepo.CalculateDoctorSettlement(doctor.DoctorId, periodStart, periodEnd);
-
-        if (amount == 0)
+        if (isProcessing) return;
+        isProcessing = true;
+        Console.WriteLine($"🔍 ProcessSettlement called for DoctorId: {doctor.DoctorId}, Period: {periodStart} to {periodEnd}");
+        try
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "No Earnings",
-                $"Dr. {doctor.FullName} has no completed appointments in this period.");
-            return;
-        }
+            if (periodStart > periodEnd)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Invalid Range", "Start date cannot be after end date.");
+                return;
+            }
 
-        var result = await DialogService.OpenAsync($"Settle Payment for Dr. {doctor.FullName}", ds =>
+            var amount = await FinanceRepo.CalculateDoctorSettlementAsync(doctor.DoctorId, periodStart, periodEnd);
+
+            if (amount <= 0)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "No Earnings",
+                    $"Dr. {doctor.FullName} has no completed appointments in this period ({periodStart:d} - {periodEnd:d}).");
+                return;
+            }
+
+            var result = await DialogService.OpenAsync($"Settle Payment for Dr. {doctor.FullName}", ds =>
     @<RadzenStack Gap="1.5rem" Class="rz-p-4">
         <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter">
             <RadzenStack Gap="0.25rem">
@@ -208,23 +223,32 @@
     </RadzenStack>
 , new DialogOptions { Width = "500px" });
 
-        if (result == true)
-        {
-            var payment = new DoctorPayment
-                {
-                    DoctorId = doctor.DoctorId,
-                    Amount = amount,
-                    PeriodStart = periodStart,
-                    PeriodEnd = periodEnd,
-                    Notes = paymentNotes
-                };
+            if (result == true)
+            {
+                var payment = new DoctorPayment
+                    {
+                        DoctorId = doctor.DoctorId,
+                        Amount = amount,
+                        PeriodStart = periodStart,
+                        PeriodEnd = periodEnd,
+                        Notes = paymentNotes
+                    };
 
-            FinanceRepo.ProcessDoctorPayment(payment);
-            NotificationService.Notify(NotificationSeverity.Success, "Payment Processed",
-            $"Settlement of {amount:C} processed for Dr. {doctor.FullName}");
+                await FinanceRepo.ProcessDoctorPaymentAsync(payment);
+                NotificationService.Notify(NotificationSeverity.Success, "Payment Processed",
+                $"Settlement of {amount:C} processed for Dr. {doctor.FullName}");
+                await LoadDoctors();
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Settlement Failed", ex.Message);
+        }
+        finally
+        {
+            isProcessing = false;
         }
     }
 
     string paymentNotes = "";
 }
-

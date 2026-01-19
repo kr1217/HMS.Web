@@ -42,13 +42,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<SupportTicket> GetTicketsByPatientId(int patientId)
-        {
-            if (patientId <= 0) return new List<SupportTicket>();
-            string query = $"SELECT {TicketColumns} FROM SupportTickets WHERE PatientId = @Id ORDER BY CreatedDate DESC";
-            var parameters = new[] { new SqlParameter("@Id", patientId) };
-            return _db.ExecuteQuery(query, MapSupportTicket, parameters);
-        }
+
 
         /// <summary>
         /// Asynchronously creates a new support ticket.
@@ -75,13 +69,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void CreateTicket(SupportTicket ticket)
-        {
-            if (ticket == null || ticket.PatientId <= 0) throw new ArgumentException("Invalid ticket data.");
-            string query = "INSERT INTO SupportTickets (PatientId, Subject, Message, Status, CreatedDate) VALUES (@PatientId, @Subject, @Message, 'Open', @CreatedDate)";
-            var parameters = new[] { new SqlParameter("@PatientId", ticket.PatientId), new SqlParameter("@Subject", ticket.Subject ?? "No Subject"), new SqlParameter("@Message", ticket.Message ?? ""), new SqlParameter("@CreatedDate", DateTime.Now) };
-            _db.ExecuteNonQuery(query, parameters);
-        }
+
 
         /// <summary>
         /// Mapping logic from SqlDataReader to SupportTicket model.

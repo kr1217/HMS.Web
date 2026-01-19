@@ -1,0 +1,86 @@
+@*
+* FILE: AuditLogs.razor
+* PURPOSE: System-wide audit trail viewer for Admins and Compliance Officers.
+* COMMUNICATES WITH: AuditRepository
+*@
+@page "/admin/audit-logs"
+@using HMS.Web.Models
+@using HMS.Web.DAL
+@inject AuditRepository AuditRepo
+@inject NotificationService NotificationService
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+<PageTitle>System Audit Logs | Admin</PageTitle>
+
+<RadzenStack Gap="1.5rem" Class="rz-p-4">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenStack Gap="0">
+            <RadzenText Text="System Audit Trail" TextStyle="TextStyle.H3" Class="rz-color-primary" />
+            <RadzenText Text="Immutable record of sensitive system actions." TextStyle="TextStyle.Body1"
+                Class="rz-color-text-secondary" />
+        </RadzenStack>
+        <RadzenButton Icon="refresh" Text="Refresh Logs" ButtonStyle="ButtonStyle.Light" Click="@LoadLogs" />
+    </RadzenStack>
+
+    <RadzenCard>
+        <RadzenDataGrid Data="@Logs" TItem="AuditLog" AllowFiltering="true" AllowSorting="true" AllowPaging="true"
+            PageSize="20">
+            <Columns>
+                <RadzenDataGridColumn TItem="AuditLog" Property="Timestamp" Title="Time"
+                    FormatString="{0:MMM dd, HH:mm:ss}" Width="160px" SortOrder="SortOrder.Descending" />
+                <RadzenDataGridColumn TItem="AuditLog" Property="UserName" Title="User" Width="150px" />
+                <RadzenDataGridColumn TItem="AuditLog" Property="Action" Title="Action" Width="180px">
+                    <Template Context="log">
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@log.Action" IsPill="true"
+                            Variant="Variant.Outlined" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="AuditLog" Property="EntityName" Title="Entity" Width="140px" />
+                <RadzenDataGridColumn TItem="AuditLog" Property="RecordId" Title="ID" Width="80px" />
+                <RadzenDataGridColumn TItem="AuditLog" Property="Details" Title="Details" />
+                <RadzenDataGridColumn TItem="AuditLog" Title="Changes" Width="200px">
+                    <Template Context="log">
+                        @if (!string.IsNullOrEmpty(log.OldValue) || !string.IsNullOrEmpty(log.NewValue))
+                        {
+                            <RadzenStack Gap="0.25rem">
+                                @if (!string.IsNullOrEmpty(log.OldValue))
+                                {
+                                    <RadzenText Text="@($"Old: {log.OldValue}")" TextStyle="TextStyle.Caption"
+                                        Class="rz-color-danger" />
+                                }
+                                @if (!string.IsNullOrEmpty(log.NewValue))
+                                {
+                                    <RadzenText Text="@($"New: {log.NewValue}")" TextStyle="TextStyle.Caption"
+                                        Class="rz-color-success" />
+                                }
+                            </RadzenStack>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    List<AuditLog> Logs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLogs();
+    }
+
+    async Task LoadLogs()
+    {
+        try
+        {
+            Logs = await AuditRepo.GetRecentLogsAsync(200); // Get last 200
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "Failed to load audit logs.");
+        }
+    }
+}

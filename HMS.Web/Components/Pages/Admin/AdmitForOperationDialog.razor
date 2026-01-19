@@ -12,6 +12,8 @@
 @inject FinanceRepository FinanceRepo
 @inject DialogService DialogService
 @inject NotificationService NotificationService
+@inject HMS.Web.Services.IPatientLossService PatientLossService
+@rendermode InteractiveServer
 
 <RadzenStack Gap="1.5rem" Class="rz-p-2">
     <!-- Clinical Context Overview -->
@@ -73,14 +75,14 @@
                 <RadzenRow Gap="1.5rem">
                     <RadzenColumn Size="12" SizeMD="6">
                         <RadzenStack Gap="0.5rem">
-                            <RadzenLabel Text="Orchestrated Start Time" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenLabel Text="Orchestrated Start Time" TextStyle="TextStyle.Subtitle2" Class="required" />
                             <RadzenDatePicker @bind-Value="ScheduledTime" ShowTime="true" HourFormat="12" DateFormat="MM/dd/yyyy h:mm tt" 
                                             Change="@(args => OnTheaterChange())" Class="rz-w-100" />
                         </RadzenStack>
                     </RadzenColumn>
                     <RadzenColumn Size="12" SizeMD="6">
                         <RadzenStack Gap="0.5rem">
-                            <RadzenLabel Text="Estimated Duration (Minutes)" TextStyle="TextStyle.Subtitle2" />
+                            <RadzenLabel Text="Estimated Duration (Minutes)" TextStyle="TextStyle.Subtitle2" Class="required" />
                             <RadzenNumeric TValue="int" @bind-Value="DurationMinutes" Min="15" Step="15" 
                                          Change="@(args => OnTheaterChange())" Class="rz-w-100" />
                         </RadzenStack>
@@ -88,24 +90,24 @@
                 </RadzenRow>
 
                 <RadzenStack Gap="0.5rem" Class="rz-mt-4">
-                    <RadzenLabel Text="Operation Theater Designation" TextStyle="TextStyle.Subtitle2" />
+                    <RadzenLabel Text="Operation Theater Designation" TextStyle="TextStyle.Subtitle2" Class="required" />
                     <RadzenDropDown Data="@Theaters" TextProperty="TheaterName" ValueProperty="TheaterId"
                                     @bind-Value="SelectedTheaterId" Change="@OnTheaterChange" Class="rz-w-100" 
                                     Placeholder="Select sterile theater..." />
-                    
+
                     @if (ConflictCount > 0)
                     {
-                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="rz-color-warning">
-                            <RadzenIcon Icon="warning" Size="16px" />
-                            <RadzenText Text="Operational Overlap: Theater is occupied during this window." TextStyle="TextStyle.Caption" />
-                        </RadzenStack>
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="rz-color-warning">
+                                <RadzenIcon Icon="warning" Size="16px" />
+                                <RadzenText Text="Operational Overlap: Theater is occupied during this window." TextStyle="TextStyle.Caption" />
+                            </RadzenStack>
                     }
                     else if (SelectedTheaterId != null)
                     {
-                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="rz-color-success">
-                            <RadzenIcon Icon="check_circle" Size="16px" />
-                            <RadzenText Text="Resources Available" TextStyle="TextStyle.Caption" />
-                        </RadzenStack>
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" Class="rz-color-success">
+                                <RadzenIcon Icon="check_circle" Size="16px" />
+                                <RadzenText Text="Resources Available" TextStyle="TextStyle.Caption" />
+                            </RadzenStack>
                     }
                 </RadzenStack>
             </RadzenCard>
@@ -114,19 +116,51 @@
                 Specific clinical ward and bed assignment will be orchestrated post-procedural transfer.
             </RadzenAlert>
 
+            <!-- Rejection Form -->
+            @if (isRejecting)
+            {
+                <RadzenCard Class="rz-p-4 rz-border-danger rz-background-color-danger-lighter rz-shadow-2">
+                    <RadzenStack Gap="1rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenIcon Icon="report_problem" Style="color: var(--rz-danger);" />
+                            <RadzenText Text="Decline Surgical Recommendation" TextStyle="TextStyle.Subtitle1" Class="rz-color-danger rz-m-0 rz-font-weight-bold" />
+                        </RadzenStack>
+                        
+                        <RadzenText Text="Please provide a detailed administrative reason for rejecting this surgery. This will be logged for Patient Loss Intelligence." TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                        
+                        <RadzenStack Gap="0.5rem">
+                            <RadzenLabel Text="Rejection Reason" TextStyle="TextStyle.Subtitle2" Class="required" />
+                            <RadzenTextArea @bind-Value="rejectionReason" Rows="3" Placeholder="e.g., Patient financial non-compliance, insurance denial, clinical risk overlap..." Class="rz-w-100" />
+                        </RadzenStack>
+
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem">
+                            <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@(() => isRejecting = false)" />
+                            <RadzenButton Text="Confirm Rejection & Log Loss" ButtonStyle="ButtonStyle.Danger" 
+                                          Click="@ConfirmRejection" IsBusy="@isSubmitting" Icon="thumb_down" />
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenCard>
+            }
+
             <!-- Actions -->
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="1rem" Class="rz-mt-6">
                 @if (ConflictCount > 0)
                 {
-                    <RadzenButton Text="Waitlist Procedure" ButtonStyle="ButtonStyle.Warning" Icon="hourglass_empty" Click="@AddToWaitlist" />
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-ms-2">
-                        <RadzenCheckBox @bind-Value="AllowForceSchedule" Name="Force" />
-                        <RadzenLabel Text="Overbook Theater" Component="Force" TextStyle="TextStyle.Caption" />
-                    </RadzenStack>
+                        <RadzenButton Text="Waitlist Procedure" ButtonStyle="ButtonStyle.Warning" Icon="hourglass_empty" Click="@AddToWaitlist" />
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-ms-2">
+                            <RadzenCheckBox @bind-Value="AllowForceSchedule" Name="Force" />
+                            <RadzenLabel Text="Overbook Theater" Component="Force" TextStyle="TextStyle.Caption" />
+                        </RadzenStack>
                 }
+                
+                @if (!isRejecting)
+                {
+                    <RadzenButton Text="Reject Request" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Click="@(() => isRejecting = true)" Icon="close" />
+                }
+                
                 <RadzenButton Text="Discard" ButtonStyle="ButtonStyle.Light" Click="@(() => DialogService.Close(false))" />
                 <RadzenButton ButtonType="ButtonType.Submit" Text="Confirm & Disburse Request" ButtonStyle="ButtonStyle.Success"
-                            Icon="check_circle" Disabled="@(ConflictCount > 0 && !AllowForceSchedule)" />
+                            Icon="check_circle" Disabled="@(ConflictCount > 0 && !AllowForceSchedule || isRejecting)" IsBusy="@isSubmitting" BusyText="Disbursing..." />
             </RadzenStack>
         </RadzenStack>
     </RadzenTemplateForm>
@@ -140,112 +174,204 @@
     int ConflictCount = 0;
     bool AllowForceSchedule = false;
 
-    decimal DepositAmount = 0;
-    string PaymentMethod = "Cash";
-    bool IsDepositPaid = false;
-
     Admission CurrentAdmission = new Admission();
-    List<Ward> Wards = new List<Ward>();
-    List<Bed> AvailableBeds = new List<Bed>();
-    int SelectedWardId;
 
     decimal AgreedOpCost;
     decimal AgreedMedCost;
     decimal AgreedEqCost;
-    
+
     DateTime ScheduledTime = DateTime.Now;
     int DurationMinutes = 60;
+    bool isSubmitting = false;
 
-    protected override void OnInitialized()
+    bool isRejecting = false;
+    string rejectionReason = string.Empty;
+
+    protected override async Task OnInitializedAsync()
     {
-        Wards = FacilityRepo.GetWards();
-        Theaters = FacilityRepo.GetTheaters();
-        CurrentAdmission.PatientId = Operation.PatientId;
-        CurrentAdmission.AdmissionDate = DateTime.Now;
+        Console.WriteLine($"[DEBUG] AdmitForOperationDialog.OnInitializedAsync started");
+        try
+        {
+            if (Operation == null) 
+            {
+                 Console.WriteLine("[ERROR] Admission Dialog received NULL Operation parameter.");
+                 return;
+            }
 
-        AgreedOpCost = 5000;
-        AgreedMedCost = 500;
-        AgreedEqCost = 1000;
-        CurrentAdmission.DailyRate = 500;
-        DepositAmount = AgreedOpCost * 0.5m;
-        
-        // Init ScheduledTime from Operation.ScheduledDate if set, else Now
-        ScheduledTime = Operation.ScheduledDate > DateTime.MinValue ? Operation.ScheduledDate : DateTime.Now.Date.AddHours(9); // Default 9 AM
+            Theaters = (await FacilityRepo.GetTheatersAsync()).ToList();
+            Console.WriteLine($"[DEBUG] Loaded {Theaters.Count} theaters.");
+
+            CurrentAdmission.PatientId = Operation.PatientId;
+            CurrentAdmission.AdmissionDate = DateTime.Now;
+            
+            // Log model state
+            Console.WriteLine($"[DEBUG] PatientId: {Operation.PatientId}, Status: {Operation.Status}");
+
+            AgreedOpCost = 5000;
+            AgreedMedCost = 500;
+            AgreedEqCost = 1000;
+            CurrentAdmission.DailyRate = 500;
+
+            // Init ScheduledTime from Operation.ScheduledDate if set, else Now
+            ScheduledTime = Operation.ScheduledDate > DateTime.MinValue ? Operation.ScheduledDate : DateTime.Now.Date.AddHours(9); // Default 9 AM
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Initialization Error", ex.Message);
+        }
     }
 
-    void OnTheaterChange()
+    async Task OnTheaterChange()
     {
         ConflictCount = 0;
         AllowForceSchedule = false;
-        
+
         if (SelectedTheaterId != null)
         {
-            var dayOps = OperationRepo.GetOperationsByTheaterAndDate(SelectedTheaterId.Value, ScheduledTime);
-            
-            // Check for actual time overlap
-            var myStart = ScheduledTime;
-            var myEnd = ScheduledTime.AddMinutes(DurationMinutes);
-
-            foreach(var op in dayOps)
+            try
             {
-                // Skip self if editing
-                if (op.OperationId == Operation.OperationId) continue;
+                var dayOps = await OperationRepo.GetOperationsByTheaterAndDateAsync(SelectedTheaterId.Value, ScheduledTime);
 
-                var opStart = op.ScheduledDate;
-                var opEnd = op.ScheduledDate.AddMinutes(op.DurationMinutes);
+                // Check for actual time overlap
+                var myStart = ScheduledTime;
+                var myEnd = ScheduledTime.AddMinutes(DurationMinutes);
 
-                // Overlap formula: (StartA < EndB) and (EndA > StartB)
-                if (myStart < opEnd && myEnd > opStart)
+                foreach (var op in dayOps)
                 {
-                    ConflictCount++;
+                    // Skip self if editing
+                    if (op.OperationId == Operation.OperationId) continue;
+
+                    var opStart = op.ScheduledDate;
+                    var opEnd = op.ScheduledDate.AddMinutes(op.DurationMinutes);
+
+                    // Overlap formula: (StartA < EndB) and (EndA > StartB)
+                    if (myStart < opEnd && myEnd > opStart)
+                    {
+                        ConflictCount++;
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Scheduling Error", ex.Message);
             }
         }
     }
 
-    void AddToWaitlist()
+    async Task AddToWaitlist()
     {
-         OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, "Waitlist", AgreedOpCost, AgreedMedCost, AgreedEqCost, SelectedTheaterId);
-         NotificationService.Notify(NotificationSeverity.Info, "Waitlisted", "Operation added to waitlist.");
-         DialogService.Close(true);
+        try
+        {
+            await OperationRepo.UpdateOperationStatusAndCostsAsync(Operation.OperationId, "Waitlist", AgreedOpCost, AgreedMedCost, AgreedEqCost, SelectedTheaterId);
+            NotificationService.Notify(NotificationSeverity.Info, "Waitlisted", "Operation added to waitlist.");
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+        }
     }
 
-    void ConfirmAdmission()
+    async Task ConfirmAdmission()
     {
-        if (SelectedTheaterId == null)
+        if (isSubmitting) return;
+        isSubmitting = true;
+
+        try
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Theater Required", "Please specify a surgical theater.");
+            if (SelectedTheaterId == null)
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "Theater Required", "Please specify a surgical theater.");
+                return;
+            }
+
+            string newStatus = "Advance Payment Requested";
+
+            var tellerNotif = new Notification
+            {
+                TargetRole = "Teller",
+                Title = "Advance Payment Required",
+                Message = $"Patient {Operation.PatientName} is scheduled for {Operation.PackageName}. Please collect advance payment.",
+                CreatedDate = DateTime.Now,
+                IsRead = false
+            };
+            await NotificationRepo.CreateNotificationAsync(tellerNotif);
+
+            NotificationService.Notify(NotificationSeverity.Info, "Notification Dispatched", "Financial orchestration initiated with Teller.");
+
+            await OperationRepo.UpdateOperationStatusAndCostsAsync(Operation.OperationId, newStatus, AgreedOpCost, AgreedMedCost,
+            AgreedEqCost, SelectedTheaterId, ScheduledTime, DurationMinutes);
+
+            var doctorNotif = new Notification
+            {
+                DoctorId = Operation.DoctorId,
+                Title = "Surgery Scheduled (Pending)",
+                Message = $"Surgery for {Operation.PatientName} tentatively scheduled. Waiting for deposit.",
+                CreatedDate = DateTime.Now,
+                IsRead = false
+            };
+            await NotificationRepo.CreateNotificationAsync(doctorNotif);
+
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Submission Error", ex.Message);
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    async Task ConfirmRejection()
+    {
+        if (string.IsNullOrWhiteSpace(rejectionReason))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Validation", "Please provide a rejection reason.");
             return;
         }
 
-        string newStatus = "Advance Payment Requested"; 
-        
-        var tellerNotif = new Notification
+        if (isSubmitting) return;
+        isSubmitting = true;
+
+        try
         {
-            TargetRole = "Teller",
-            Title = "Advance Payment Required",
-            Message = $"Patient {Operation.PatientName} is scheduled for {Operation.PackageName}. Please collect advance payment.",
-            CreatedDate = DateTime.Now,
-            IsRead = false
-        };
-        NotificationRepo.CreateNotification(tellerNotif);
-        
-        NotificationService.Notify(NotificationSeverity.Info, "Notification Dispatched", "Financial orchestration initiated with Teller.");
+            // 1. Update Operation Status
+            await OperationRepo.UpdateOperationStatusAndCostsAsync(Operation.OperationId, "Rejected", null, null, null, null);
 
-        OperationRepo.UpdateOperationStatusAndCosts(Operation.OperationId, newStatus, AgreedOpCost, AgreedMedCost,
-        AgreedEqCost, SelectedTheaterId, ScheduledTime, DurationMinutes);
+            // 2. Record Patient Loss
+            await PatientLossService.RecordLossAsync(
+                entryPoint: "Surgery",
+                reason: LossReasonCode.ADMIN_REJECTION,
+                detail: $"Admin Rejection Reason: {rejectionReason} | Original Request: {Operation.PackageName}",
+                deptId: null, // Could be derived if needed
+                spec: null,
+                docId: Operation.DoctorId
+            );
 
-        var doctorNotif = new Notification
+            // 3. Create Notification for the Recommending Doctor
+            var doctorNotif = new Notification
+            {
+                DoctorId = Operation.DoctorId,
+                Title = "Surgery Request Rejected",
+                Message = $"The surgical request for {Operation.PatientName} ({Operation.PackageName}) was rejected by administration. Reason: {rejectionReason}",
+                CreatedDate = DateTime.Now,
+                IsRead = false
+            };
+            await NotificationRepo.CreateNotificationAsync(doctorNotif);
+
+            NotificationService.Notify(NotificationSeverity.Error, "Request Rejected", "The surgical application has been declined and logged.");
+            DialogService.Close(true);
+        }
+        catch (Exception ex)
         {
-            DoctorId = Operation.DoctorId,
-            Title = "Surgery Scheduled (Pending)",
-            Message = $"Surgery for {Operation.PatientName} tentatively scheduled. Waiting for deposit.",
-            CreatedDate = DateTime.Now,
-            IsRead = false
-        };
-        NotificationRepo.CreateNotification(doctorNotif);
-
-        DialogService.Close(true);
+            NotificationService.Notify(NotificationSeverity.Error, "Rejection Error", ex.Message);
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
     }
 }
 

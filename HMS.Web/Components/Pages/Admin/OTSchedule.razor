@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: OTSchedule.razor
- * PURPOSE: Administrative interface for hospital operations.
- * COMMUNICATES WITH: OperationRepository, FacilityRepository
+* FILE: OTSchedule.razor
+* PURPOSE: Administrative interface for hospital operations.
+* COMMUNICATES WITH: OperationRepository, FacilityRepository
 *@
 @page "/admin/ot-schedule"
 @using HMS.Web.Models
@@ -53,24 +53,24 @@
     List<OperationTheater> Theaters;
     List<PatientOperation> Operations;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        Theaters = FacilityRepo.GetTheaters();
-        LoadData();
+        Theaters = await FacilityRepo.GetTheatersAsync();
+        await LoadData();
     }
 
-    void OnDateChange(DateTime? value)
+    async Task OnDateChange(DateTime? value)
     {
         if (value.HasValue)
         {
             CurrentDate = value.Value;
-            LoadData();
+            await LoadData();
         }
     }
 
-    void LoadData()
+    async Task LoadData()
     {
-        Operations = OperationRepo.GetAllScheduledOperations();
+        Operations = await OperationRepo.GetAllScheduledOperationsAsync();
     }
 
     async Task OnAppointmentSelect(SchedulerAppointmentSelectEventArgs<PatientOperation> args)
@@ -81,8 +81,11 @@
 
         if (result == true)
         {
-            LoadData();
-            await scheduler.Reload();
+            if (result == true)
+            {
+                await LoadData();
+                await scheduler.Reload();
+            }
         }
     }
 
@@ -97,7 +100,6 @@
     void OnAppointmentRender(SchedulerAppointmentRenderEventArgs<PatientOperation> args)
     {
         // Custom Styling based on Status / Delay
-
         if (args.Data.Status == "Running")
         {
             if (DateTime.Now > args.Data.EndDate)
@@ -115,4 +117,3 @@
         }
     }
 }
-

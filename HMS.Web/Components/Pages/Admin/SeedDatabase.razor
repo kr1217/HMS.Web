@@ -1,0 +1,67 @@
+@page "/admin/seed-database"
+@using HMS.Web.Services
+@using Radzen
+@using Radzen.Blazor
+@rendermode InteractiveServer
+@layout HMS.Web.Components.Layout.AdminLayout
+@inject IPatientLossService LossService
+@inject NotificationService NotificationService
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+
+<div class="container-fluid rz-mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>System Data Seeding</h2>
+            <p class="text-muted">Use these utilities to populate the database with sample data for testing.</p>
+        </div>
+    </div>
+
+    <RadzenCard>
+        <RadzenText TextStyle="TextStyle.H6" Class="mb-3">Patient Loss Intelligence</RadzenText>
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <p class="mb-0">
+                    Generates 50 random patient loss events over the last 30 days.
+                    Includes varied reasons (No Specialist, No Beds, etc.) to test analytics and opportunity detection.
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <RadzenButton Text="Seed Loss Data" Icon="cloud_upload" ButtonStyle="ButtonStyle.Primary"
+                    Click="@SeedLossData" IsBusy="@isSeedingLoss" />
+            </div>
+        </div>
+    </RadzenCard>
+</div>
+
+@code {
+    private bool isSeedingLoss = false;
+
+    private async Task SeedLossData()
+    {
+        isSeedingLoss = true;
+        try
+        {
+            await LossService.SeedSampleDataAsync();
+            NotificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Success",
+                    Detail = "50 Sample Loss Events seeded successfully."
+                });
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Error",
+                    Detail =
+                ex.Message
+                });
+        }
+        finally
+        {
+            isSeedingLoss = false;
+        }
+    }
+}

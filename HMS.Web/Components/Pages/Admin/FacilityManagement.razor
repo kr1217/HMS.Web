@@ -35,7 +35,7 @@
     This interface provides a centralized control plane for all hospital facility resources.
     It uses a tabbed layout to separate live state monitoring from configuration management.
     *@
-    <RadzenTabs RenderMode="TabRenderMode.Server" Change="@OnTabChange" Class="rz-shadow-2 rz-border-radius-2">
+    <RadzenTabs SelectedIndex="@currentTabIndex" RenderMode="TabRenderMode.Server" Change="@OnTabChange" Class="rz-shadow-2 rz-border-radius-2">
         <Tabs>
             <!-- Live Status Tab: Visual representation of current bed occupancy across all wards -->
             <RadzenTabsItem Text="Live Occupancy Status" Icon="sensors">
@@ -281,7 +281,7 @@
                         <RadzenButton Icon="add_circle" Text="Provision New Theater" ButtonStyle="ButtonStyle.Primary"
                             Click="@InsertTheater" />
                     </RadzenStack>
-                    <RadzenDataGrid @ref="theaterGrid" Data="@theaters" TItem="OperationTheater"
+                    <RadzenDataGrid @ref="theaterGrid" Data="@theaters" TItem="OperationTheater" Count="@theaterCount" LoadData="@LoadTheatersData"
                         RowUpdate="@OnUpdateTheater" RowCreate="@OnCreateTheater" AllowFiltering="true"
                         AllowPaging="true" PageSize="10">
                         <Columns>
@@ -437,12 +437,12 @@
         }
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         try
         {
             // Load initial status data (limited to top 100 for occupancy view)
-            beds = FacilityRepo.GetBeds();
+            beds = await FacilityRepo.GetBedsAsync();
         }
         catch (Exception ex)
         {
@@ -455,7 +455,7 @@
     /// To ensure high performance, we only load heavy reference data (caches for dropdowns)
     /// when the user navigates to a tab that specifically requires them.
     /// </summary>
-    void OnTabChange(int index)
+    async Task OnTabChange(int index)
     {
         try
         {
@@ -464,8 +464,8 @@
             StateHasChanged();
 
             // Pre-load caches for dropdowns if needed
-            if (index == 3) { allWardsCached = FacilityRepo.GetWards(); allRoomTypesCached = FacilityRepo.GetRoomTypes(); }
-            if (index == 5) { allRoomsCached = FacilityRepo.GetRooms(); }
+            if (index == 3) { allWardsCached = await FacilityRepo.GetWardsAsync(); allRoomTypesCached = await FacilityRepo.GetRoomTypesAsync(); }
+            if (index == 5) { allRoomsCached = await FacilityRepo.GetRoomsAsync(); }
         }
         catch (Exception ex)
         {
@@ -482,8 +482,8 @@
     {
         try
         {
-            wards = FacilityRepo.GetWardsPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
-            wardCount = FacilityRepo.GetWardsCount();
+            wards = await FacilityRepo.GetWardsPagedAsync(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
+            wardCount = await FacilityRepo.GetWardsCountAsync();
             StateHasChanged();
         }
         catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message); }
@@ -493,8 +493,8 @@
     {
          try
         {
-            roomTypes = FacilityRepo.GetRoomTypesPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
-            roomTypeCount = FacilityRepo.GetRoomTypesCount();
+            roomTypes = await FacilityRepo.GetRoomTypesPagedAsync(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
+            roomTypeCount = await FacilityRepo.GetRoomTypesCountAsync();
             StateHasChanged();
         }
         catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message); }
@@ -504,9 +504,23 @@
     {
          try
         {
-            rooms = FacilityRepo.GetRoomsPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
-            roomCount = FacilityRepo.GetRoomsCount();
+            rooms = await FacilityRepo.GetRoomsPagedAsync(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
+            roomCount = await FacilityRepo.GetRoomsCountAsync();
             StateHasChanged();
+        }
+        catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message); }
+    }
+
+    int theaterCount; // Added field
+
+    // ...
+
+    async Task LoadTheatersData(LoadDataArgs args)
+    {
+        try 
+        {
+            theaters = await FacilityRepo.GetTheatersPagedAsync(args.Skip ?? 0, args.Top ?? 10, args.OrderBy, includeInactive: true);
+            theaterCount = await FacilityRepo.GetTheatersCountAsync(includeInactive: true); 
         }
         catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message); }
     }
@@ -515,8 +529,8 @@
     {
         try
         {
-            beds = FacilityRepo.GetBedsPaged(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
-            bedCount = FacilityRepo.GetBedsCount();
+            beds = await FacilityRepo.GetBedsPagedAsync(args.Skip ?? 0, args.Top ?? 10, args.OrderBy);
+            bedCount = await FacilityRepo.GetBedsCountAsync();
             StateHasChanged();
         }
         catch (Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message); }
@@ -557,17 +571,17 @@
     async Task EditWard(Ward ward) { await wardGrid.EditRow(ward); }
     async Task SaveWard(Ward ward) { await wardGrid.UpdateRow(ward); }
     void CancelEditWard(Ward ward) { wardGrid.CancelEditRow(ward); }
-    void OnCreateWard(Ward ward)
+    async Task OnCreateWard(Ward ward)
     {
         try {
-            FacilityRepo.SaveWard(ward); wardGrid.Reload();
+            await FacilityRepo.SaveWardAsync(ward); await wardGrid.Reload();
             NotificationService.Notify(NotificationSeverity.Success, "Ward Provisioned");
         } catch(Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Save Failed", ex.Message); }
     }
-    void OnUpdateWard(Ward ward)
+    async Task OnUpdateWard(Ward ward)
     {
         try {
-            FacilityRepo.SaveWard(ward); wardGrid.Reload();
+            await FacilityRepo.SaveWardAsync(ward); await wardGrid.Reload();
             NotificationService.Notify(NotificationSeverity.Success, "Ward Updated");
         } catch(Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Update Failed", ex.Message); }
     }
@@ -577,14 +591,14 @@
     async Task EditRoomType(RoomType type) { await roomTypeGrid.EditRow(type); }
     async Task SaveRoomType(RoomType type) { await roomTypeGrid.UpdateRow(type); }
     void CancelEditRoomType(RoomType type) { roomTypeGrid.CancelEditRow(type); }
-    void OnCreateRoomType(RoomType type)
+    async Task OnCreateRoomType(RoomType type)
     {
-        FacilityRepo.SaveRoomType(type); roomTypeGrid.Reload();
+        await FacilityRepo.SaveRoomTypeAsync(type); await roomTypeGrid.Reload();
         NotificationService.Notify(NotificationSeverity.Success, "Pricing Tier Defined");
     }
-    void OnUpdateRoomType(RoomType type)
+    async Task OnUpdateRoomType(RoomType type)
     {
-        FacilityRepo.SaveRoomType(type); roomTypeGrid.Reload();
+        await FacilityRepo.SaveRoomTypeAsync(type); await roomTypeGrid.Reload();
         NotificationService.Notify(NotificationSeverity.Success, "Tier Updated");
     }
 
@@ -593,14 +607,14 @@
     async Task EditRoom(Room room) { await roomGrid.EditRow(room); }
     async Task SaveRoom(Room room) { await roomGrid.UpdateRow(room); }
     void CancelEditRoom(Room room) { roomGrid.CancelEditRow(room); }
-    void OnCreateRoom(Room room)
+    async Task OnCreateRoom(Room room)
     {
-        FacilityRepo.SaveRoom(room); roomGrid.Reload();
+        await FacilityRepo.SaveRoomAsync(room); await roomGrid.Reload();
         NotificationService.Notify(NotificationSeverity.Success, "Room Commissioned");
     }
-    void OnUpdateRoom(Room room)
+    async Task OnUpdateRoom(Room room)
     {
-        FacilityRepo.SaveRoom(room); roomGrid.Reload();
+        await FacilityRepo.SaveRoomAsync(room); await roomGrid.Reload();
         NotificationService.Notify(NotificationSeverity.Success, "Room Updated");
     }
 
@@ -609,17 +623,30 @@
     {
         await bedGrid.InsertRow(new Bed() { BedNumber = "A", Status = "Available", IsActive = true });
     }
-    async Task EditBed(Bed bed) { await bedGrid.EditRow(bed); }
+    async Task EditBed(Bed bed) 
+    { 
+        if (currentTabIndex != 5)
+        {
+            currentTabIndex = 5;
+            StateHasChanged();
+            await Task.Delay(100); // Allow UI to render the grid
+        }
+
+        if (bedGrid != null)
+        {
+            await bedGrid.EditRow(bed);
+        }
+    }
     async Task SaveBed(Bed bed) { await bedGrid.UpdateRow(bed); }
     void CancelEditBed(Bed bed) { bedGrid.CancelEditRow(bed); }
-    void OnCreateBed(Bed bed)
+    async Task OnCreateBed(Bed bed)
     {
-        FacilityRepo.SaveBed(bed); bedGrid.Reload();
+        await FacilityRepo.SaveBedAsync(bed); await bedGrid.Reload();
         NotificationService.Notify(NotificationSeverity.Success, "Bed Inventoried");
     }
-    void OnUpdateBed(Bed bed)
+    async Task OnUpdateBed(Bed bed)
     {
-        FacilityRepo.SaveBed(bed); bedGrid.Reload();
+        await FacilityRepo.SaveBedAsync(bed); await bedGrid.Reload();
         NotificationService.Notify(NotificationSeverity.Success, "Bed Updated");
     }
 
@@ -637,18 +664,18 @@
     async Task EditTheater(OperationTheater theater) { await theaterGrid.EditRow(theater); }
     async Task SaveTheater(OperationTheater theater) { await theaterGrid.UpdateRow(theater); }
     void CancelEditTheater(OperationTheater theater) { theaterGrid.CancelEditRow(theater); }
-    void OnCreateTheater(OperationTheater theater)
+    async Task OnCreateTheater(OperationTheater theater)
     {
         try {
-            FacilityRepo.SaveTheater(theater); theaterGrid.Reload();
+            await FacilityRepo.SaveTheaterAsync(theater); await theaterGrid.Reload();
             NotificationService.Notify(NotificationSeverity.Success, "Theater Provisioned");
         } catch(Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Save Failed", ex.Message); }
 
     }
-    void OnUpdateTheater(OperationTheater theater)
+    async Task OnUpdateTheater(OperationTheater theater)
     {
         try {
-            FacilityRepo.SaveTheater(theater); theaterGrid.Reload();
+            await FacilityRepo.SaveTheaterAsync(theater); await theaterGrid.Reload();
             NotificationService.Notify(NotificationSeverity.Success, "Theater Updated");
         } catch(Exception ex) { NotificationService.Notify(NotificationSeverity.Error, "Update Failed", ex.Message); }
     }

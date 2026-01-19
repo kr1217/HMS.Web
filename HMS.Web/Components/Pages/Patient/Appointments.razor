@@ -53,7 +53,7 @@
                     <EditForm Model="NewAppointment" OnValidSubmit="BookAppointment" FormName="BookApptForm">
                         <DataAnnotationsValidator />
                         <RadzenStack Gap="1.5rem">
-                            <RadzenFormField Text="Consulting Specialist" Style="width: 100%;">
+                            <RadzenFormField Text="Consulting Specialist" Style="width: 100%;" Class="required">
                                 <RadzenDropDown @bind-Value="NewAppointment.DoctorId" Data="@Doctors"
                                     TextProperty="FullName" ValueProperty="DoctorId" Placeholder="Choose a doctor...">
                                     <Template Context="doc">
@@ -68,12 +68,12 @@
                                 </RadzenDropDown>
                             </RadzenFormField>
 
-                            <RadzenFormField Text="Preferred Date & Time" Style="width: 100%;">
+                            <RadzenFormField Text="Preferred Date & Time" Style="width: 100%;" Class="required">
                                 <RadzenDatePicker @bind-Value="NewAppointment.AppointmentDate" ShowTime="true"
                                     DateFormat="MMM dd, yyyy HH:mm" />
                             </RadzenFormField>
 
-                            <RadzenFormField Text="Consultation Mode" Style="width: 100%;">
+                            <RadzenFormField Text="Consultation Mode" Style="width: 100%;" Class="required">
                                 <RadzenDropDown @bind-Value="NewAppointment.AppointmentMode"
                                     Data="@(new[] { "Physical", "Online" })" />
                             </RadzenFormField>
@@ -84,7 +84,7 @@
                             </RadzenFormField>
 
                             <RadzenButton Text="Initialize Booking" Icon="calendar_today" ButtonType="ButtonType.Submit"
-                                ButtonStyle="ButtonStyle.Primary" Class="rz-w-100 rz-mt-2" />
+                                ButtonStyle="ButtonStyle.Primary" Class="rz-w-100 rz-mt-2" IsBusy="@isBooking" BusyText="Booking..." />
                         </RadzenStack>
                     </EditForm>
                 </RadzenCard>
@@ -143,6 +143,7 @@
 
 @code {
     private bool IsLoading = true;
+    private bool isBooking = false;
     private Patient? CurrentPatient;
     private Appointment NewAppointment = new Appointment
         {
@@ -165,11 +166,11 @@
                 UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (UserId != null)
                 {
-                    CurrentPatient = PatientRepo.GetPatientByUserId(UserId);
+                    CurrentPatient = await PatientRepo.GetPatientByUserIdAsync(UserId);
                     if (CurrentPatient != null)
                     {
-                        AppointmentList = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
-                        Doctors = ApptRepo.GetDoctors();
+                        AppointmentList = await ApptRepo.GetAppointmentsByPatientIdAsync(CurrentPatient.PatientId);
+                        Doctors = await ApptRepo.GetDoctorsAsync();
                     }
                 }
             }
@@ -184,17 +185,19 @@
         }
     }
 
-    private void BookAppointment()
+    private async Task BookAppointment()
     {
+        if (isBooking) return;
+        isBooking = true;
         try
         {
             if (NewAppointment.DoctorId == 0) return; // Validation
 
             NewAppointment.PatientId = CurrentPatient!.PatientId;
-            ApptRepo.CreateAppointment(NewAppointment);
+            await ApptRepo.CreateAppointmentAsync(NewAppointment);
 
             // Notify Doctor
-            NotificationRepo.CreateNotification(new Notification
+            await NotificationRepo.CreateNotificationAsync(new Notification
                 {
                     DoctorId = NewAppointment.DoctorId,
                     TargetRole = "Doctor",
@@ -205,7 +208,7 @@
                 });
 
             // Refresh
-            AppointmentList = ApptRepo.GetAppointmentsByPatientId(CurrentPatient.PatientId);
+            AppointmentList = await ApptRepo.GetAppointmentsByPatientIdAsync(CurrentPatient.PatientId);
             NewAppointment = new Appointment { AppointmentDate = DateTime.Now.AddDays(1), AppointmentMode = "Physical" }; // Reset
             
             NotificationService.Notify(NotificationSeverity.Success, "Booking Confirmed", "Your appointment request has been sent for approval.");
@@ -213,6 +216,10 @@
         catch (Exception ex)
         {
              NotificationService.Notify(NotificationSeverity.Error, "Booking Error", $"Failed to book appointment: {ex.Message}");
+        }
+        finally
+        {
+            isBooking = false;
         }
     }
 

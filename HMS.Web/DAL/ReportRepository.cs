@@ -42,13 +42,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Report> GetReportsByPatientId(int patientId)
-        {
-            if (patientId <= 0) return new List<Report>();
-            string query = $"SELECT {ReportColumns} FROM Reports WHERE PatientId = @Id ORDER BY ReportDate DESC";
-            var parameters = new[] { new SqlParameter("@Id", patientId) };
-            return _db.ExecuteQuery(query, MapReport, parameters);
-        }
+
 
         /// <summary>
         /// Retrieves recent reports for a specific doctor.
@@ -68,13 +62,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public List<Report> GetReportsByDoctorId(int doctorId)
-        {
-            if (doctorId <= 0) return new List<Report>();
-            string query = $"SELECT TOP 50 {ReportColumns} FROM Reports WHERE DoctorId = @Id ORDER BY ReportDate DESC";
-            var parameters = new[] { new SqlParameter("@Id", doctorId) };
-            return _db.ExecuteQuery(query, MapReport, parameters);
-        }
+
 
         /// <summary>
         /// Retrieves a paged list of reports for a doctor.
@@ -97,13 +85,7 @@ namespace HMS.Web.DAL
             catch { return new List<Report>(); }
         }
 
-        public List<Report> GetReportsByDoctorIdPaged(int doctorId, int skip, int take, string orderBy)
-        {
-            string orderClause = string.IsNullOrEmpty(orderBy) ? "ReportDate DESC" : orderBy;
-            string query = $@"SELECT {ReportColumns} FROM Reports WHERE DoctorId = @Id ORDER BY {orderClause} OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
-            var parameters = new[] { new SqlParameter("@Id", doctorId), new SqlParameter("@Skip", skip), new SqlParameter("@Take", take) };
-            return _db.ExecuteQuery(query, MapReport, parameters);
-        }
+
 
         /// <summary>
         /// Gets the total count of reports for a doctor.
@@ -114,11 +96,7 @@ namespace HMS.Web.DAL
                 new[] { new SqlParameter("@Id", doctorId) });
         }
 
-        public int GetReportsByDoctorIdCount(int doctorId)
-        {
-            return _db.ExecuteScalar<int>("SELECT COUNT(*) FROM Reports WHERE DoctorId = @Id",
-                new[] { new SqlParameter("@Id", doctorId) });
-        }
+
 
         /// <summary>
         /// Asynchronously creates a new medical report record.
@@ -152,13 +130,7 @@ namespace HMS.Web.DAL
             }
         }
 
-        public void CreateReport(Report report)
-        {
-            if (report == null || report.PatientId <= 0 || report.DoctorId <= 0) throw new ArgumentException("Valid Report, Patient and Doctor are required.");
-            string query = @"INSERT INTO Reports (PatientId, DoctorId, AppointmentId, ReportName, ReportType, ReportDate, FilePath, Status, Observations) VALUES (@PatientId, @DoctorId, @AppointmentId, @ReportName, @ReportType, @ReportDate, @FilePath, @Status, @Observations)";
-            var parameters = new[] { new SqlParameter("@PatientId", report.PatientId), new SqlParameter("@DoctorId", report.DoctorId), new SqlParameter("@AppointmentId", (object?)report.AppointmentId ?? DBNull.Value), new SqlParameter("@ReportName", report.ReportName ?? "Unnamed Report"), new SqlParameter("@ReportType", report.ReportType ?? "General"), new SqlParameter("@ReportDate", report.ReportDate == default ? DateTime.Now : report.ReportDate), new SqlParameter("@FilePath", report.FilePath ?? ""), new SqlParameter("@Status", report.Status ?? "Final"), new SqlParameter("@Observations", (object?)report.Observations ?? DBNull.Value) };
-            _db.ExecuteNonQuery(query, parameters);
-        }
+
 
         /// <summary>
         /// Mapping logic from SqlDataReader to Report model.

@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: NotificationBell.razor
- * PURPOSE: Frontend web component.
- * COMMUNICATES WITH: NotificationRepository, DoctorRepository, PatientRepository
+* FILE: NotificationBell.razor
+* PURPOSE: Frontend web component.
+* COMMUNICATES WITH: NotificationRepository, DoctorRepository, PatientRepository
 *@
 @using HMS.Web.Models
 @using HMS.Web.DAL
@@ -16,12 +16,13 @@
 
 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Class="rz-mr-4"
     Style="position: relative;">
-    <RadzenButton Icon="notifications" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Click="@ToggleDropdown"
-        Class="rz-p-2" Style="position: relative;">
+    <RadzenButton ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Click="@ToggleDropdown" Class="rz-p-2"
+        Style="position: relative; color: var(--ui-text); display: flex; align-items: center; justify-content: center;">
+        <RadzenIcon Icon="notifications" />
         @if (unreadCount > 0)
         {
             <RadzenBadge Text="@unreadCount.ToString()" BadgeStyle="BadgeStyle.Danger" IsPill="true"
-                Style="position: absolute; top: 0; right: 0; transform: translate(50%, -50%);" />
+                Style="position: absolute; top: -5px; right: -5px;" />
         }
     </RadzenButton>
 
@@ -96,68 +97,71 @@
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (user.IsInRole("Doctor"))
             {
-                var doc = DoctorRepo.GetDoctorByUserId(userId!);
+                var doc = await DoctorRepo.GetDoctorByUserIdAsync(userId!);
                 currentDoctorId = doc?.DoctorId;
             }
             else if (user.IsInRole("Patient"))
             {
-                var pat = PatientRepo.GetPatientByUserId(userId!);
+                var pat = await PatientRepo.GetPatientByUserIdAsync(userId!);
                 currentPatientId = pat?.PatientId;
             }
         }
 
-        RefreshData();
+        await RefreshData();
 
         timer = new System.Threading.Timer(_ =>
         {
-            InvokeAsync(() =>
+            InvokeAsync(async () =>
     {
-    RefreshData();
+    await RefreshData();
     StateHasChanged();
             });
         }, null, 20000, 20000);
     }
 
-    private void RefreshData()
+    private async Task RefreshData()
     {
-        if (ShowDropdown) LoadNotifications();
-        LoadUnreadCount();
+        if (ShowDropdown) await LoadNotifications();
+        await LoadUnreadCount();
     }
 
-    private void LoadUnreadCount()
+    private async Task LoadUnreadCount()
     {
-        if (currentDoctorId.HasValue) unreadCount = NotificationRepo.GetDoctorUnreadCount(currentDoctorId.Value);
-        else if (currentPatientId.HasValue) unreadCount = NotificationRepo.GetPatientUnreadCount(currentPatientId.Value);
-        else if (TargetRole == "Admin") unreadCount = NotificationRepo.GetAdminUnreadCount();
-        else if (!string.IsNullOrEmpty(TargetRole)) unreadCount = NotificationRepo.GetRoleUnreadCount(TargetRole);
+        if (currentDoctorId.HasValue) unreadCount = await NotificationRepo.GetDoctorUnreadCountAsync(currentDoctorId.Value);
+        else if (currentPatientId.HasValue) unreadCount = await
+        NotificationRepo.GetPatientUnreadCountAsync(currentPatientId.Value);
+        else if (TargetRole == "Admin") unreadCount = await NotificationRepo.GetAdminUnreadCountAsync();
+        else if (!string.IsNullOrEmpty(TargetRole)) unreadCount = await NotificationRepo.GetRoleUnreadCountAsync(TargetRole);
     }
 
-    private void LoadNotifications()
+    private async Task LoadNotifications()
     {
-        if (currentDoctorId.HasValue) Notifications = NotificationRepo.GetNotificationsByDoctorId(currentDoctorId.Value);
-        else if (currentPatientId.HasValue) Notifications =
-        NotificationRepo.GetNotificationsByPatientId(currentPatientId.Value);
-        else if (TargetRole == "Admin") Notifications = NotificationRepo.GetAdminNotifications();
-        else if (!string.IsNullOrEmpty(TargetRole)) Notifications = NotificationRepo.GetNotificationsByRole(TargetRole);
+        if (currentDoctorId.HasValue) Notifications = await
+        NotificationRepo.GetNotificationsByDoctorIdAsync(currentDoctorId.Value);
+        else if (currentPatientId.HasValue) Notifications = await
+        NotificationRepo.GetNotificationsByPatientIdAsync(currentPatientId.Value);
+        else if (TargetRole == "Admin") Notifications = await NotificationRepo.GetAdminNotificationsAsync();
+        else if (!string.IsNullOrEmpty(TargetRole)) Notifications = await
+        NotificationRepo.GetNotificationsByRoleAsync(TargetRole);
     }
 
-    private void ToggleDropdown()
+    private async Task ToggleDropdown()
     {
         ShowDropdown = !ShowDropdown;
-        if (ShowDropdown) LoadNotifications();
+        if (ShowDropdown) await LoadNotifications();
     }
 
     private void GoToPending() => Navigation.NavigateTo("admin/pending-transfers");
 
-    private void MarkAllRead()
+    private async Task MarkAllRead()
     {
-        if (currentDoctorId.HasValue) NotificationRepo.MarkNotificationsAsRead(currentDoctorId, null);
-        else if (currentPatientId.HasValue) NotificationRepo.MarkNotificationsAsRead(null, currentPatientId);
-        else if (TargetRole == "Admin") NotificationRepo.MarkAdminNotificationsAsRead();
-        else if (!string.IsNullOrEmpty(TargetRole)) NotificationRepo.MarkRoleNotificationsAsRead(TargetRole);
+        if (currentDoctorId.HasValue) await NotificationRepo.MarkNotificationsAsReadAsync(currentDoctorId, null);
+        else if (currentPatientId.HasValue) await NotificationRepo.MarkNotificationsAsReadAsync(null, currentPatientId);
+        else if (TargetRole == "Admin") await NotificationRepo.MarkAdminNotificationsAsReadAsync();
+        else if (!string.IsNullOrEmpty(TargetRole)) await NotificationRepo.MarkRoleNotificationsAsReadAsync(TargetRole);
 
         unreadCount = 0;
-        if (ShowDropdown) LoadNotifications();
+        if (ShowDropdown) await LoadNotifications();
         ShowDropdown = false;
     }
 
@@ -172,4 +176,3 @@
 
     public void Dispose() => timer?.Dispose();
 }
-

@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: Dashboard.razor
- * PURPOSE: Administrative interface for hospital operations.
- * COMMUNICATES WITH: FinanceRepository, OperationRepository, FacilityRepository
+* FILE: Dashboard.razor
+* PURPOSE: Enterprise-grade Operational Dashboard for HMS Administrator.
+* DESIGN: [Operational Command] Real-time visibility into throughput, capacity, and workflow bottlenecks.
 *@
 @page "/admin/dashboard"
 @using HMS.Web.Components.Layout
@@ -12,276 +12,435 @@
 @inject NotificationService NotificationService
 @inject FinanceRepository FinanceRepo
 @inject OperationRepository OperationRepo
+@inject FacilityRepository FacilityRepo
 @inject NavigationManager Navigation
 @inject DialogService DialogService
-@inject FacilityRepository FacilityRepo
 @implements IDisposable
 
-<PageTitle>Admin Dashboard | Hospital Control</PageTitle>
-@* 
-    COMPONENT: Admin Dashboard
-    PURPOSE: Central command center for hospital administrators.
-    OPTIMIZATION: [Real-time Polling] Uses a lightweight timer to refresh operational stats without page reloads.
-*@
+<PageTitle>Operational Command | HMS Enterprise</PageTitle>
 
-<RadzenRow Class="rz-mb-6">
-    <RadzenColumn Size="12">
-        <RadzenText Text="Hospital Command Center" TextStyle="TextStyle.H3" Class="rz-color-primary rz-mb-1" />
-        <RadzenText Text="Real-time monitoring of facility performance and patient flow."
-            TextStyle="TextStyle.Subtitle1" Class="rz-color-text-secondary rz-mb-0" />
-    </RadzenColumn>
-</RadzenRow>
+<RadzenStack Gap="1.5rem" Class="rz-p-2 rz-p-md-4">
+    <!-- Header Strategy -->
+    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenColumn Size="12" SizeMD="8">
+            <RadzenText Text="Operational Command Center" TextStyle="TextStyle.H4" Class="rz-color-primary rz-mb-1" />
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenBadge BadgeStyle="BadgeStyle.Success" IsPill="true" Text="Live System" />
+                <RadzenText Text="@($"Last Sync: {lastSync:HH:mm:ss}")" TextStyle="TextStyle.Caption"
+                    Class="rz-color-text-secondary" />
+            </RadzenStack>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="4" Class="rz-text-align-right">
+            <RadzenButton Text="Shift Management" Icon="schedule" ButtonStyle="ButtonStyle.Primary"
+                Variant="Variant.Flat" Click="@(() => Navigation.NavigateTo("admin/shift-report"))" />
+        </RadzenColumn>
+    </RadzenRow>
 
-<RadzenRow Class="rz-mb-6">
-    <RadzenColumn Size="12" SizeMD="3">
-        <RadzenCard Class="rz-p-4 rz-display-flex rz-align-center"
-            Style="background: var(--rz-success-lighter); border-left: 8px solid var(--rz-success);">
-            <RadzenIcon Icon="monetization_on" Style="font-size: 3rem; color: var(--rz-success);" Class="rz-mr-4" />
-            <RadzenStack Gap="0">
-                <RadzenText Text="Today's Revenue" TextStyle="TextStyle.Caption"
-                    Class="rz-m-0 rz-color-text-secondary" />
-                <RadzenText Text="@stats.TodayRevenue.ToString("C")" TextStyle="TextStyle.H4"
-                    Class="rz-m-0 rz-font-weight-bold" />
-            </RadzenStack>
-        </RadzenCard>
-    </RadzenColumn>
-    <RadzenColumn Size="12" SizeMD="3">
-        <RadzenCard Class="rz-p-4 rz-display-flex rz-align-center"
-            Style="background: var(--rz-info-lighter); border-left: 8px solid var(--rz-info);">
-            <RadzenIcon Icon="hotel" Style="font-size: 3rem; color: var(--rz-info);" Class="rz-mr-4" />
-            <RadzenStack Gap="0">
-                <RadzenText Text="Bed Occupancy" TextStyle="TextStyle.Caption" Class="rz-m-0 rz-color-text-secondary" />
-                <RadzenText Text="@($"{stats.OccupiedBeds} / {stats.TotalBeds}")" TextStyle="TextStyle.H4"
-                    Class="rz-m-0 rz-font-weight-bold" />
-            </RadzenStack>
-        </RadzenCard>
-    </RadzenColumn>
-    <RadzenColumn Size="12" SizeMD="3">
-        <RadzenCard Class="rz-p-4 rz-display-flex rz-align-center"
-            Style="background: var(--rz-danger-lighter); border-left: 8px solid var(--rz-danger);">
-            <RadzenIcon Icon="badge" Style="font-size: 3rem; color: var(--rz-danger);" Class="rz-mr-4" />
-            <RadzenStack Gap="0">
-                <RadzenText Text="Active Staff" TextStyle="TextStyle.Caption" Class="rz-m-0 rz-color-text-secondary" />
-                <RadzenText Text="@stats.StaffOnShift.ToString()" TextStyle="TextStyle.H4"
-                    Class="rz-m-0 rz-font-weight-bold" />
-            </RadzenStack>
-        </RadzenCard>
-    </RadzenColumn>
-    <RadzenColumn Size="12" SizeMD="3">
-        <RadzenCard Class="rz-p-4 rz-display-flex rz-align-center"
-            Style="background: var(--rz-warning-lighter); border-left: 8px solid var(--rz-warning);">
-            <RadzenIcon Icon="medical_information" Style="font-size: 3rem; color: var(--rz-warning);" Class="rz-mr-4" />
-            <RadzenStack Gap="0">
-                <RadzenText Text="Surgeries Today" TextStyle="TextStyle.Caption"
-                    Class="rz-m-0 rz-color-text-secondary" />
-                <RadzenText Text="@stats.SurgeriesToday.ToString()" TextStyle="TextStyle.H4"
-                    Class="rz-m-0 rz-font-weight-bold" />
-            </RadzenStack>
-        </RadzenCard>
-    </RadzenColumn>
-</RadzenRow>
-
-<RadzenRow>
-    <RadzenColumn Size="12" SizeMD="7">
-        <RadzenCard Class="rz-p-0" Style="overflow: hidden; border-radius: 12px;">
-            <RadzenStack Class="rz-p-4 rz-background-color-primary-darker">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-                    <RadzenIcon Icon="sensors" Style="color: white; animation: pulse 2s infinite;" />
-                    <RadzenText Text="Live Surgical Control" TextStyle="TextStyle.H5" Class="rz-m-0"
-                        Style="color: white;" />
-                </RadzenStack>
-            </RadzenStack>
-
-            <RadzenStack Class="rz-p-4">
-                @if (!ReadyToStart.Any() && !InProgress.Any() && !ReadyForTransfer.Any())
-                {
-                    <RadzenStack AlignItems="AlignItems.Center" Class="rz-py-10">
-                        <RadzenIcon Icon="check_circle" Style="font-size: 4rem; color: var(--rz-text-disabled-color);" />
-                        <RadzenText Text="Operational Equilibrium: All systems quiet." TextStyle="TextStyle.Body1"
-                            Class="rz-color-text-secondary" />
+    <!-- Top KPI Row: The Vital Signs of the Hospital -->
+    <RadzenRow Gap="1rem">
+        <!-- Revenue Throughput -->
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="rz-p-0 rz-border-radius-2" Style="overflow: hidden;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0">
+                    <div style="width: 4px; background: var(--ui-success);"></div>
+                    <RadzenStack Class="rz-p-4 rz-w-100" Gap="0.5rem">
+                        <RadzenText Text="Financial Throughput" TextStyle="TextStyle.Caption"
+                            Class="rz-color-text-secondary rz-m-0" />
+                        <RadzenText Text="@stats.TodayRevenue.ToString("C0")" TextStyle="TextStyle.H5"
+                            Class="rz-m-0 rz-font-weight-bold" />
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem"
+                            Class="rz-mt-1">
+                            <RadzenText Text="@($"{stats.CashRevenueToday:C0} Cash")" TextStyle="TextStyle.Overline"
+                                Class="rz-color-info" />
+                            <RadzenText Text="•" TextStyle="TextStyle.Overline" />
+                            <RadzenText Text="@($"{stats.DigitalRevenueToday:C0} Digital")"
+                                TextStyle="TextStyle.Overline" Class="rz-color-success" />
+                        </RadzenStack>
                     </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <!-- Capacity Utilization -->
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="rz-p-0 rz-border-radius-2" Style="overflow: hidden;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0">
+                    <div style="width: 4px; background: var(--ui-primary);"></div>
+                    <RadzenStack Class="rz-p-4 rz-w-100" Gap="0.5rem">
+                        <RadzenText Text="Bed Occupancy" TextStyle="TextStyle.Caption"
+                            Class="rz-color-text-secondary rz-m-0" />
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                            <RadzenText Text="@($"{stats.OccupiedBeds} / {stats.TotalBeds}")" TextStyle="TextStyle.H5"
+                                Class="rz-m-0 rz-font-weight-bold" />
+                            <RadzenText Text="@($"{stats.BedOccupancyRate:F0}%")" TextStyle="TextStyle.Subtitle2"
+                                Class="rz-color-primary" />
+                        </RadzenStack>
+                        <RadzenProgressBar Value="@((double)stats.BedOccupancyRate)" ShowValue="false"
+                            ProgressBarStyle="ProgressBarStyle.Primary" Style="height: 6px;" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <!-- Personnel Load -->
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="rz-p-0 rz-border-radius-2" Style="overflow: hidden;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0">
+                    <div style="width: 4px; background: var(--ui-primary-dark);"></div>
+                    <RadzenStack Class="rz-p-4 rz-w-100" Gap="0.5rem">
+                        <RadzenText Text="Workforce Load" TextStyle="TextStyle.Caption"
+                            Class="rz-color-text-secondary rz-m-0" />
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                            <RadzenText Text="@($"{stats.StaffOnShift} Active")" TextStyle="TextStyle.H5"
+                                Class="rz-m-0 rz-font-weight-bold" />
+                            <RadzenText Text="@($"{stats.StaffUtilizationRate:F0}%")" TextStyle="TextStyle.Subtitle2"
+                                Class="rz-color-primary-dark" />
+                        </RadzenStack>
+                        <RadzenProgressBar Value="@((double)stats.StaffUtilizationRate)" ShowValue="false"
+                            ProgressBarStyle="ProgressBarStyle.Info" Style="height: 6px;" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <!-- OT Efficiency -->
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="rz-p-0 rz-border-radius-2" Style="overflow: hidden;">
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0">
+                    <div style="width: 4px; background: var(--ui-danger);"></div>
+                    <RadzenStack Class="rz-p-4 rz-w-100" Gap="0.5rem">
+                        <RadzenText Text="OT Utilization" TextStyle="TextStyle.Caption"
+                            Class="rz-color-text-secondary rz-m-0" />
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                            <RadzenText Text="@($"{stats.OccupiedTheaters} / {stats.TotalTheaters}")"
+                                TextStyle="TextStyle.H5" Class="rz-m-0 rz-font-weight-bold" />
+                            <RadzenText Text="@($"{stats.OTUtilizationRate:F0}%")" TextStyle="TextStyle.Subtitle2"
+                                Class="rz-color-danger" />
+                        </RadzenStack>
+                        <RadzenProgressBar Value="@((double)stats.OTUtilizationRate)" ShowValue="false"
+                            ProgressBarStyle="ProgressBarStyle.Danger" Style="height: 6px;" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenRow>
+        <!-- LEFT COLUMN: Live Workflow & Exceptions -->
+        <RadzenColumn Size="12" SizeMD="8">
+            <RadzenStack Gap="1.5rem">
+                <!-- Section 1: Operational Exceptions -->
+                @if (stats.ExtendedSurgeryCount > 0 || stats.RecentLossEventsCount > 0 || stats.BedBlockagesCount > 0)
+                {
+                    <RadzenCard Class="rz-p-4 rz-background-color-danger-lighter rz-border-danger">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem"
+                            Class="rz-mb-4">
+                            <RadzenIcon Icon="report_problem" Style="color: var(--ui-danger);" />
+                            <RadzenText Text="Operational Exceptions Requiring Attention" TextStyle="TextStyle.H6"
+                                Class="rz-color-danger rz-m-0" />
+                        </RadzenStack>
+                        <RadzenRow>
+                            @if (stats.ExtendedSurgeryCount > 0)
+                            {
+                                <RadzenColumn Size="12" SizeMD="4">
+                                    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Light"
+                                        AllowClose="false" Class="rz-mb-0">
+                                        <RadzenText Text="@($"{stats.ExtendedSurgeryCount} Surgeries Overdue")"
+                                            TextStyle="TextStyle.Subtitle2" />
+                                        <RadzenButton Text="View Details" Size="ButtonSize.ExtraSmall" Variant="Variant.Text"
+                                            Click="@(() => Navigation.NavigateTo("admin/ot-schedule"))" />
+                                    </RadzenAlert>
+                                </RadzenColumn>
+                            }
+                            @if (stats.RecentLossEventsCount > 0)
+                            {
+                                <RadzenColumn Size="12" SizeMD="4">
+                                    <RadzenAlert AlertStyle="AlertStyle.Warning" Variant="Variant.Flat" Shade="Shade.Light"
+                                        AllowClose="false" Class="rz-mb-0">
+                                        <RadzenText Text="@($"{stats.RecentLossEventsCount} Lost Patients (7d)")"
+                                            TextStyle="TextStyle.Subtitle2" />
+                                        <RadzenButton Text="Audit Loss" Size="ButtonSize.ExtraSmall" Variant="Variant.Text"
+                                            Click="@(() => Navigation.NavigateTo("admin/loss-analytics"))" />
+                                    </RadzenAlert>
+                                </RadzenColumn>
+                            }
+                            @if (stats.BedBlockagesCount > 0)
+                            {
+                                <RadzenColumn Size="12" SizeMD="4">
+                                    <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Light"
+                                        AllowClose="false" Class="rz-mb-0">
+                                        <RadzenText Text="@($"{stats.BedBlockagesCount} Beds Blocked/Cleaning")"
+                                            TextStyle="TextStyle.Subtitle2" />
+                                        <RadzenButton Text="Release" Size="ButtonSize.ExtraSmall" Variant="Variant.Text"
+                                            Click="@(() => Navigation.NavigateTo("admin/facilities"))" />
+                                    </RadzenAlert>
+                                </RadzenColumn>
+                            }
+                        </RadzenRow>
+                    </RadzenCard>
                 }
 
-                <RadzenStack Gap="3">
-                    @foreach (var op in InProgress.Take(5))
-                    {
-                        <RadzenAlert Title="@($"{op.PatientName} - IN SURGERY")" AlertStyle="AlertStyle.Warning"
-                            Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false">
-                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
-                                AlignItems="AlignItems.Center">
+                <!-- Section 2: Patient Flow Monitoring -->
+                <RadzenCard Class="rz-p-0">
+                    <div class="rz-p-4 rz-border-bottom">
+                        <RadzenText Text="Real-Time Patient Flow" TextStyle="TextStyle.H6" Class="rz-m-0" />
+                    </div>
+                    <RadzenTabs RenderMode="TabRenderMode.Client">
+                        <Tabs>
+                            <RadzenTabsItem Text="@($"Admission Queue ({stats.AdmissionQueueCount})")" Icon="login">
+                                <RadzenDataGrid Data="@AdmissionQueue" TItem="PatientOperation" AllowPaging="true"
+                                    PageSize="5">
+                                    <Columns>
+                                        <RadzenDataGridColumn TItem="PatientOperation" Property="PatientName"
+                                            Title="Patient" />
+                                        <RadzenDataGridColumn TItem="PatientOperation" Property="PackageName"
+                                            Title="Procedure" />
+                                        <RadzenDataGridColumn TItem="PatientOperation" Property="ScheduledDate"
+                                            Title="Time" FormatString="{0:hh:mm tt}" />
+                                        <RadzenDataGridColumn TItem="PatientOperation" Title="Action">
+                                            <Template Context="op">
+                                                <RadzenButton Text="Send to Prep" Size="ButtonSize.ExtraSmall"
+                                                    ButtonStyle="ButtonStyle.Info" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                    </Columns>
+                                </RadzenDataGrid>
+                            </RadzenTabsItem>
+                            <RadzenTabsItem Text="@($"Post-Op Recovery ({stats.PostOpTransferCount})")" Icon="bed">
+                                <RadzenDataGrid Data="@PostOpQueue" TItem="PatientOperation" AllowPaging="true"
+                                    PageSize="5">
+                                    <Columns>
+                                        <RadzenDataGridColumn TItem="PatientOperation" Property="PatientName"
+                                            Title="Patient" />
+                                        <RadzenDataGridColumn TItem="PatientOperation" Property="TheaterName"
+                                            Title="From OT" />
+                                        <RadzenDataGridColumn TItem="PatientOperation" Title="Action">
+                                            <Template Context="op">
+                                                <RadzenButton Text="Assign Bed" Size="ButtonSize.ExtraSmall"
+                                                    ButtonStyle="ButtonStyle.Success"
+                                                    Click="@(() => OpenTransferDialog(op))" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                    </Columns>
+                                </RadzenDataGrid>
+                            </RadzenTabsItem>
+                            <RadzenTabsItem Text="@($"Financial Clearance ({stats.DischargeReadyCount})")"
+                                Icon="payments">
+                                <RadzenDataGrid Data="@DischargeQueue" TItem="PatientOperation" AllowPaging="true"
+                                    PageSize="5">
+                                    <Columns>
+                                        <RadzenDataGridColumn TItem="PatientOperation" Property="PatientName"
+                                            Title="Patient" />
+                                        <RadzenDataGridColumn TItem="PatientOperation" Title="Status">
+                                            <Template>
+                                                <RadzenBadge BadgeStyle="BadgeStyle.Success"
+                                                    Text="Ready for Discharge" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                        <RadzenDataGridColumn TItem="PatientOperation" Title="Action">
+                                            <Template>
+                                                <RadzenButton Text="Print Bill" Size="ButtonSize.ExtraSmall"
+                                                    ButtonStyle="ButtonStyle.Light" Icon="print" />
+                                            </Template>
+                                        </RadzenDataGridColumn>
+                                    </Columns>
+                                </RadzenDataGrid>
+                            </RadzenTabsItem>
+                        </Tabs>
+                    </RadzenTabs>
+                </RadzenCard>
+
+                <!-- Section 3: Live Surgical Control -->
+                <RadzenCard Class="rz-p-0">
+                    <div
+                        class="rz-p-4 rz-border-bottom rz-display-flex rz-align-center rz-justify-content-space-between">
+                        <RadzenText Text="Live Surgical Feed" TextStyle="TextStyle.H6" Class="rz-m-0" />
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@($"{InProgress.Count} Active")" />
+                    </div>
+                    <div class="rz-p-4">
+                        @if (!InProgress.Any())
+                        {
+                            <RadzenStack AlignItems="AlignItems.Center" Class="rz-py-6">
+                                <RadzenIcon Icon="event_busy"
+                                    Style="font-size: 3rem; color: var(--rz-text-disabled-color);" />
+                                <RadzenText Text="No surgeries currently in progress." TextStyle="TextStyle.Body2"
+                                    Class="rz-color-text-secondary" />
+                            </RadzenStack>
+                        }
+                        <RadzenStack Gap="1rem">
+                            @foreach (var op in InProgress)
+                            {
+                                <div class="rz-p-3 rz-border rz-border-radius-1"
+                                    style="@(IsOverdue(op) ? "border-left: 4px solid var(--ui-danger);" : "border-left: 4px solid var(--ui-success);")">
+                                    <RadzenRow AlignItems="AlignItems.Center">
+                                        <RadzenColumn Size="6">
+                                            <RadzenText Text="@op.PatientName" TextStyle="TextStyle.Subtitle2"
+                                                Class="rz-m-0" />
+                                            <RadzenText Text="@($"{op.PackageName} | OT: {op.TheaterName}")"
+                                                TextStyle="TextStyle.Caption" Class="rz-color-text-secondary" />
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="3" Class="rz-text-align-center">
+                                            <RadzenText Text="@GetRemainingTime(op)" TextStyle="TextStyle.H6"
+                                                Class="rz-m-0 rz-font-weight-bold" />
+                                            <RadzenText Text="Remaining" TextStyle="TextStyle.Overline" />
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="3" Class="rz-text-align-right">
+                                            <RadzenBadge Text="@(IsOverdue(op) ? "DELAYED" : "RUNNING")"
+                                                BadgeStyle="@(IsOverdue(op) ? BadgeStyle.Danger : BadgeStyle.Success)" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                    <RadzenProgressBar Value="@GetProgressPercentage(op)" ShowValue="false"
+                                        ProgressBarStyle="@(IsOverdue(op) ? ProgressBarStyle.Danger : ProgressBarStyle.Success)"
+                                        Style="height: 4px;" Class="rz-mt-2" />
+                                </div>
+                            }
+                        </RadzenStack>
+                    </div>
+                </RadzenCard>
+            </RadzenStack>
+        </RadzenColumn>
+
+        <!-- RIGHT COLUMN: Intelligence & Heatmaps -->
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenStack Gap="1.5rem">
+                <!-- Facility Heatmap -->
+                <RadzenCard Class="rz-p-4">
+                    <RadzenText Text="Facility Heatmap" TextStyle="TextStyle.H6" Class="rz-mb-4" />
+                    <RadzenDataList Data="@Theaters" TItem="OperationTheater" AllowPaging="true" PageSize="5"
+                        PagerHorizontalAlign="HorizontalAlign.Center" ShowPagingSummary="false">
+                        <Template Context="ot">
+                            @{
+                                var active = InProgress.FirstOrDefault(o => o.TheaterId == ot.TheaterId);
+                            }
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                JustifyContent="JustifyContent.SpaceBetween" Class="rz-p-2 rz-border-radius-1 rz-mb-2"
+                                Style="@(active != null ? "background: var(--ui-danger-light);" : "background: var(--ui-success-light);")">
                                 <RadzenStack Gap="0">
-                                    <RadzenText Text="@($"Theater: {op.TheaterName} | Surgeon: {op.DoctorName}")"
-                                        TextStyle="TextStyle.Caption" />
-                                    @if (IsOverdue(op))
-                                    {
-                                        <RadzenBadge Text="EXTENDED DURATION" BadgeStyle="BadgeStyle.Danger" Class="rz-mt-1" />
-                                    }
-                                </RadzenStack>
-                                <RadzenStack AlignItems="AlignItems.End">
-                                    <RadzenText Text="@GetRemainingTime(op)" TextStyle="TextStyle.H5"
+                                    <RadzenText Text="@ot.TheaterName" TextStyle="TextStyle.Caption"
                                         Class="rz-m-0 rz-font-weight-bold" />
-                                    <RadzenText Text="@($"Expected: {op.EndDate:hh:mm tt}")"
+                                    <RadzenText Text="@(active != null ? active.PatientName : "Ready for Case")"
                                         TextStyle="TextStyle.Overline" />
                                 </RadzenStack>
+                                <RadzenIcon Icon="@(active != null ? "emergency_share" : "check_circle")"
+                                    Style="@(active != null ? "color: var(--ui-danger);" : "color: var(--ui-success);")" />
                             </RadzenStack>
-                        </RadzenAlert>
-                    }
+                        </Template>
+                    </RadzenDataList>
+                </RadzenCard>
 
-                    @foreach (var op in PendingRecommendations.Take(5))
-                    {
-                        <RadzenAlert Title="New Surgical Recommendation" AlertStyle="AlertStyle.Danger" Variant="Variant.Flat"
-                            Shade="Shade.Lighter" AllowClose="false" Icon="emergency">
-                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
-                                AlignItems="AlignItems.Center">
-                                <RadzenStack Gap="0">
-                                    <RadzenText Text="@($"{op.PatientName}: {op.PackageName}")" TextStyle="TextStyle.Subtitle2" />
-                                    <RadzenText Text="@($"Referred by: Dr. {op.DoctorName}")" TextStyle="TextStyle.Caption" />
+                <!-- Quick Operational Actions -->
+                <RadzenCard>
+                    <RadzenText Text="Workflow Shortcuts" TextStyle="TextStyle.H6" Class="rz-mb-4" />
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenButton Text="@($"Auth Procedures ({stats.PendingOperationAuthorizations})")"
+                            Icon="verified" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Class="rz-w-100"
+                            Click="@(() => Navigation.NavigateTo("Admin/OperationRequests"))" />
+                        <RadzenButton Text="Release Clinical Wards" Icon="bed" ButtonStyle="ButtonStyle.Primary"
+                            Variant="Variant.Outlined" Class="rz-w-100"
+                            Click="@(() => Navigation.NavigateTo("admin/facilities"))" />
+                        <RadzenButton Text="System Inventory Audit" Icon="inventory_2" ButtonStyle="ButtonStyle.Light"
+                            Class="rz-w-100" />
+                    </RadzenStack>
+                </RadzenCard>
+
+                <!-- Upcoming Schedule (6 hours) -->
+                <RadzenCard Class="rz-p-0" Style="overflow: hidden;">
+                    <div class="rz-p-4 rz-border-bottom">
+                        <RadzenText Text="Upcoming Focus (6h)" TextStyle="TextStyle.H6" Class="rz-m-0" />
+                    </div>
+                    <div class="rz-p-4">
+                        <RadzenDataList Data="@UpcomingOps" TItem="PatientOperation" WrapItems="false">
+                            <Template Context="op">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                    Class="rz-mb-3" Gap="1rem">
+                                    <RadzenStack Gap="0"
+                                        Class="rz-p-2 rz-background-color-info-lighter rz-border-radius-1 rz-text-align-center"
+                                        Style="min-width: 60px;">
+                                        <RadzenText Text="@op.ScheduledDate.ToString("HH:mm")"
+                                            TextStyle="TextStyle.Subtitle2" Class="rz-m-0 rz-font-weight-bold" />
+                                        <RadzenText Text="Start" TextStyle="TextStyle.Overline" />
+                                    </RadzenStack>
+                                    <RadzenStack Gap="0">
+                                        <RadzenText Text="@op.PatientName" TextStyle="TextStyle.Caption"
+                                            Class="rz-m-0 rz-font-weight-bold" />
+                                        <RadzenText Text="@op.PackageName" TextStyle="TextStyle.Overline" />
+                                    </RadzenStack>
                                 </RadzenStack>
-                                <RadzenButton Text="Authorize" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Danger"
-                                    Click="@(() => Navigation.NavigateTo("admin/operation-requests"))" />
-                            </RadzenStack>
-                        </RadzenAlert>
-                    }
+                            </Template>
+                        </RadzenDataList>
+                    </div>
+                </RadzenCard>
 
-                    @foreach (var op in ReadyForTransfer.Take(5))
-                    {
-                        <RadzenAlert Title="Surgery Complete - Bed Required" AlertStyle="AlertStyle.Success"
-                            Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false" Icon="bed">
-                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
-                                AlignItems="AlignItems.Center">
-                                <RadzenText Text="@op.PatientName" TextStyle="TextStyle.Subtitle2" />
-                                <RadzenButton Text="Assign Bed" Size="ButtonSize.ExtraSmall"
-                                    ButtonStyle="ButtonStyle.Success" Click="@(() => OpenTransferDialog(op))" />
-                            </RadzenStack>
-                        </RadzenAlert>
-                    }
-
-                    @foreach (var op in ReadyToStart.Take(5))
-                    {
-                        <RadzenAlert Title="Patient Ready for OT" AlertStyle="AlertStyle.Info" Variant="Variant.Flat"
-                            Shade="Shade.Lighter" AllowClose="false" Icon="schedule">
-                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
-                                AlignItems="AlignItems.Center">
-                                <RadzenText Text="@op.PatientName" TextStyle="TextStyle.Subtitle2" />
-                                <RadzenButton Text="View Prep" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Info"
-                                    Click="@(() => Navigation.NavigateTo("admin/ot-schedule"))" />
-                            </RadzenStack>
-                        </RadzenAlert>
-                    }
-
-                    @{
-                        int hiddenTotal = (InProgress.Count > 5 ? InProgress.Count - 5 : 0) +
-                        (ReadyForTransfer.Count > 5 ? ReadyForTransfer.Count - 5 : 0) +
-                        (ReadyToStart.Count > 5 ? ReadyToStart.Count - 5 : 0) +
-                        (PendingRecommendations.Count > 5 ? PendingRecommendations.Count - 5 : 0);
-                    }
-                    @if (hiddenTotal > 0)
-                    {
-                        <RadzenAlert AlertStyle="AlertStyle.Light" Variant="Variant.Flat" Shade="Shade.Lighter"
-                            AllowClose="false">
-                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween"
-                                AlignItems="AlignItems.Center">
-                                <RadzenText Text="@($"+{hiddenTotal} more surgical actions pending review.")"
-                                    TextStyle="TextStyle.Caption" Class="rz-m-0" />
-                                <RadzenLink Text="Open Master Scheduler" Path="admin/ot-schedule" Icon="open_in_new" />
-                            </RadzenStack>
-                        </RadzenAlert>
-                    }
-                </RadzenStack>
+                <!-- Performance Insights -->
+                <RadzenCard Class="rz-background-color-primary-lighter rz-border-primary">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="Service Performance" TextStyle="TextStyle.Caption"
+                            Class="rz-color-primary rz-font-weight-bold" />
+                        <RadzenRow>
+                            <RadzenColumn Size="6">
+                                <RadzenText Text="@($"{stats.AvgPatientWaitTimeMinutes}m")" TextStyle="TextStyle.H5"
+                                    Class="rz-m-0 rz-font-weight-bold" />
+                                <RadzenText Text="Avg Wait Time" TextStyle="TextStyle.Overline" />
+                            </RadzenColumn>
+                            <RadzenColumn Size="6">
+                                <RadzenText Text="@stats.FinancialThroughputPerHour.ToString("C0")"
+                                    TextStyle="TextStyle.H5" Class="rz-m-0 rz-font-weight-bold" />
+                                <RadzenText Text="Revenue / Hr" TextStyle="TextStyle.Overline" />
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenStack>
+                </RadzenCard>
             </RadzenStack>
-        </RadzenCard>
-    </RadzenColumn>
-
-    <RadzenColumn Size="12" SizeMD="5">
-        <RadzenCard Class="rz-mb-4" Style="border-radius: 12px;">
-            <RadzenText Text="Facility Utilization" TextStyle="TextStyle.H5" Class="rz-mb-4" />
-            <RadzenStack Gap="1" Style="max-height: 400px; overflow-y: auto; padding-right: 8px;">
-                <RadzenRow>
-                    @foreach (var ot in Theaters)
-                    {
-                        var active = InProgress.FirstOrDefault(o => o.TheaterId == ot.TheaterId);
-                        <RadzenColumn Size="6" SizeMD="12" SizeLG="6">
-                            <RadzenCard Class="rz-p-3 rz-text-align-center rz-mb-2"
-                                Style="@(active != null ? "border: 2px solid var(--rz-danger); background: var(--rz-danger-lighter);" : "border: 2px solid var(--rz-success); background: var(--rz-success-lighter);")">
-                                <RadzenText Text="@ot.TheaterName" TextStyle="TextStyle.Subtitle2" Class="rz-mb-1" />
-                                <RadzenBadge Text="@(active != null ? "OCCUPIED" : "AVAILABLE")"
-                                    BadgeStyle="@(active != null ? BadgeStyle.Danger : BadgeStyle.Success)" />
-                                @if (active != null)
-                                {
-                                    <RadzenText Text="@GetRemainingTime(active)" TextStyle="TextStyle.Caption"
-                                        Class="rz-mt-2 rz-font-weight-bold" />
-                                }
-                            </RadzenCard>
-                        </RadzenColumn>
-                    }
-                </RadzenRow>
-            </RadzenStack>
-        </RadzenCard>
-
-        <RadzenCard Style="border-radius: 12px;">
-            <RadzenText Text="Management Actions" TextStyle="TextStyle.H5" Class="rz-mb-4" />
-            <RadzenStack Gap="2">
-                <RadzenButton Text="Master OT Schedule" Icon="event_available" ButtonStyle="ButtonStyle.Primary"
-                    Variant="Variant.Flat" Class="rz-w-100"
-                    Click="@(() => Navigation.NavigateTo("admin/ot-schedule"))" />
-                <RadzenButton Text="Workforce Management" Icon="engineering" ButtonStyle="ButtonStyle.Secondary"
-                    Variant="Variant.Flat" Class="rz-w-100" Click="@(() => Navigation.NavigateTo("admin/staff"))" />
-                <RadzenButton Text="Financial Audit" Icon="account_balance_wallet" ButtonStyle="ButtonStyle.Info"
-                    Variant="Variant.Flat" Class="rz-w-100" Click="@(() => Navigation.NavigateTo("admin/finance"))" />
-            </RadzenStack>
-        </RadzenCard>
-    </RadzenColumn>
-</RadzenRow>
+        </RadzenColumn>
+    </RadzenRow>
+</RadzenStack>
 
 @code {
     DashboardStats stats = new();
-    List<PatientOperation> ReadyToStart = new();
     List<PatientOperation> InProgress = new();
-    List<PatientOperation> ReadyForTransfer = new();
-    List<PatientOperation> PendingRecommendations = new();
+    List<PatientOperation> AdmissionQueue = new();
+    List<PatientOperation> PostOpQueue = new();
+    List<PatientOperation> DischargeQueue = new(); // Mocked or fetched from specific state
+    List<PatientOperation> UpcomingOps = new();
     List<OperationTheater> Theaters = new();
+    DateTime lastSync = DateTime.Now;
     System.Threading.Timer? dataRefreshTimer;
-    System.Threading.Timer? uiTickTimer;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        LoadDashboardData();
+        await LoadDashboardData();
 
-        // Refresh DATA every 15 seconds (expensive)
+        // Refresh DATA every 30 seconds
         dataRefreshTimer = new System.Threading.Timer(_ => InvokeAsync(async () =>
         {
-            LoadDashboardData();
+            await LoadDashboardData();
+            lastSync = DateTime.Now;
             await InvokeAsync(StateHasChanged);
-        }), null, 15000, 15000);
-
-        // Tick UI every 1 second (cheap - just for countdowns)
-        uiTickTimer = new System.Threading.Timer(_ => InvokeAsync(async () =>
-        {
-            // Only update UI if there are countdowns active to save CPU
-            if (InProgress.Any())
-            {
-                await InvokeAsync(StateHasChanged);
-            }
-        }), null, 1000, 1000);
+        }), null, 30000, 30000);
     }
 
-    /// <summary>
-    /// Fetches the latest operational statistics and active workflow states from the database.
-    /// </summary>
-    void LoadDashboardData()
+    async Task LoadDashboardData()
     {
         try
         {
-            stats = FinanceRepo.GetDashboardStats();
-            PendingRecommendations = OperationRepo.GetOperationsByStatus("Recommended");
-            ReadyToStart = OperationRepo.GetOperationsByStatus("Scheduled");
-            InProgress = OperationRepo.GetOperationsByStatus("Running");
-            ReadyForTransfer = OperationRepo.GetOperationsReadyForTransfer();
-            Theaters = FacilityRepo.GetTheaters();
+            stats = await FinanceRepo.GetDetailedDashboardStatsAsync();
+
+            // Queues
+            AdmissionQueue = await OperationRepo.GetOperationsByStatusAsync("Scheduled");
+            InProgress = await OperationRepo.GetOperationsByStatusAsync("Running");
+            PostOpQueue = await OperationRepo.GetOperationsReadyForTransferAsync();
+
+            // Upcoming focus (Next 6 hours)
+            UpcomingOps = (await OperationRepo.GetScheduledOperationsByRangeAsync(DateTime.Now, DateTime.Now.AddHours(6)))
+            .OrderBy(o => o.ScheduledDate).Take(5).ToList();
+
+            Theaters = await FacilityRepo.GetTheatersAsync();
+
+            // Mocking Discharge Queue for demonstration (Normally would be a specific Admission state)
+            DischargeQueue = AdmissionQueue.Take(2).ToList(); // Just for visual filler
         }
         catch (Exception ex)
         {
-            NotificationService.Notify(NotificationSeverity.Error, "Data Load Error", $"Failed to refresh dashboard: {ex.Message}");
             Console.WriteLine($"Error loading dashboard data: {ex}");
         }
     }
@@ -289,42 +448,46 @@
     string GetRemainingTime(PatientOperation op)
     {
         var remaining = op.EndDate - DateTime.Now;
-        if (remaining.TotalSeconds <= 0) return "00:00:00";
-        return $"{(int)remaining.TotalHours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+        if (remaining.TotalSeconds <= 0) return "00:00";
+        return $"{(int)remaining.TotalHours:D2}:{remaining.Minutes:D2}";
+    }
+
+    double GetProgressPercentage(PatientOperation op)
+    {
+        if (op.ActualStartTime == null) return 0;
+        var total = op.DurationMinutes;
+        var elapsed = (DateTime.Now - op.ActualStartTime.Value).TotalMinutes;
+        var pct = (elapsed / total) * 100;
+        return Math.Min(100, Math.Max(0, pct));
     }
 
     bool IsOverdue(PatientOperation op) => DateTime.Now > op.EndDate;
 
-    /// <summary>
-    /// Opens the admission dialog for a post-operative patient transfer.
-    /// </summary>
     async Task OpenTransferDialog(PatientOperation op)
     {
         try
         {
-            var result = await DialogService.OpenAsync<AdmissionDialog>($"Post-Op Transfer: {op.PatientName}",
+            var result = await DialogService.OpenAsync<AdmissionDialog>($"Post-Op Recovery: {op.PatientName}",
             new Dictionary<string, object> {
-                { "PatientId", op.PatientId },
-                { "OperationId", op.OperationId }
-            },
+{ "PatientId", op.PatientId },
+{ "OperationId", op.OperationId }
+                },
             new DialogOptions { Width = "600px" });
 
             if (result == true)
             {
-                NotificationService.Notify(NotificationSeverity.Success, "Transferred", "Patient admitted for recovery.");
-                LoadDashboardData();
+                NotificationService.Notify(NotificationSeverity.Success, "Transferred", "Patient assigned to recovery ward.");
+                await LoadDashboardData();
             }
         }
         catch (Exception ex)
         {
-            NotificationService.Notify(NotificationSeverity.Error, "Dialog Error", $"Failed to open transfer dialog: {ex.Message}");
+            NotificationService.Notify(NotificationSeverity.Error, "Error", $"Failed to open transfer dialog: {ex.Message}");
         }
     }
 
     public void Dispose()
     {
         dataRefreshTimer?.Dispose();
-        uiTickTimer?.Dispose();
     }
 }
-

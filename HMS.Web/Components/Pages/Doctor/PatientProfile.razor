@@ -1,7 +1,8 @@
 ﻿@*
- * FILE: PatientProfile.razor
- * PURPOSE: Doctor-facing component for clinical management.
- * COMMUNICATES WITH: PatientRepository, AppointmentRepository, PrescriptionRepository, ReportRepository, OperationRepository
+* FILE: PatientProfile.razor
+* PURPOSE: Doctor-facing component for clinical management.
+* COMMUNICATES WITH: PatientRepository, AppointmentRepository, PrescriptionRepository, ReportRepository,
+OperationRepository
 *@
 @page "/doctor/patient-profile/{PatientId:int}"
 @using HMS.Web.Models
@@ -312,13 +313,13 @@ single initialization block.
     {
         try
         {
-            patient = PatientRepo.GetPatientById(PatientId);
+            patient = await PatientRepo.GetPatientByIdAsync(PatientId);
             if (patient != null)
             {
-                appointments = AppointmentRepo.GetAppointmentsByPatientId(PatientId);
-                prescriptions = PrescriptionRepo.GetPrescriptionsByPatientId(PatientId);
-                reports = ReportRepo.GetReportsByPatientId(PatientId);
-                operations = OperationRepo.GetPatientOperations(PatientId);
+                appointments = await AppointmentRepo.GetAppointmentsByPatientIdAsync(PatientId);
+                prescriptions = await PrescriptionRepo.GetPrescriptionsByPatientIdAsync(PatientId);
+                reports = await ReportRepo.GetReportsByPatientIdAsync(PatientId);
+                operations = await OperationRepo.GetPatientOperationsAsync(PatientId);
             }
         }
         catch (Exception ex)
@@ -349,4 +350,3 @@ single initialization block.
         _ => BadgeStyle.Light
     };
 }
-

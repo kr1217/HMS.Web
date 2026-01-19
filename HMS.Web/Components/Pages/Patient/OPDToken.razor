@@ -1,7 +1,7 @@
 ﻿@*
- * FILE: OPDToken.razor
- * PURPOSE: Patient-facing component for self-service portal.
- * COMMUNICATES WITH: AppointmentRepository, PatientRepository
+* FILE: OPDToken.razor
+* PURPOSE: Patient-facing component for self-service portal.
+* COMMUNICATES WITH: AppointmentRepository, PatientRepository
 *@
 @page "/patient/token"
 @using HMS.Web.DAL
@@ -129,10 +129,10 @@ OPTIMIZATION: [Real-Time Status] Dynamically calculates queue position based on 
                 var userId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 if (userId != null)
                 {
-                    patient = PatientRepo.GetPatientByUserId(userId);
+                    patient = await PatientRepo.GetPatientByUserIdAsync(userId);
                     if (patient != null)
                     {
-                        var allAppts = AppointmentRepo.GetAppointmentsByPatientId(patient.PatientId);
+                        var allAppts = await AppointmentRepo.GetAppointmentsByPatientIdAsync(patient.PatientId);
                         todayAppointment = allAppts.FirstOrDefault(a => a.AppointmentDate.Date == DateTime.Today);
                     }
                 }
@@ -144,4 +144,3 @@ OPTIMIZATION: [Real-Time Status] Dynamically calculates queue position based on 
         }
     }
 }
-
